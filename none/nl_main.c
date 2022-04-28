@@ -41,11 +41,28 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
                       const VexArchInfo* archinfo_host,
                       IRType gWordTy, IRType hWordTy )
 {
+  for(int i=0; i<bb->stmts_used; i++){
+    if(bb->stmts[i]->tag == Ist_WrTmp){
+        if(/*bb->stmts[i]->Ist.Put.data->tag == Iex_Binop*/
+           /*bb->stmts[i]->Ist.PutI.details->ix->tag == Iex_Binop*/
+           bb->stmts[i]->Ist.WrTmp.data->tag == Iex_Binop
+           /* bb->stmts[i]->Ist.Store.data->tag == Iex_Binop */
+           /*bb->stmts[i]->Ist.StoreG.details->data->tag == Iex_Binop*/
+        ) {
+            VG_(printf)("division %d\n", bb->stmts[i]->Ist.Put.data->Iex.Binop.op);
+          }
+      }
+    }
    return bb;
 }
 
 static void nl_fini(Int exitcode)
 {
+  VG_(printf)("%d %d %d %d %d %d %d %d %d %d %d %d \n",
+              Iop_DivF64, Iop_DivF32, Iop_DivF64r32,
+              Iop_DivF128, Iop_DivD64, Iop_DivD128,
+              Iop_Div32Fx4, Iop_Div32F0x4, Iop_Div64Fx2,
+              Iop_Div64F0x2, Iop_Div64Fx4, Iop_Div32Fx8   );
 }
 
 static void nl_pre_clo_init(void)
