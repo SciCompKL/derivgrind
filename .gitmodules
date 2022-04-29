@@ -1,0 +1,3 @@
+[submodule "shadow-memory"]
+	path = shadow-memory
+	url = https://github.com/cronburg/shadow-memory

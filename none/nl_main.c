@@ -29,6 +29,34 @@
 #include "pub_tool_basics.h"
 #include "pub_tool_tooliface.h"
 
+#include <assert.h>
+#include "shadow-memory/src/shadow.h"
+// ----------------------------------------------------------------------------
+// The following might end up in its own header file eventually, but for now
+// only the application can really know how to set the right types and system
+// calls.
+/*#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <stddef.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+
+void  shadow_free(void* addr) { VG_(free)(addr); }
+void *shadow_malloc(size_t size) { return VG_(malloc)(size); }
+void *shadow_calloc(size_t nmemb, size_t size) { return VG_(calloc)(nmemb, size); }
+void  shadow_memcpy(void* dst, void* src, size_t size) { VG_(memcpy)(dst,src,size); }
+void  shadow_out_of_memory() {
+  VG_(printf)("ERROR: Ran out of memory while allocating shadow memory.\n");
+  exit(1);
+}*/
+// ----------------------------------------------------------------------------
+
+
+ShadowMap* my_sm = NULL;
+
 static void nl_post_clo_init(void)
 {
 }
@@ -53,6 +81,9 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           }
       }
     }
+  int*a = (int*) VG_(malloc)("Tes2", sizeof(int));
+  *a = 4;
+  VG_(free)(a);
    return bb;
 }
 
@@ -63,10 +94,15 @@ static void nl_fini(Int exitcode)
               Iop_DivF128, Iop_DivD64, Iop_DivD128,
               Iop_Div32Fx4, Iop_Div32F0x4, Iop_Div64Fx2,
               Iop_Div64F0x2, Iop_Div64Fx4, Iop_Div32Fx8   );
+  /*shadow_destroy_map(my_sm);
+  VG_(free)(my_sm);*/
+
 }
 
 static void nl_pre_clo_init(void)
 {
+
+
    VG_(details_name)            ("Nulgrind");
    VG_(details_version)         (NULL);
    VG_(details_description)     ("the minimal Valgrind tool");
@@ -81,6 +117,15 @@ static void nl_pre_clo_init(void)
                                  nl_fini);
 
    /* No needs, no core events to track */
+  /* VG_(printf)("Allocate SM...");
+   my_sm = (ShadowMap*) VG_(malloc)("Some text", sizeof(ShadowMap));
+   if(my_sm==NULL) VG_(printf)("Error\n");
+   my_sm->shadow_bits = 1;
+   my_sm->application_bits = 1;
+   my_sm->num_distinguished = 1;
+   shadow_initialize_map(my_sm);
+   VG_(printf)("done\n");*/
+
 }
 
 VG_DETERMINE_INTERFACE_VERSION(nl_pre_clo_init)
