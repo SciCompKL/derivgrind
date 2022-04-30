@@ -28,6 +28,7 @@
 
 #include "pub_tool_basics.h"
 #include "pub_tool_tooliface.h"
+#include "pub_tool_mallocfree.h"
 
 #include <assert.h>
 #include "shadow-memory/src/shadow.h"
@@ -81,7 +82,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           }
       }
     }
-  int*a = (int*) VG_(malloc)("Tes2", sizeof(int));
+  int* a = VG_(malloc)("Tes2", sizeof(int));
   *a = 4;
   VG_(free)(a);
    return bb;
