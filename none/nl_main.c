@@ -82,9 +82,9 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           }
       }
     }
-  int* a = VG_(malloc)("Tes2", sizeof(int));
-  *a = 4;
-  VG_(free)(a);
+  U8 tmp = 0;
+   shadow_get_bits(my_sm, 0xffff1111, &tmp);
+  VG_(printf)("shadow bits: %d\n", tmp);
    return bb;
 }
 
@@ -95,8 +95,8 @@ static void nl_fini(Int exitcode)
               Iop_DivF128, Iop_DivD64, Iop_DivD128,
               Iop_Div32Fx4, Iop_Div32F0x4, Iop_Div64Fx2,
               Iop_Div64F0x2, Iop_Div64Fx4, Iop_Div32Fx8   );
-  /*shadow_destroy_map(my_sm);
-  VG_(free)(my_sm);*/
+  shadow_destroy_map(my_sm);
+  VG_(free)(my_sm);
 
 }
 
@@ -118,14 +118,16 @@ static void nl_pre_clo_init(void)
                                  nl_fini);
 
    /* No needs, no core events to track */
-  /* VG_(printf)("Allocate SM...");
+   VG_(printf)("Allocate SM...");
    my_sm = (ShadowMap*) VG_(malloc)("Some text", sizeof(ShadowMap));
    if(my_sm==NULL) VG_(printf)("Error\n");
    my_sm->shadow_bits = 1;
    my_sm->application_bits = 1;
    my_sm->num_distinguished = 1;
    shadow_initialize_map(my_sm);
-   VG_(printf)("done\n");*/
+   VG_(printf)("done\n");
+
+  shadow_set_bits(my_sm, 0xffff1111, 0xab);
 
 }
 
