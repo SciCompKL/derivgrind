@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <math.h>
 int main(){
-  double volatile a=2.0;
-  printf("%lf\n", (a+1)/a);
+  double  a=2.0;
+  scanf("%lf", &a);
+  printf("%lf\n", sin(a+1)/a);
 }
