@@ -71,40 +71,30 @@ static void nl_post_clo_init(void)
 }
 
 static void handle_expression(IRExpr* ex, Int recursive_level){
-  VG_(printf)("IRExpr: ");
+  for(int i=0; i<recursive_level; i++)
+    VG_(printf)(" ");
   ppIRExpr(ex);
   VG_(printf)("\n");
   switch(ex->tag){
     case Iex_Qop:
-      VG_(printf)("qop %d\n", ex->Iex.Qop.details->op);
       handle_expression(ex->Iex.Qop.details->arg1, recursive_level+1);
       handle_expression(ex->Iex.Qop.details->arg2, recursive_level+1);
       handle_expression(ex->Iex.Qop.details->arg3, recursive_level+1);
       handle_expression(ex->Iex.Qop.details->arg4, recursive_level+1);
       break;
     case Iex_Triop:
-      VG_(printf)("triop %d", ex->Iex.Triop.details->op);
-      ppIROp(ex->Iex.Triop.details->op);
-      VG_(printf)("\n");
       handle_expression(ex->Iex.Triop.details->arg1, recursive_level+1);
       handle_expression(ex->Iex.Triop.details->arg2, recursive_level+1);
       handle_expression(ex->Iex.Triop.details->arg3, recursive_level+1);
       break;
     case Iex_Binop:
-      VG_(printf)("binop %d ",ex->Iex.Binop.op);
-      ppIROp(ex->Iex.Binop.op);
-      VG_(printf)("\n");
       handle_expression(ex->Iex.Binop.arg1, recursive_level+1);
       handle_expression(ex->Iex.Binop.arg2, recursive_level+1);
       break;
     case Iex_Unop:
-      VG_(printf)("unop %d\n",ex->Iex.Unop.op);
       handle_expression(ex->Iex.Unop.arg, recursive_level+1);
       break;
     case Iex_Const:
-      VG_(printf)("constant ");
-      ppIRConst(ex->Iex.Const.con);
-      VG_(printf)("\n");
   }
 
   if(recursive_level>=1 &&
@@ -122,7 +112,13 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
                       IRType gWordTy, IRType hWordTy )
 {
   for(int i=0; i<bb->stmts_used; i++){
+    VG_(printf)("Stmt: ");
+    ppIRStmt(bb->stmts[i]);
+    VG_(printf)("\n");
     switch(bb->stmts[i]->tag){
+      case Ist_IMark:
+        VG_(printf("IMark\n"));
+        break;
       case Ist_WrTmp:
         VG_(printf("WrTmp\n"));
         handle_expression(bb->stmts[i]->Ist.WrTmp.data, 0);
