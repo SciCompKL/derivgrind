@@ -54,6 +54,14 @@ void  shadow_out_of_memory() {
   exit(1);
 }*/
 // ----------------------------------------------------------------------------
+inline void  shadow_free(void* addr) { VG_(free)(addr); }
+inline void *shadow_malloc(size_t size) { return VG_(malloc)("Test",size); }
+inline void *shadow_calloc(size_t nmemb, size_t size) { return VG_(calloc)("test", nmemb, size); }
+inline void  shadow_memcpy(void* dst, void* src, size_t size) { VG_(memcpy)(dst,src,size); }
+inline void  shadow_out_of_memory() {
+  VG_(printf)("ERROR: Ran out of memory while allocating shadow memory.\n");
+	VG_(exit)(1);
+}
 
 
 ShadowMap* my_sm = NULL;
