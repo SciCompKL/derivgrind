@@ -70,30 +70,34 @@ static void nl_post_clo_init(void)
 {
 }
 
-static handle_expression(IRExpr* ex){
+static void handle_expression(IRExpr* ex, Int recursive_level){
   switch(ex->tag){
     case Iex_Qop:
       VG_(printf)("qop %d\n", ex->Iex.Qop.details->op);
-      handle_expression(ex->Iex.Qop.details->arg1);
-      handle_expression(ex->Iex.Qop.details->arg2);
-      handle_expression(ex->Iex.Qop.details->arg3);
-      handle_expression(ex->Iex.Qop.details->arg4);
+      handle_expression(ex->Iex.Qop.details->arg1, recursive_level+1);
+      handle_expression(ex->Iex.Qop.details->arg2, recursive_level+1);
+      handle_expression(ex->Iex.Qop.details->arg3, recursive_level+1);
+      handle_expression(ex->Iex.Qop.details->arg4, recursive_level+1);
       break;
     case Iex_Triop:
       VG_(printf)("triop %d\n", ex->Iex.Triop.details->op);
-      handle_expression(ex->Iex.Triop.details->arg1);
-      handle_expression(ex->Iex.Triop.details->arg2);
-      handle_expression(ex->Iex.Triop.details->arg3);
+      handle_expression(ex->Iex.Triop.details->arg1, recursive_level+1);
+      handle_expression(ex->Iex.Triop.details->arg2, recursive_level+1);
+      handle_expression(ex->Iex.Triop.details->arg3, recursive_level+1);
       break;
     case Iex_Binop:
       VG_(printf)("binop %d\n",ex->Iex.Binop.op);
-      handle_expression(ex->Iex.Binop.arg1);
-      handle_expression(ex->Iex.Binop.arg2);
+      handle_expression(ex->Iex.Binop.arg1, recursive_level+1);
+      handle_expression(ex->Iex.Binop.arg2, recursive_level+1);
       break;
     case Iex_Unop:
       VG_(printf)("unop %d\n",ex->Iex.Unop.op);
-      handle_expression(ex->Iex.Unop.arg);
+      handle_expression(ex->Iex.Unop.arg, recursive_level+1);
       break;
+  }
+  if(recursive_level>=1 &&
+     (ex->tag==Iex_Qop||ex->tag==Iex_Triop||ex->tag==Iex_Binop||ex->tag==Iex_Unop)){
+      VG_(printf)("Not flat!\n");
   }
 }
 
@@ -108,19 +112,19 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
   for(int i=0; i<bb->stmts_used; i++){
     switch(bb->stmts[i]->tag){
       case Ist_WrTmp:
-        handle_expression(bb->stmts[i]->Ist.WrTmp.data);
+        handle_expression(bb->stmts[i]->Ist.WrTmp.data, 0);
         break;
       case Ist_Put:
-        handle_expression(bb->stmts[i]->Ist.Put.data);
+        handle_expression(bb->stmts[i]->Ist.Put.data, 0);
         break;
       case Ist_PutI:
-        handle_expression(bb->stmts[i]->Ist.PutI.details->data);
+        handle_expression(bb->stmts[i]->Ist.PutI.details->data, 0);
         break;
       case Ist_Store:
-        handle_expression(bb->stmts[i]->Ist.Store.data);
+        handle_expression(bb->stmts[i]->Ist.Store.data, 0);
         break;
       case Ist_StoreG:
-        handle_expression(bb->stmts[i]->Ist.StoreG.details->data);
+        handle_expression(bb->stmts[i]->Ist.StoreG.details->data, 0);
         break;
     }
 
