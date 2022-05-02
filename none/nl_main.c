@@ -72,6 +72,19 @@ static void nl_post_clo_init(void)
 
 static handle_expression(IRExpr* ex){
   switch(ex->tag){
+    case Iex_Qop:
+      VG_(printf)("qop %d\n", ex->Iex.Qop.details->op);
+      handle_expression(ex->Iex.Qop.details->arg1);
+      handle_expression(ex->Iex.Qop.details->arg2);
+      handle_expression(ex->Iex.Qop.details->arg3);
+      handle_expression(ex->Iex.Qop.details->arg4);
+      break;
+    case Iex_Triop:
+      VG_(printf)("triop %d\n", ex->Iex.Triop.details->op);
+      handle_expression(ex->Iex.Triop.details->arg1);
+      handle_expression(ex->Iex.Triop.details->arg2);
+      handle_expression(ex->Iex.Triop.details->arg3);
+      break;
     case Iex_Binop:
       VG_(printf)("binop %d\n",ex->Iex.Binop.op);
       handle_expression(ex->Iex.Binop.arg1);
@@ -98,26 +111,17 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         handle_expression(bb->stmts[i]->Ist.WrTmp.data);
         break;
       case Ist_Put:
-        if(bb->stmts[i]->Ist.Put.data->tag == Iex_Binop){
-          VG_(printf)("expr Put %d\n", bb->stmts[i]->Ist.Put.data->Iex.Binop.op);
-        }
+        handle_expression(bb->stmts[i]->Ist.Put.data);
         break;
       case Ist_PutI:
-        if(bb->stmts[i]->Ist.PutI.details->data->tag == Iex_Binop){
-          VG_(printf)("expr PutI %d\n", bb->stmts[i]->Ist.PutI.details->data->Iex.Binop.op);
-        }
+        handle_expression(bb->stmts[i]->Ist.PutI.details->data);
         break;
       case Ist_Store:
-        if(bb->stmts[i]->Ist.Store.data->tag == Iex_Binop){
-          VG_(printf)("expr Store %d\n", bb->stmts[i]->Ist.Store.data->Iex.Binop.op);
-        }
+        handle_expression(bb->stmts[i]->Ist.Store.data);
         break;
       case Ist_StoreG:
-        if(bb->stmts[i]->Ist.StoreG.details->data->tag == Iex_Binop){
-          VG_(printf)("expr StoreG %d\n", bb->stmts[i]->Ist.StoreG.details->data->Iex.Binop.op);
-        }
+        handle_expression(bb->stmts[i]->Ist.StoreG.details->data);
         break;
-
     }
 
   }
