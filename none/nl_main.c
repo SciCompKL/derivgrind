@@ -70,6 +70,20 @@ static void nl_post_clo_init(void)
 {
 }
 
+static handle_expression(IRExpr* ex){
+  switch(ex->tag){
+    case Iex_Binop:
+      VG_(printf)("binop %d\n",ex->Iex.Binop.op);
+      handle_expression(ex->Iex.Binop.arg1);
+      handle_expression(ex->Iex.Binop.arg2);
+      break;
+    case Iex_Unop:
+      VG_(printf)("unop %d\n",ex->Iex.Unop.op);
+      handle_expression(ex->Iex.Unop.arg);
+      break;
+  }
+}
+
 static
 IRSB* nl_instrument ( VgCallbackClosure* closure,
                       IRSB* bb,
@@ -79,17 +93,34 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
                       IRType gWordTy, IRType hWordTy )
 {
   for(int i=0; i<bb->stmts_used; i++){
-    if(bb->stmts[i]->tag == Ist_WrTmp){
-        if(/*bb->stmts[i]->Ist.Put.data->tag == Iex_Binop*/
-           /*bb->stmts[i]->Ist.PutI.details->ix->tag == Iex_Binop*/
-           bb->stmts[i]->Ist.WrTmp.data->tag == Iex_Binop
-           /* bb->stmts[i]->Ist.Store.data->tag == Iex_Binop */
-           /*bb->stmts[i]->Ist.StoreG.details->data->tag == Iex_Binop*/
-        ) {
-            VG_(printf)("division %d\n", bb->stmts[i]->Ist.Put.data->Iex.Binop.op);
-          }
-      }
+    switch(bb->stmts[i]->tag){
+      case Ist_WrTmp:
+        handle_expression(bb->stmts[i]->Ist.WrTmp.data);
+        break;
+      case Ist_Put:
+        if(bb->stmts[i]->Ist.Put.data->tag == Iex_Binop){
+          VG_(printf)("expr Put %d\n", bb->stmts[i]->Ist.Put.data->Iex.Binop.op);
+        }
+        break;
+      case Ist_PutI:
+        if(bb->stmts[i]->Ist.PutI.details->data->tag == Iex_Binop){
+          VG_(printf)("expr PutI %d\n", bb->stmts[i]->Ist.PutI.details->data->Iex.Binop.op);
+        }
+        break;
+      case Ist_Store:
+        if(bb->stmts[i]->Ist.Store.data->tag == Iex_Binop){
+          VG_(printf)("expr Store %d\n", bb->stmts[i]->Ist.Store.data->Iex.Binop.op);
+        }
+        break;
+      case Ist_StoreG:
+        if(bb->stmts[i]->Ist.StoreG.details->data->tag == Iex_Binop){
+          VG_(printf)("expr StoreG %d\n", bb->stmts[i]->Ist.StoreG.details->data->Iex.Binop.op);
+        }
+        break;
+
     }
+
+  }
   U8 tmp = 0;
    shadow_get_bits(my_sm, 0xffff1111, &tmp);
   VG_(printf)("shadow bits: %d\n", tmp);
