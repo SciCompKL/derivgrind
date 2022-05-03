@@ -106,6 +106,7 @@ static void handle_expression(IRExpr* ex, Int recursive_level){
 
 typedef struct {
   IRTemp t_offset;
+  IRTypeEnv* tyenv;
 } DiffEnv;
 
 static
@@ -153,7 +154,15 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     }
     case Iex_RdTmp: {
       IRTemp t = ex->Iex.RdTmp.tmp;
-      return IRExpr_RdTmp(t+diffenv.t_offset);
+      switch(diffenv.tyenv->types[t]){
+        case Ity_F64:
+          return IRExpr_RdTmp(t+diffenv.t_offset);
+        default:
+          return NULL;
+      }
+
+    default:
+      return NULL;
     }
   }
 }
@@ -181,6 +190,8 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
     newIRTemp(sb_out->tyenv, sb_out->tyenv->types[t]);
   }
 
+  diffenv.tyenv = sb_out->tyenv;
+
   // copy until IMark
   i = 0;
   while (i < sb_in->stmts_used && sb_in->stmts[i]->tag != Ist_IMark) {
@@ -195,6 +206,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         if(differentiated_expr){
           IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
           addStmtToIRSB(sb_out, sp);
+          VG_(printf)("new statement: "); ppIRStmt(sp); VG_(printf)("\n");
         }
         addStmtToIRSB(sb_out, st);
         break;
