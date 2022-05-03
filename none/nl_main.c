@@ -29,6 +29,7 @@
 #include "pub_tool_basics.h"
 #include "pub_tool_tooliface.h"
 #include "pub_tool_mallocfree.h"
+#include "pub_tool_libcassert.h"
 
 
 #include "shadow-memory/src/shadow.h"
@@ -168,16 +169,18 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
   int i;
   DiffEnv diffenv;
   IRSB* sb_out = deepCopyIRSBExceptStmts(sb_in);
-  // find number that is larger than the maximal index of a temporary
-  // the shadow temporary is obtained by shifting the index
-  IRTemp tmax = 0;
+  // append the "gradient temporaries" to the "value temporaries",
+  // doubling the number of temporaries
+  diffenv.t_offset = sb_in->tyenv->types_used;
   for(i=0; i<sb_in->stmts_used; i++){
     if(sb_in->stmts[i]->tag == Ist_WrTmp){
-      IRTemp t = sb_in->stmts[i]->Ist.WrTmp.tmp;
-      if(t>tmax) tmax = t;
+      tl_assert( sb_in->stmts[i]->Ist.WrTmp.tmp < diffenv.t_offset );
     }
   }
-  diffenv.t_offset = tmax+1;
+  for(IRTemp t=0; t<diffenv.t_offset; t++){
+    newIRTemp(sb_out->tyenv, sb_out->tyenv->types[t]);
+  }
+
   // copy until IMark
   i = 0;
   while (i < sb_in->stmts_used && sb_in->stmts[i]->tag != Ist_IMark) {
@@ -189,10 +192,15 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
     switch(st->tag){
       case Ist_WrTmp: ;
         IRExpr* differentiated_expr = differentiate_expr(st->Ist.WrTmp.data, diffenv);
-        IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
-        addStmtToIRSB(sb_out, sp);
+        if(differentiated_expr){
+          IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
+          addStmtToIRSB(sb_out, sp);
+        }
         addStmtToIRSB(sb_out, st);
-
+        break;
+      default:
+        addStmtToIRSB(sb_out, st);
+        break;
     }
 
   }
