@@ -103,49 +103,104 @@ static void handle_expression(IRExpr* ex, Int recursive_level){
   }
 }
 
+typedef struct {
+  IRTemp t_offset;
+} DiffEnv;
+
+static
+IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
+  switch(ex->tag){
+    case Iex_Triop: {
+      IRTriop* rex = ex->Iex.Triop.details;
+      switch(rex->op){
+        case Iop_AddF64:
+          return
+          IRExpr_Triop(Iop_AddF64,rex->arg1,differentiate_expr(rex->arg2,diffenv),differentiate_expr(rex->arg3,diffenv));
+        case Iop_SubF64:
+          return
+          IRExpr_Triop(Iop_SubF64,rex->arg1,differentiate_expr(rex->arg2,diffenv),differentiate_expr(rex->arg3,diffenv));
+        case Iop_MulF64:
+          return
+          IRExpr_Triop(Iop_AddF64,rex->arg1,
+            IRExpr_Triop(Iop_MulF64, rex->arg1, differentiate_expr(rex->arg2,diffenv),rex->arg3),
+            IRExpr_Triop(Iop_MulF64, rex->arg1, differentiate_expr(rex->arg3,diffenv),rex->arg2)
+          );
+        case Iop_DivF64:
+          return
+          IRExpr_Triop(Iop_DivF64,rex->arg1,
+            IRExpr_Triop(Iop_SubF64, rex->arg1,
+              IRExpr_Triop(Iop_MulF64, rex->arg1, differentiate_expr(rex->arg2,diffenv),rex->arg3),
+              IRExpr_Triop(Iop_MulF64, rex->arg1, differentiate_expr(rex->arg3,diffenv),rex->arg2)
+            ),
+            rex->arg3
+          );
+        default:
+          return NULL;
+      }
+      break;
+    }
+    case Iex_Const: {
+      IRConst* rex = ex->Iex.Const.con;
+      switch(rex->tag){
+        case Ico_F64:
+          return IRExpr_Const(IRConst_F64(0.));
+        case Ico_F64i:
+          return IRExpr_Const(IRConst_F64i(0.));
+        default:
+          return NULL;
+      }
+    }
+    case Iex_RdTmp: {
+      IRTemp t = ex->Iex.RdTmp.tmp;
+      return IRExpr_RdTmp(t+diffenv.t_offset);
+    }
+  }
+}
+
 static
 IRSB* nl_instrument ( VgCallbackClosure* closure,
-                      IRSB* bb,
+                      IRSB* sb_in,
                       const VexGuestLayout* layout, 
                       const VexGuestExtents* vge,
                       const VexArchInfo* archinfo_host,
                       IRType gWordTy, IRType hWordTy )
 {
-  for(int i=0; i<bb->stmts_used; i++){
-    VG_(printf)("Stmt: ");
-    ppIRStmt(bb->stmts[i]);
-    VG_(printf)("\n");
-    switch(bb->stmts[i]->tag){
-      case Ist_IMark:
-        VG_(printf("IMark\n"));
-        break;
-      case Ist_WrTmp:
-        VG_(printf("WrTmp\n"));
-        handle_expression(bb->stmts[i]->Ist.WrTmp.data, 0);
-        break;
-      case Ist_Put:
-        VG_(printf("Put\n"));
-        handle_expression(bb->stmts[i]->Ist.Put.data, 0);
-        break;
-      case Ist_PutI:
-        VG_(printf("PutI\n"));
-        handle_expression(bb->stmts[i]->Ist.PutI.details->data, 0);
-        break;
-      case Ist_Store:
-        VG_(printf("Store\n"));
-        handle_expression(bb->stmts[i]->Ist.Store.data, 0);
-        break;
-      case Ist_StoreG:
-        VG_(printf("StoreG\n"));
-        handle_expression(bb->stmts[i]->Ist.StoreG.details->data, 0);
-        break;
+  int i;
+  DiffEnv diffenv;
+  IRSB* sb_out = deepCopyIRSBExceptStmts(sb_in);
+  // find number that is larger than the maximal index of a temporary
+  // the shadow temporary is obtained by shifting the index
+  IRTemp tmax = 0;
+  for(i=0; i<sb_in->stmts_used; i++){
+    if(sb_in->stmts[i]->tag == Ist_WrTmp){
+      IRTemp t = sb_in->stmts[i]->Ist.WrTmp.tmp;
+      if(t>tmax) tmax = t;
+    }
+  }
+  diffenv.t_offset = tmax+1;
+  // copy until IMark
+  i = 0;
+  while (i < sb_in->stmts_used && sb_in->stmts[i]->tag != Ist_IMark) {
+     addStmtToIRSB(sb_out, sb_in->stmts[i]);
+     i++;
+  }
+  for (/* use current i*/; i < sb_in->stmts_used; i++) {
+    IRStmt* st = sb_in->stmts[i];
+    switch(st->tag){
+      case Ist_WrTmp: ;
+        IRExpr* differentiated_expr = differentiate_expr(st->Ist.WrTmp.data, diffenv);
+        IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
+        addStmtToIRSB(sb_out, sp);
+        addStmtToIRSB(sb_out, st);
+
     }
 
   }
+
   U8 tmp = 0;
    shadow_get_bits(my_sm, 0xffff1111, &tmp);
   VG_(printf)("shadow bits: %d\n", tmp);
-   return bb;
+   return sb_out;
 }
 
 static void nl_fini(Int exitcode)
