@@ -105,8 +105,9 @@ static void handle_expression(IRExpr* ex, Int recursive_level){
 }
 
 typedef struct {
-  IRTemp t_offset;
-  IRTypeEnv* tyenv;
+  IRTemp t_offset; // add this to a temporary index to get the shadow temporaty index
+  IRTypeEnv* tyenv; // contains typemap of the target SB
+  Int total_sizeB; // add this to a register index to get the shadow register index
 } DiffEnv;
 
 static
@@ -160,7 +161,14 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         default:
           return NULL;
       }
-
+    case Iex_Get: {
+      switch(ex->Iex.Get.ty){
+        case Ity_F64:
+          return IRExpr_Get(ex->Iex.Get.offset+diffenv.total_sizeB,ex->Iex.Get.ty);
+        default:
+          return NULL;
+      }
+    }
     default:
       return NULL;
     }
@@ -201,7 +209,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
   for (/* use current i*/; i < sb_in->stmts_used; i++) {
     IRStmt* st = sb_in->stmts[i];
     switch(st->tag){
-      case Ist_WrTmp: ;
+      case Ist_WrTmp: {
         IRExpr* differentiated_expr = differentiate_expr(st->Ist.WrTmp.data, diffenv);
         if(differentiated_expr){
           IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
@@ -210,6 +218,17 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         }
         addStmtToIRSB(sb_out, st);
         break;
+      }
+      case Ist_Put: {
+        IRExpr* differentiated_expr = differentiate_expr(st->Ist.Put.data, diffenv);
+        if(differentiated_expr){
+          IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.total_sizeB, differentiated_expr);
+          addStmtToIRSB(sb_out, sp);
+          VG_(printf)("new statement: "); ppIRStmt(sp); VG_(printf)("\n");
+        }
+        addStmtToIRSB(sb_out, st);
+      }
+
       default:
         addStmtToIRSB(sb_out, st);
         break;
