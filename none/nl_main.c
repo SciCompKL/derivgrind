@@ -222,11 +222,21 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
     IRStmt* st = sb_in->stmts[i];
     switch(st->tag){
       case Ist_WrTmp: {
-        IRExpr* differentiated_expr = differentiate_expr(st->Ist.WrTmp.data, diffenv);
-        if(differentiated_expr){
-          IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
-          addStmtToIRSB(sb_out, sp);
-          VG_(printf)("new statement: "); ppIRStmt(sp); VG_(printf)("\n");
+        // AD treatment only if a floating point type is written
+        IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
+        if(type==Ity_F64){
+          IRExpr* differentiated_expr = differentiate_expr(st->Ist.WrTmp.data, diffenv);
+          if(differentiated_expr){ // we were able to differentiate expression
+            IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
+            addStmtToIRSB(sb_out, sp);
+            VG_(printf)("new statement: "); ppIRStmt(sp); VG_(printf)("\n");
+          } else {
+            VG_(printf)("Warning: Expression\n");
+            ppIRExpr(st->Ist.WrTmp.data);
+            VG_(printf)("could not be differentiated, putting 0 instead.\n\n");
+            IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, IRExpr_Const(IRConst_F64(0.)));
+            addStmtToIRSB(sb_out, sp);
+          }
         }
         addStmtToIRSB(sb_out, st);
         break;
@@ -242,7 +252,6 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         break;
       }
       case Ist_Store: {
-        VG_(printf)("Entering diff expr ist store\n");
         IRExpr* differentiated_expr = differentiate_expr(st->Ist.Store.data, diffenv);
         if(differentiated_expr){
           IRStmt* sp = IRStmt_Store(st->Ist.Store.end, st->Ist.Store.addr , differentiated_expr);
