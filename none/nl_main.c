@@ -116,27 +116,39 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     case Iex_Triop: {
       IRTriop* rex = ex->Iex.Triop.details;
       switch(rex->op){
-        case Iop_AddF64:
-          return
-          IRExpr_Triop(Iop_AddF64,rex->arg1,differentiate_expr(rex->arg2,diffenv),differentiate_expr(rex->arg3,diffenv));
-        case Iop_SubF64:
-          return
-          IRExpr_Triop(Iop_SubF64,rex->arg1,differentiate_expr(rex->arg2,diffenv),differentiate_expr(rex->arg3,diffenv));
-        case Iop_MulF64:
-          return
-          IRExpr_Triop(Iop_AddF64,rex->arg1,
-            IRExpr_Triop(Iop_MulF64, rex->arg1, differentiate_expr(rex->arg2,diffenv),rex->arg3),
-            IRExpr_Triop(Iop_MulF64, rex->arg1, differentiate_expr(rex->arg3,diffenv),rex->arg2)
+        case Iop_AddF64: {
+          IRExpr* d2 = differentiate_expr(rex->arg2,diffenv);
+          IRExpr* d3 = differentiate_expr(rex->arg3,diffenv);
+          if(d2==NULL || d3==NULL) return NULL;
+          else return IRExpr_Triop(Iop_AddF64,rex->arg1,d2,d3);
+        } break;
+        case Iop_SubF64: {
+          IRExpr* d2 = differentiate_expr(rex->arg2,diffenv);
+          IRExpr* d3 = differentiate_expr(rex->arg3,diffenv);
+          if(d2==NULL || d3==NULL) return NULL;
+          else return IRExpr_Triop(Iop_SubF64,rex->arg1,d2,d3);
+        } break;
+        case Iop_MulF64: {
+          IRExpr* d2 = differentiate_expr(rex->arg2,diffenv);
+          IRExpr* d3 = differentiate_expr(rex->arg3,diffenv);
+          if(d2==NULL || d3==NULL) return NULL;
+          else return IRExpr_Triop(Iop_AddF64,rex->arg1,
+            IRExpr_Triop(Iop_MulF64, rex->arg1, d2,rex->arg3),
+            IRExpr_Triop(Iop_MulF64, rex->arg1, d3,rex->arg2)
           );
-        case Iop_DivF64:
-          return
-          IRExpr_Triop(Iop_DivF64,rex->arg1,
+        } break;
+        case Iop_DivF64: {
+          IRExpr* d2 = differentiate_expr(rex->arg2,diffenv);
+          IRExpr* d3 = differentiate_expr(rex->arg3,diffenv);
+          if(d2==NULL || d3==NULL) return NULL;
+          else return IRExpr_Triop(Iop_DivF64,rex->arg1,
             IRExpr_Triop(Iop_SubF64, rex->arg1,
-              IRExpr_Triop(Iop_MulF64, rex->arg1, differentiate_expr(rex->arg2,diffenv),rex->arg3),
-              IRExpr_Triop(Iop_MulF64, rex->arg1, differentiate_expr(rex->arg3,diffenv),rex->arg2)
+              IRExpr_Triop(Iop_MulF64, rex->arg1, d2,rex->arg3),
+              IRExpr_Triop(Iop_MulF64, rex->arg1, d3,rex->arg2)
             ),
-            rex->arg3
+            IRExpr_Triop(Iop_MulF64, rex->arg1, rex->arg3, rex->arg3)
           );
+        } break;
         default:
           return NULL;
       }
@@ -227,11 +239,24 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           VG_(printf)("new statement: "); ppIRStmt(sp); VG_(printf)("\n");
         }
         addStmtToIRSB(sb_out, st);
+        break;
       }
-
-      default:
+      case Ist_Store: {
+        VG_(printf)("Entering diff expr ist store\n");
+        IRExpr* differentiated_expr = differentiate_expr(st->Ist.Store.data, diffenv);
+        if(differentiated_expr){
+          IRStmt* sp = IRStmt_Store(st->Ist.Store.end, st->Ist.Store.addr , differentiated_expr);
+          addStmtToIRSB(sb_out, sp);
+          VG_(printf)("new statement store: "); ppIRStmt(sp); VG_(printf)("\n");
+        }
         addStmtToIRSB(sb_out, st);
         break;
+      }
+
+      default: {
+        addStmtToIRSB(sb_out, st);
+        break;
+      }
     }
 
   }
