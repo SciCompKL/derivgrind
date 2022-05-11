@@ -671,20 +671,24 @@ IRSB* LibVEX_FrontEnd ( /*MOD*/ VexTranslateArgs* vta,
    vexAllocSanityCheck();
 
    /* Get the thing instrumented. */
-   if (vta->instrument1)
+   if (vta->instrument1){
       irsb = vta->instrument1(vta->callback_opaque,
                               irsb, guest_layout, 
                               vta->guest_extents,
                               &vta->archinfo_host,
                               guest_word_type, host_word_type);
+      irsb = do_minimal_initial_iropt_BB(irsb);
+     }
    vexAllocSanityCheck();
 
-   if (vta->instrument2)
+   if (vta->instrument2){
       irsb = vta->instrument2(vta->callback_opaque,
                               irsb, guest_layout,
                               vta->guest_extents,
                               &vta->archinfo_host,
                               guest_word_type, host_word_type);
+      irsb = do_minimal_initial_iropt_BB(irsb);
+     }
       
    if (vex_traceflags & VEX_TRACE_INST) {
       vex_printf("\n------------------------" 
