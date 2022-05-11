@@ -188,6 +188,11 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
 }
 
 static
+VG_REGPARM(0) void nl_Store_diff(Addr addr, Double diff){
+  VG_(printf)("nl_Store_diff %d %lf", addr, diff);
+}
+
+static
 IRSB* nl_instrument ( VgCallbackClosure* closure,
                       IRSB* sb_in,
                       const VexGuestLayout* layout, 
@@ -253,8 +258,14 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       }
       case Ist_Store: {
         IRExpr* differentiated_expr = differentiate_expr(st->Ist.Store.data, diffenv);
+        // The Store.data is an IREXpr_Const or IRExpr_Tmp, so this holds
+        // for its derivative as well. Compare this to Memcheck's IRAtom.
         if(differentiated_expr){
-          IRStmt* sp = IRStmt_Store(st->Ist.Store.end, st->Ist.Store.addr , differentiated_expr);
+          IRDirty* di = unsafeIRDirty_0_N(
+                0,
+                "nl_Store_diff", VG_(fnptr_to_fnentry)(nl_Store_diff),
+                mkIRExprVec_2(st->Ist.Store.addr, differentiated_expr));
+          IRStmt* sp = IRStmt_Dirty(di);
           addStmtToIRSB(sb_out, sp);
           VG_(printf)("new statement store: "); ppIRStmt(sp); VG_(printf)("\n");
         }
