@@ -208,9 +208,9 @@ typedef struct {
   IRSB* sb_out;
 } DiffEnv;
 
-
 static
 IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
+  IRExpr* DEFAULT_ROUNDING = IRExpr_Const(IRConst_U32(Irrm_NEAREST));
   switch(ex->tag){
     case Iex_Triop: {
       IRTriop* rex = ex->Iex.Triop.details;
@@ -252,6 +252,38 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           return NULL;
       }
     } break;
+    case Iex_Unop: {
+      IROp op = ex->Iex.Unop.op;
+      IRExpr* arg = ex->Iex.Unop.arg;
+      switch(op){
+        case Iop_NegF64: {
+          IRExpr* d = differentiate_expr(arg,diffenv);
+          if(d==NULL) return NULL;
+          else return IRExpr_Unop(Iop_NegF64,d);
+        } break;
+        case Iop_SqrtF64: {
+          IRExpr* d = differentiate_expr(arg,diffenv);
+          if(d==NULL) return NULL;
+          else {
+            IRExpr* numerator = d;
+            IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
+            IRExpr* denominator =  IRExpr_Triop(Iop_MulF64, DEFAULT_ROUNDING, consttwo, IRExpr_Unop(Iop_SqrtF64, arg) );
+            return IRExpr_Triop(Iop_DivF64, DEFAULT_ROUNDING, numerator, denominator);
+          }
+        case Iop_AbsF64: {
+          IRExpr* d = differentiate_expr(arg,diffenv);
+          if(d==NULL) return NULL;
+          else {
+            // if arg evaluates positive, the Iop_CmpF64 evaluates to 0 i.e. false
+            IRExpr* cond = IRExpr_Binop(Iop_CmpF64, arg, IRExpr_Const(IRConst_F64(0.)));
+            IRExpr* minus_d = IRExpr_Unop(Iop_NegF64, d);
+            return IRExpr_ITE(cond, minus_d, d);
+          }
+        } break;
+        default:
+          return NULL;
+      }
+    } break;
     case Iex_Const: {
       IRConst* rex = ex->Iex.Const.con;
       switch(rex->tag){
@@ -263,6 +295,12 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           return NULL;
       }
     } break;
+    case Iex_ITE: {
+      IRExpr* dtrue = differentiate_expr(ex->Iex.ITE.iftrue, diffenv);
+      IRExpr* dfalse = differentiate_expr(ex->Iex.ITE.iffalse, diffenv);
+      if(dtrue==NULL || dfalse==NULL) return NULL;
+      else return IRExpr_ITE(ex->Iex.ITE.cond, dtrue, dfalse);
+    } break;
     case Iex_RdTmp: {
       IRTemp t = ex->Iex.RdTmp.tmp;
       switch(diffenv.sb_out->tyenv->types[t]){
@@ -270,6 +308,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           return IRExpr_RdTmp(t+diffenv.t_offset);
         default:
           return NULL;
+      }
     } break;
     case Iex_Get: {
       switch(ex->Iex.Get.ty){
