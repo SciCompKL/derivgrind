@@ -188,8 +188,11 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
 }
 
 static
-VG_REGPARM(0) void nl_Store_diff(Addr addr, Double diff){
-  VG_(printf)("nl_Store_diff %d %lf", addr, diff);
+VG_REGPARM(0) void nl_Store_diff(Addr addr, ULong derivative){
+  VG_(printf)("nl_Store_diff %p %lf\n", addr, *(Double*)&derivative );
+  for(int i=0; i<8; i++){
+    shadow_set_bits(my_sm,((SM_Addr)addr)+i,  *( ((U8*)&derivative) + i ));
+  }
 }
 
 static
@@ -261,13 +264,14 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         // The Store.data is an IREXpr_Const or IRExpr_Tmp, so this holds
         // for its derivative as well. Compare this to Memcheck's IRAtom.
         if(differentiated_expr){
+          IRExpr* differentiated_expr_reinterpreted =
+            IRExpr_Unop(Iop_ReinterpF64asI64, differentiated_expr);
           IRDirty* di = unsafeIRDirty_0_N(
                 0,
                 "nl_Store_diff", VG_(fnptr_to_fnentry)(nl_Store_diff),
-                mkIRExprVec_2(st->Ist.Store.addr, differentiated_expr));
+                mkIRExprVec_2(st->Ist.Store.addr,differentiated_expr_reinterpreted));
           IRStmt* sp = IRStmt_Dirty(di);
           addStmtToIRSB(sb_out, sp);
-          VG_(printf)("new statement store: "); ppIRStmt(sp); VG_(printf)("\n");
         }
         addStmtToIRSB(sb_out, st);
         break;
