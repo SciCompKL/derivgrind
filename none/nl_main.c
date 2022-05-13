@@ -130,13 +130,12 @@ VG_REGPARM(0) ULong nl_Load_diff( Addr addr){
 static
 Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
   VG_(printf)("Enter nl_handle_gdb_monitor_command\n");
-  const HChar commands[] = "help get set"; //!< list of possible commands
-  HChar* wcmd; //!< User command
-  HChar s[VG_(strlen)(req)+1]; //!< copy for strtok_r
+  HChar s[VG_(strlen)(req)+1]; //!< copy of req for strtok_r
   VG_(strcpy)(s, req);
   HChar* ssaveptr; //!< internal state of strtok_r
 
-  wcmd = VG_(strtok_r)(s, " ", &ssaveptr);
+  const HChar commands[] = "help get set"; //!< list of possible commands
+  HChar* wcmd = VG_(strtok_r)(s, " ", &ssaveptr); //!< User command
   int key = VG_(keyword_id)(commands, wcmd, kwd_report_duplicated_matches);
   switch(key){
     case -2: // multiple matches
@@ -150,10 +149,36 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         "  set <addr> <val> - Sets derivative\n"
       );
       return True;
-    case 1: // get
+    case 1: { // get
+      HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      Addr address;
+      if(!VG_(parse_Addr)(&address_str, &address)){
+        VG_(gdb_printf)("Usage: get <addr>\n");
+        return False;
+      }
+      double derivative=0;
+      for(int i=0; i<8; i++){
+        shadow_get_bits(my_sm,((SM_Addr)address)+i, ((U8*)&derivative)+i);
+      }
+      VG_(gdb_printf)("Derivative: %lf\n", derivative);
       return True;
-    case 2: // set
+    }
+    case 2: { // set
+      HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      Addr address;
+      if(!VG_(parse_Addr)(&address_str, &address)){
+        VG_(gdb_printf)("Usage: get <addr>\n");
+        return False;
+      }
+      HChar* derivative_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      VG_(printf)("derivative_str is %p '%s'\n", derivative_str, derivative_str);
+      double derivative = VG_(strtod)(derivative_str, NULL);
+      VG_(printf)("Derivative is %lf\n", derivative);
+      for(int i=0; i<8; i++){
+        shadow_set_bits( my_sm,((SM_Addr)address)+i, *( ((U8*)&derivative)+i ) );
+      }
       return True;
+    }
     default:
       VG_(printf)("Error in nl_handle_gdb_monitor_command\n");
       return False;
