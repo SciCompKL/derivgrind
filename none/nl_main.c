@@ -30,7 +30,8 @@
 #include "pub_tool_tooliface.h"
 #include "pub_tool_mallocfree.h"
 #include "pub_tool_libcassert.h"
-//#include "main_util.h"
+#include "pub_tool_gdbserver.h"
+#include "valgrind.h"
 
 
 #include "shadow-memory/src/shadow.h"
@@ -122,8 +123,58 @@ VG_REGPARM(0) ULong nl_Load_diff( Addr addr){
     VG_(printf)("Iter %d, will access addr=%p and write to %p\n", i, ((SM_Addr)addr)+i,  ((U8*)&derivative)+i);
     shadow_get_bits(my_sm,((SM_Addr)addr)+i, ((U8*)&derivative)+i);
   }
-  VG_(printf)("nl_Load_diff return %d\n", derivative);
+  VG_(printf)("nl_Load_diff return %lf\n", *(double*)&derivative);
   return derivative;
+}
+
+static
+Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
+  VG_(printf)("Enter nl_handle_gdb_monitor_command\n");
+  const HChar commands[] = "help get set"; //!< list of possible commands
+  HChar* wcmd; //!< User command
+  HChar s[VG_(strlen)(req)+1]; //!< copy for strtok_r
+  VG_(strcpy)(s, req);
+  HChar* ssaveptr; //!< internal state of strtok_r
+
+  wcmd = VG_(strtok_r)(s, " ", &ssaveptr);
+  int key = VG_(keyword_id)(commands, wcmd, kwd_report_duplicated_matches);
+  switch(key){
+    case -2: // multiple matches
+      return True;
+    case -1: // not found
+      return False;
+    case 0: // help
+      VG_(gdb_printf)(
+        "monitor commands:\n"
+        "  get <addr>       - Prints derivative\n"
+        "  set <addr> <val> - Sets derivative\n"
+      );
+      return True;
+    case 1: // get
+      return True;
+    case 2: // set
+      return True;
+    default:
+      VG_(printf)("Error in nl_handle_gdb_monitor_command\n");
+      return False;
+    }
+
+}
+
+static
+Bool nl_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
+  if(arg[0]==VG_USERREQ__GDB_MONITOR_COMMAND){
+    Bool handled = nl_handle_gdb_monitor_command(tid, (HChar*)arg[1]);
+    if(handled){
+      *ret = 1;
+    } else {
+      *ret = 0;
+    }
+    return handled;
+  } else {
+    VG_(printf)("Unhandled user request.\n");
+    return True;
+  }
 }
 
 typedef struct {
@@ -369,6 +420,8 @@ static void nl_pre_clo_init(void)
    my_sm->num_distinguished = 1;
    shadow_initialize_map(my_sm);
    VG_(printf)("done\n");
+
+   VG_(needs_client_requests)     (nl_handle_client_request);
 
   shadow_set_bits(my_sm, 0xffff1111, 0xab);
 
