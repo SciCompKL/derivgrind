@@ -5,6 +5,6 @@ int main(){
   scanf("%lf", &a);
   double c; scanf("%lf", &c);
   double d; scanf("%lf", &d);
-  double b = a+3.0;
+  double b = a/3.0;
   printf("%lf\n", b);
 }
