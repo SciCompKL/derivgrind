@@ -31,6 +31,7 @@
 #include "pub_tool_mallocfree.h"
 #include "pub_tool_libcassert.h"
 #include "pub_tool_gdbserver.h"
+#include "pub_tool_libcbase.h"
 #include "valgrind.h"
 
 
@@ -129,7 +130,6 @@ VG_REGPARM(0) ULong nl_Load_diff( Addr addr){
 
 static
 Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
-  VG_(printf)("Enter nl_handle_gdb_monitor_command\n");
   HChar s[VG_(strlen)(req)+1]; //!< copy of req for strtok_r
   VG_(strcpy)(s, req);
   HChar* ssaveptr; //!< internal state of strtok_r
@@ -167,20 +167,18 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
       Addr address;
       if(!VG_(parse_Addr)(&address_str, &address)){
-        VG_(gdb_printf)("Usage: get <addr>\n");
+        VG_(gdb_printf)("Usage: set <addr> <derivative>\n");
         return False;
       }
       HChar* derivative_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
-      VG_(printf)("derivative_str is %p '%s'\n", derivative_str, derivative_str);
       double derivative = VG_(strtod)(derivative_str, NULL);
-      VG_(printf)("Derivative is %lf\n", derivative);
       for(int i=0; i<8; i++){
         shadow_set_bits( my_sm,((SM_Addr)address)+i, *( ((U8*)&derivative)+i ) );
       }
       return True;
     }
     default:
-      VG_(printf)("Error in nl_handle_gdb_monitor_command\n");
+      VG_(printf)("Error in nl_handle_gdb_monitor_command.\n");
       return False;
     }
 
