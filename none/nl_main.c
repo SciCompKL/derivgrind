@@ -30,6 +30,7 @@
 #include "pub_tool_tooliface.h"
 #include "pub_tool_mallocfree.h"
 #include "pub_tool_libcassert.h"
+//#include "main_util.h"
 
 
 #include "shadow-memory/src/shadow.h"
@@ -114,18 +115,25 @@ VG_REGPARM(0) void nl_Store_diff(Addr addr, ULong derivative){
 }
 
 static
-VG_REGPARM(0) void nl_Load_diff( /*OUT*/ULong* derivative, Addr addr){
+VG_REGPARM(0) ULong nl_Load_diff( Addr addr){
+  ULong derivative=0;
   VG_(printf)("nl_Load_diff %p\n", addr);
   for(int i=0; i<8; i++){
-    shadow_get_bits(my_sm,((SM_Addr)addr)+i, ((U8*)derivative)+i);
+    VG_(printf)("Iter %d, will access addr=%p and write to %p\n", i, ((SM_Addr)addr)+i,  ((U8*)&derivative)+i);
+    shadow_get_bits(my_sm,((SM_Addr)addr)+i, ((U8*)&derivative)+i);
   }
+  VG_(printf)("nl_Load_diff return %d\n", derivative);
+  return derivative;
 }
 
 typedef struct {
   IRTemp t_offset; // add this to a temporary index to get the shadow temporary index
-  Int total_sizeB; // add this to a register index to get the shadow register index
+  /*! layout argument to nl_instrument.
+   *  Add layout->total_sizeB to a register index to get the shadow register index. */
+  const VexGuestLayout* layout;
   IRSB* sb_out;
 } DiffEnv;
+
 
 static
 IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
@@ -192,7 +200,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     case Iex_Get: {
       switch(ex->Iex.Get.ty){
         case Ity_F64:
-          return IRExpr_Get(ex->Iex.Get.offset+diffenv.total_sizeB,ex->Iex.Get.ty);
+          return IRExpr_Get(ex->Iex.Get.offset+diffenv.layout->total_sizeB,ex->Iex.Get.ty);
         default:
           return NULL;
       }
@@ -201,7 +209,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       switch(ex->Iex.Load.ty){
         case Ity_F64: {
           // load data
-          IRTemp loadAddr = 0/*TODO*/;
+          IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, Ity_I64);
           IRDirty* di = unsafeIRDirty_1_N(
                 loadAddr,
                 0,
@@ -209,7 +217,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
                 mkIRExprVec_1(ex->Iex.Load.addr));
           addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di));
           // convert into F64
-          IRTemp loadAddr_reinterpreted = 0 /*TODO*/;
+          IRTemp loadAddr_reinterpreted = newIRTemp(diffenv.sb_out->tyenv, Ity_F64);
           addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(loadAddr_reinterpreted,
             IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_RdTmp(loadAddr))));
           // return this
@@ -250,6 +258,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
   }
 
   diffenv.sb_out = sb_out;
+  diffenv.layout = layout;
 
   // copy until IMark
   i = 0;
@@ -283,7 +292,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       case Ist_Put: {
         IRExpr* differentiated_expr = differentiate_expr(st->Ist.Put.data, diffenv);
         if(differentiated_expr){
-          IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.total_sizeB, differentiated_expr);
+          IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
           addStmtToIRSB(sb_out, sp);
           VG_(printf)("new statement: "); ppIRStmt(sp); VG_(printf)("\n");
         }
