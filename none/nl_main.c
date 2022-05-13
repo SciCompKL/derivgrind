@@ -104,10 +104,27 @@ static void handle_expression(IRExpr* ex, Int recursive_level){
   }
 }
 
+
+static
+VG_REGPARM(0) void nl_Store_diff(Addr addr, ULong derivative){
+  VG_(printf)("nl_Store_diff %p %lf\n", addr, *(Double*)&derivative );
+  for(int i=0; i<8; i++){
+    shadow_set_bits(my_sm,((SM_Addr)addr)+i,  *( ((U8*)&derivative) + i ));
+  }
+}
+
+static
+VG_REGPARM(0) void nl_Load_diff( /*OUT*/ULong* derivative, Addr addr){
+  VG_(printf)("nl_Load_diff %p\n", addr);
+  for(int i=0; i<8; i++){
+    shadow_get_bits(my_sm,((SM_Addr)addr)+i, ((U8*)derivative)+i);
+  }
+}
+
 typedef struct {
-  IRTemp t_offset; // add this to a temporary index to get the shadow temporaty index
-  IRTypeEnv* tyenv; // contains typemap of the target SB
+  IRTemp t_offset; // add this to a temporary index to get the shadow temporary index
   Int total_sizeB; // add this to a register index to get the shadow register index
+  IRSB* sb_out;
 } DiffEnv;
 
 static
@@ -152,8 +169,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         default:
           return NULL;
       }
-      break;
-    }
+    } break;
     case Iex_Const: {
       IRConst* rex = ex->Iex.Const.con;
       switch(rex->tag){
@@ -164,15 +180,15 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         default:
           return NULL;
       }
-    }
+    } break;
     case Iex_RdTmp: {
       IRTemp t = ex->Iex.RdTmp.tmp;
-      switch(diffenv.tyenv->types[t]){
+      switch(diffenv.sb_out->tyenv->types[t]){
         case Ity_F64:
           return IRExpr_RdTmp(t+diffenv.t_offset);
         default:
           return NULL;
-      }
+    } break;
     case Iex_Get: {
       switch(ex->Iex.Get.ty){
         case Ity_F64:
@@ -180,20 +196,35 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         default:
           return NULL;
       }
-    }
+    } break;
+    case Iex_Load: {
+      switch(ex->Iex.Load.ty){
+        case Ity_F64: {
+          // load data
+          IRTemp loadAddr = 0/*TODO*/;
+          IRDirty* di = unsafeIRDirty_1_N(
+                loadAddr,
+                0,
+                "nl_Load_diff", VG_(fnptr_to_fnentry)(nl_Load_diff),
+                mkIRExprVec_1(ex->Iex.Load.addr));
+          addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di));
+          // convert into F64
+          IRTemp loadAddr_reinterpreted = 0 /*TODO*/;
+          addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(loadAddr_reinterpreted,
+            IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_RdTmp(loadAddr))));
+          // return this
+          return IRExpr_RdTmp(loadAddr_reinterpreted);
+        } break;
+        default:
+          return NULL;
+      }
+    } break;
     default:
       return NULL;
     }
   }
 }
 
-static
-VG_REGPARM(0) void nl_Store_diff(Addr addr, ULong derivative){
-  VG_(printf)("nl_Store_diff %p %lf\n", addr, *(Double*)&derivative );
-  for(int i=0; i<8; i++){
-    shadow_set_bits(my_sm,((SM_Addr)addr)+i,  *( ((U8*)&derivative) + i ));
-  }
-}
 
 static
 IRSB* nl_instrument ( VgCallbackClosure* closure,
@@ -218,7 +249,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
     newIRTemp(sb_out->tyenv, sb_out->tyenv->types[t]);
   }
 
-  diffenv.tyenv = sb_out->tyenv;
+  diffenv.sb_out = sb_out;
 
   // copy until IMark
   i = 0;
