@@ -41,16 +41,16 @@ class TestCase:
     with open("TestCase_src.c", "w") as f:
       f.write(self.code)
     # query GCC for all optimization options, and find flags to disable the enabled ones
-    blacklist = ["stack-protector-strong"] # these should not be disabled´
+    blacklist = ["stack-protector-strong","no-threadsafe-statics"] # these should not be disabled (as this would cause errors)
     options = []
-    compile_flags_process = subprocess.run(["gcc", "-Q", "--help=optimizers", "-g", "-m32", "TestCase_src.c", "-o", "TestCase_exec"],text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    compile_flags_process = subprocess.run(["gcc", "-Q", "--help=optimizers", "-g", "-m32", "TestCase_src.c", "-o", "TestCase_exec"],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True)
     for line in compile_flags_process.stdout.split("\n"):
       r = re.search(r"^\s*-f(\S+)\s*\[enabled\]", line)
       if r:
         if r.group(1) not in blacklist:
           options.append("-fno-"+r.group(1))
     # compile with disabled options
-    compile_process = subprocess.run(["gcc", "-g", "-m32", "TestCase_src.c", "-o", "TestCase_exec"] + options)
+    compile_process = subprocess.run(["gcc", "-g", "-m32", "TestCase_src.c", "-o", "TestCase_exec"] + options,universal_newlines=True)
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
