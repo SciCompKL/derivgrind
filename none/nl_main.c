@@ -99,6 +99,7 @@ static void handle_expression(IRExpr* ex, Int recursive_level){
       handle_expression(ex->Iex.Unop.arg, recursive_level+1);
       break;
     case Iex_Const:
+      break;
   }
 
   if(recursive_level>=1 &&

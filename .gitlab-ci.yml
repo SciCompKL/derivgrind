@@ -1,0 +1,23 @@
+image: ubuntu:18.04
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+build:
+  stage: build
+  script:
+    - apt-get update
+    - apt-get install -y build-essential automake
+    - ./autogen.sh
+    - CFLAGS=-g ./configure --prefix=$PWD/install
+    - make install
+  artifacts:
+    paths:
+      - install/
+
+test:
+  stage: test
+  script:
+    - apt-get update
+    - apt-get install -y python3
+    - cd none/diff_tests && python3 run_tests.py
