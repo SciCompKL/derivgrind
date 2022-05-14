@@ -4,14 +4,6 @@ AUTOMAKE_OPTIONS = 1.10
 include $(top_srcdir)/Makefile.all.am 
 
 TOOLS = \
-		memcheck \
-		cachegrind \
-		callgrind \
-		helgrind \
-		drd \
-		massif \
-		dhat \
-		lackey \
 		none
 
 EXP_TOOLS = \
