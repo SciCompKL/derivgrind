@@ -128,7 +128,7 @@ class TestCase:
     self.gdb_log += stdout_data
 
   def run(self):
-    print("Running test '"+self.name+"'... ", end='',flush=True)
+    print("##### Running test '"+self.name+"'... #####", flush=True)
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_c_code()
@@ -138,6 +138,7 @@ class TestCase:
       self.run_c_code_in_vgdb()
     if self.errmsg=="":
       print("OK.\n")
+      return True
     else:
       print("FAIL:")
       print(self.errmsg)
@@ -145,6 +146,7 @@ class TestCase:
       print(self.valgrind_log)
       print("GDB LOG:")
       print(self.gdb_log)
+      return False
     
 
 
