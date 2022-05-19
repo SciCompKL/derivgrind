@@ -215,38 +215,32 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
   switch(ex->tag){
     case Iex_Triop: {
       IRTriop* rex = ex->Iex.Triop.details;
+      IRExpr* arg1 = rex->arg1;
+      IRExpr* arg2 = rex->arg2;
+      IRExpr* arg3 = rex->arg3;
+      IRExpr* d2 = differentiate_expr(arg2,diffenv);
+      IRExpr* d3 = differentiate_expr(arg3,diffenv);
+      if(d2==NULL || d3==NULL) return NULL;
       switch(rex->op){
         case Iop_AddF64: {
-          IRExpr* d2 = differentiate_expr(rex->arg2,diffenv);
-          IRExpr* d3 = differentiate_expr(rex->arg3,diffenv);
-          if(d2==NULL || d3==NULL) return NULL;
-          else return IRExpr_Triop(Iop_AddF64,rex->arg1,d2,d3);
+          return IRExpr_Triop(Iop_AddF64,arg1,d2,d3);
         } break;
         case Iop_SubF64: {
-          IRExpr* d2 = differentiate_expr(rex->arg2,diffenv);
-          IRExpr* d3 = differentiate_expr(rex->arg3,diffenv);
-          if(d2==NULL || d3==NULL) return NULL;
-          else return IRExpr_Triop(Iop_SubF64,rex->arg1,d2,d3);
+         return IRExpr_Triop(Iop_SubF64,arg1,d2,d3);
         } break;
         case Iop_MulF64: {
-          IRExpr* d2 = differentiate_expr(rex->arg2,diffenv);
-          IRExpr* d3 = differentiate_expr(rex->arg3,diffenv);
-          if(d2==NULL || d3==NULL) return NULL;
-          else return IRExpr_Triop(Iop_AddF64,rex->arg1,
-            IRExpr_Triop(Iop_MulF64, rex->arg1, d2,rex->arg3),
-            IRExpr_Triop(Iop_MulF64, rex->arg1, d3,rex->arg2)
+          return IRExpr_Triop(Iop_AddF64,arg1,
+            IRExpr_Triop(Iop_MulF64, arg1, d2,arg3),
+            IRExpr_Triop(Iop_MulF64, arg1, d3,arg2)
           );
         } break;
         case Iop_DivF64: {
-          IRExpr* d2 = differentiate_expr(rex->arg2,diffenv);
-          IRExpr* d3 = differentiate_expr(rex->arg3,diffenv);
-          if(d2==NULL || d3==NULL) return NULL;
-          else return IRExpr_Triop(Iop_DivF64,rex->arg1,
-            IRExpr_Triop(Iop_SubF64, rex->arg1,
-              IRExpr_Triop(Iop_MulF64, rex->arg1, d2,rex->arg3),
-              IRExpr_Triop(Iop_MulF64, rex->arg1, d3,rex->arg2)
+          return IRExpr_Triop(Iop_DivF64,arg1,
+            IRExpr_Triop(Iop_SubF64, arg1,
+              IRExpr_Triop(Iop_MulF64, arg1, d2,arg3),
+              IRExpr_Triop(Iop_MulF64, arg1, d3,arg2)
             ),
-            IRExpr_Triop(Iop_MulF64, rex->arg1, rex->arg3, rex->arg3)
+            IRExpr_Triop(Iop_MulF64, arg1, arg3, arg3)
           );
         } break;
         default:
