@@ -383,7 +383,6 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
           addStmtToIRSB(sb_out, sp);
         }
-        addStmtToIRSB(sb_out, st);
         break;
       }
       case Ist_Put: {
@@ -399,7 +398,6 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
           addStmtToIRSB(sb_out, sp);
         }
-        addStmtToIRSB(sb_out, st);
         break;
       }
       case Ist_Store: case Ist_StoreG: {
@@ -439,15 +437,14 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           IRStmt* sp = IRStmt_Dirty(di);
           addStmtToIRSB(sb_out, sp);
         }
-        addStmtToIRSB(sb_out, st);
         break;
       }
 
       default: {
-        addStmtToIRSB(sb_out, st);
         break;
       }
     }
+    addStmtToIRSB(sb_out, st);
 
   }
 
