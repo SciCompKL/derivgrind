@@ -374,42 +374,53 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
         if(type==Ity_F64){
           IRExpr* differentiated_expr = differentiate_expr(st->Ist.WrTmp.data, diffenv);
-          if(differentiated_expr){ // we were able to differentiate expression
-            IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
-            addStmtToIRSB(sb_out, sp);
-            VG_(printf)("new statement: "); ppIRStmt(sp); VG_(printf)("\n");
-          } else {
+          if(!differentiated_expr){
+            differentiated_expr = IRExpr_Const(IRConst_F64(0.));
             VG_(printf)("Warning: Expression\n");
             ppIRExpr(st->Ist.WrTmp.data);
-            VG_(printf)("could not be differentiated, putting 0 instead.\n\n");
-            IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, IRExpr_Const(IRConst_F64(0.)));
-            addStmtToIRSB(sb_out, sp);
+            VG_(printf)("could not be differentiated, WrTmp'ting 0 instead.\n\n");
           }
+          IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
+          addStmtToIRSB(sb_out, sp);
         }
         addStmtToIRSB(sb_out, st);
         break;
       }
       case Ist_Put: {
-        IRExpr* differentiated_expr = differentiate_expr(st->Ist.Put.data, diffenv);
-        if(differentiated_expr){
+        IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
+        if(type==Ity_F64){
+          IRExpr* differentiated_expr = differentiate_expr(st->Ist.Put.data, diffenv);
+          if(!differentiated_expr){
+            differentiated_expr = IRExpr_Const(IRConst_F64(0.));
+            VG_(printf)("Warning: Expression\n");
+            ppIRExpr(st->Ist.Put.data);
+            VG_(printf)("could not be differentiated, Put'ting 0 instead.\n\n");
+          }
           IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
           addStmtToIRSB(sb_out, sp);
-          VG_(printf)("new statement: "); ppIRStmt(sp); VG_(printf)("\n");
         }
         addStmtToIRSB(sb_out, st);
         break;
       }
       case Ist_Store: {
-        IRExpr* differentiated_expr = differentiate_expr(st->Ist.Store.data, diffenv);
-        // The Store.data is an IREXpr_Const or IRExpr_Tmp, so this holds
-        // for its derivative as well. Compare this to Memcheck's IRAtom.
-        if(differentiated_expr){
+        IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Store.data);
+        if(type==Ity_F64){
+          IRExpr* differentiated_expr = differentiate_expr(st->Ist.Store.data, diffenv);
+          // The Store.data is an IREXpr_Const or IRExpr_Tmp, so this holds
+          // for its derivative as well. Compare this to Memcheck's IRAtom.
+          // Still general treatment here.
+          if(!differentiated_expr){
+            differentiated_expr = IRExpr_Const(IRConst_F64(0.));
+            VG_(printf)("Warning: Expression\n");
+            ppIRExpr(st->Ist.Store.data);
+            VG_(printf)("could not be differentiated, Store'ing 0 instead.\n\n");
+          }
           IRExpr* differentiated_expr_reinterpreted =
-            IRExpr_Unop(Iop_ReinterpF64asI64, differentiated_expr);
+              IRExpr_Unop(Iop_ReinterpF64asI64, differentiated_expr);
           IRDirty* di = unsafeIRDirty_0_N(
-                0,
-                "nl_Store_diff", VG_(fnptr_to_fnentry)(nl_Store_diff),
-                mkIRExprVec_2(st->Ist.Store.addr,differentiated_expr_reinterpreted));
+                  0,
+                  "nl_Store_diff", VG_(fnptr_to_fnentry)(nl_Store_diff),
+                  mkIRExprVec_2(st->Ist.Store.addr,differentiated_expr_reinterpreted));
           IRStmt* sp = IRStmt_Dirty(di);
           addStmtToIRSB(sb_out, sp);
         }
