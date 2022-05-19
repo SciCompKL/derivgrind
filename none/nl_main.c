@@ -439,6 +439,37 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         }
         break;
       }
+      case Ist_LoadG: {
+        IRLoadG* det = st->Ist.LoadG.details;
+        IRType type = sb_in->tyenv->types[det->dst];
+        if(type==Ity_F64){
+          tl_assert(det->cvt == ILGop_Ident64); // what else could you load into double?
+          IRExpr* differentiated_expr_alt = differentiate_expr(det->alt,diffenv);
+          if(!differentiated_expr_alt){
+            differentiated_expr_alt = IRExpr_Const(IRConst_F64(0.));
+            VG_(printf)("Warning: Expression\n");
+            ppIRExpr(det->alt);
+            VG_(printf)("could not be differentiated, alternative-LoadG'ing 0 instead.\n\n");
+          }
+          // compare the following to Iop_Load
+          IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, Ity_I64);
+          IRDirty* di = unsafeIRDirty_1_N(
+                loadAddr,
+                0,
+                "nl_Load_diff", VG_(fnptr_to_fnentry)(nl_Load_diff),
+                mkIRExprVec_1(det->addr));
+          addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di));
+          // convert into F64
+          IRTemp loadAddr_reinterpreted = newIRTemp(diffenv.sb_out->tyenv, Ity_F64);
+          addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(loadAddr_reinterpreted,
+            IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_RdTmp(loadAddr))));
+          // copy it into shadow variable for temporary dst,
+          // or the derivative of alt, depending on the guard
+          addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(det->dst+diffenv.t_offset,
+            IRExpr_ITE(det->guard,IRExpr_RdTmp(loadAddr_reinterpreted),differentiated_expr_alt)
+          ));
+        }
+      }
 
       default: {
         break;
