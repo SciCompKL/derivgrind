@@ -250,30 +250,23 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     case Iex_Unop: {
       IROp op = ex->Iex.Unop.op;
       IRExpr* arg = ex->Iex.Unop.arg;
+      IRExpr* d = differentiate_expr(arg,diffenv);
+      if(d==NULL) return NULL;
       switch(op){
         case Iop_NegF64: {
-          IRExpr* d = differentiate_expr(arg,diffenv);
-          if(d==NULL) return NULL;
-          else return IRExpr_Unop(Iop_NegF64,d);
+          return IRExpr_Unop(Iop_NegF64,d);
         } break;
         case Iop_SqrtF64: {
-          IRExpr* d = differentiate_expr(arg,diffenv);
-          if(d==NULL) return NULL;
-          else {
-            IRExpr* numerator = d;
-            IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
-            IRExpr* denominator =  IRExpr_Triop(Iop_MulF64, DEFAULT_ROUNDING, consttwo, IRExpr_Unop(Iop_SqrtF64, arg) );
-            return IRExpr_Triop(Iop_DivF64, DEFAULT_ROUNDING, numerator, denominator);
-          }
+          IRExpr* numerator = d;
+          IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
+          IRExpr* denominator =  IRExpr_Triop(Iop_MulF64, DEFAULT_ROUNDING, consttwo, IRExpr_Unop(Iop_SqrtF64, arg) );
+          return IRExpr_Triop(Iop_DivF64, DEFAULT_ROUNDING, numerator, denominator);
+        } break;
         case Iop_AbsF64: {
-          IRExpr* d = differentiate_expr(arg,diffenv);
-          if(d==NULL) return NULL;
-          else {
-            // if arg evaluates positive, the Iop_CmpF64 evaluates to 0 i.e. false
-            IRExpr* cond = IRExpr_Binop(Iop_CmpF64, arg, IRExpr_Const(IRConst_F64(0.)));
-            IRExpr* minus_d = IRExpr_Unop(Iop_NegF64, d);
-            return IRExpr_ITE(cond, minus_d, d);
-          }
+          // if arg evaluates positive, the Iop_CmpF64 evaluates to 0 i.e. false
+          IRExpr* cond = IRExpr_Binop(Iop_CmpF64, arg, IRExpr_Const(IRConst_F64(0.)));
+          IRExpr* minus_d = IRExpr_Unop(Iop_NegF64, d);
+          return IRExpr_ITE(cond, minus_d, d);
         } break;
         default:
           return NULL;
@@ -337,7 +330,6 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     } break;
     default:
       return NULL;
-    }
   }
 }
 
