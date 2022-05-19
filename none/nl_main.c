@@ -402,17 +402,29 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         addStmtToIRSB(sb_out, st);
         break;
       }
-      case Ist_Store: {
-        IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Store.data);
+      case Ist_Store: case Ist_StoreG: {
+        IREndness end; IRExpr* addr; IRExpr* data; Bool guarded;
+        if(st->tag == Ist_Store){
+          end = st->Ist.Store.end;
+          addr = st->Ist.Store.addr;
+          data = st->Ist.Store.data;
+          guarded = False;
+        } else {
+          end = st->Ist.StoreG.details->end;
+          addr = st->Ist.StoreG.details->addr;
+          data = st->Ist.StoreG.details->data;
+          guarded = True;
+        }
+        IRType type = typeOfIRExpr(sb_in->tyenv,data);
         if(type==Ity_F64){
-          IRExpr* differentiated_expr = differentiate_expr(st->Ist.Store.data, diffenv);
+          IRExpr* differentiated_expr = differentiate_expr(data, diffenv);
           // The Store.data is an IREXpr_Const or IRExpr_Tmp, so this holds
           // for its derivative as well. Compare this to Memcheck's IRAtom.
           // Still general treatment here.
           if(!differentiated_expr){
             differentiated_expr = IRExpr_Const(IRConst_F64(0.));
             VG_(printf)("Warning: Expression\n");
-            ppIRExpr(st->Ist.Store.data);
+            ppIRExpr(data);
             VG_(printf)("could not be differentiated, Store'ing 0 instead.\n\n");
           }
           IRExpr* differentiated_expr_reinterpreted =
@@ -420,7 +432,10 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           IRDirty* di = unsafeIRDirty_0_N(
                   0,
                   "nl_Store_diff", VG_(fnptr_to_fnentry)(nl_Store_diff),
-                  mkIRExprVec_2(st->Ist.Store.addr,differentiated_expr_reinterpreted));
+                  mkIRExprVec_2(addr,differentiated_expr_reinterpreted));
+          if(guarded){
+            di->guard = st->Ist.StoreG.details->guard;
+          }
           IRStmt* sp = IRStmt_Dirty(di);
           addStmtToIRSB(sb_out, sp);
         }
