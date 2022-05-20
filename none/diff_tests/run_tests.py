@@ -175,6 +175,24 @@ multiplication_dowhileloop.test_vals = {'c':1024.0}
 multiplication_dowhileloop.test_grads = {'c':5120.0}
 testlist.append(multiplication_dowhileloop)
 
+addition_recursion = TestCase("addition_recursion")
+addition_recursion.include = "double f(int n, double x){ if(n==0) return 0.; else return x+f(n-1,x); }"
+addition_recursion.stmt = "double c = f(10,a);"
+addition_recursion.vals = {'a':2.0}
+addition_recursion.grads = {'a':1.0}
+addition_recursion.test_vals = {'c':20.0}
+addition_recursion.test_grads = {'c':10.0}
+testlist.append(addition_recursion)
+
+multiplication_recursion = TestCase("multiplication_recursion")
+multiplication_recursion.include = "double f(int n, double x){ if(n==0) return 1.; else return x*f(n-1,x); }"
+multiplication_recursion.stmt = "double c = f(10,a);"
+multiplication_recursion.vals = {'a':2.0}
+multiplication_recursion.grads = {'a':1.0}
+multiplication_recursion.test_vals = {'c':1024.0}
+multiplication_recursion.test_grads = {'c':5120.0}
+testlist.append(multiplication_recursion)
+
 outcomes = []
 for test in testlist:
   outcomes.append(test.run())

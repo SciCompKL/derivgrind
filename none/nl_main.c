@@ -551,12 +551,30 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         }
       }
 
+      case Ist_CAS: {
+        VG_(printf)("Did not instrument Ist_CAS statement.\n");
+        break;
+      }
+
+      case Ist_LLSC: {
+        VG_(printf)("Did not instrument Ist_LLSC statement.\n");
+        break;
+      }
+
       case Ist_Dirty: {
         VG_(printf)("Cannot instrument Ist_Dirty statement.\n");
         break;
       }
 
+      // the following statement types can be ignored by each tool
+      case Ist_NoOp: case Ist_IMark: case Ist_AbiHint:
+        break;
+      // the following statements have no relevance for AD
+      case Ist_Exit: case Ist_MBE:
+        break;
+
       default: {
+        tl_assert(False);
         break;
       }
     }
