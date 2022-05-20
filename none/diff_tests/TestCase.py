@@ -84,7 +84,6 @@ class TestCase:
         if r:
           pointer = r.group(1)
           gdb.stdin.write("monitor set "+pointer+" "+str(self.grads[var])+"\n")
-          gdb.stdin.write("monitor set "+pointer+" "+str(self.grads[var])+"\n") # TODO why must this be done twice??
           break
     gdb.stdin.write("continue\n")
     # check values

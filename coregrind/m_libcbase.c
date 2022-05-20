@@ -210,7 +210,7 @@ ULong VG_(strtoull16) ( const HChar* str, HChar** endptr )
    return n;
 }
 
-double VG_(strtod) ( const HChar* str, HChar** endptr )
+__attribute__((optimize("O0"))) double VG_(strtod) ( const HChar* str, HChar** endptr )
 {
    Bool neg = False;
    Long digit;
