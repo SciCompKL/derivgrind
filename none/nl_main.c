@@ -118,7 +118,7 @@ ULong nl_align8(ULong addr){
 static
 VG_REGPARM(0) void nl_Store_diff(Addr addr, ULong derivative){
   addr = nl_align8(addr);
-  VG_(printf)("nl_Store_diff %p %lf\n", addr, *(Double*)&derivative );
+  // VG_(printf)("nl_Store_diff %p %lf\n", addr, *(Double*)&derivative );
   for(int i=0; i<8; i++){
     shadow_set_bits(my_sm,((SM_Addr)addr)+i,  *( ((U8*)&derivative) + i ));
   }
@@ -128,12 +128,12 @@ static
 VG_REGPARM(0) ULong nl_Load_diff( Addr addr){
   addr = nl_align8(addr);
   ULong derivative=0;
-  VG_(printf)("nl_Load_diff %p\n", addr);
+  // VG_(printf)("nl_Load_diff %p\n", addr);
   for(int i=0; i<8; i++){
-    VG_(printf)("Iter %d, will access addr=%p and write to %p\n", i, ((SM_Addr)addr)+i,  ((U8*)&derivative)+i);
+    // VG_(printf)("Iter %d, will access addr=%p and write to %p\n", i, ((SM_Addr)addr)+i,  ((U8*)&derivative)+i);
     shadow_get_bits(my_sm,((SM_Addr)addr)+i, ((U8*)&derivative)+i);
   }
-  VG_(printf)("nl_Load_diff return %lf\n", *(double*)&derivative);
+  // VG_(printf)("nl_Load_diff return %lf\n", *(double*)&derivative);
   return derivative;
 }
 
@@ -310,8 +310,6 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           IRExpr* numerator = d2;
           IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
           IRExpr* denominator =  IRExpr_Triop(Iop_MulF64, arg1, consttwo, IRExpr_Binop(Iop_SqrtF64, arg1, arg2) );
-          nl_add_print_stmt(stmt_counter*100+14,diffenv.sb_out, numerator);
-          nl_add_print_stmt(stmt_counter*100+15,diffenv.sb_out, denominator);
           return IRExpr_Triop(Iop_DivF64, arg1, numerator, denominator);
         } break;
         default:
@@ -386,7 +384,6 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       }
     } break;
     case Iex_Load: {
-      nl_add_print_stmt(stmt_counter*100+16,diffenv.sb_out, ex->Iex.Load.addr);
       switch(ex->Iex.Load.ty){
         case Ity_F64: case Ity_I64: case Ity_I32: {
           // load data
@@ -468,7 +465,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
   for (/* use current i*/; i < sb_in->stmts_used; i++) {
     stmt_counter++;
     IRStmt* st = sb_in->stmts[i];
-    VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
+    //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
     switch(st->tag){
       case Ist_WrTmp: {
         // AD treatment only if a floating point type is written
@@ -509,13 +506,11 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           addr = st->Ist.Store.addr;
           data = st->Ist.Store.data;
           guarded = False;
-          nl_add_print_stmt(stmt_counter*100+11,diffenv.sb_out, st->Ist.Store.addr);
         } else {
           end = st->Ist.StoreG.details->end;
           addr = st->Ist.StoreG.details->addr;
           data = st->Ist.StoreG.details->data;
           guarded = True;
-          nl_add_print_stmt(stmt_counter*100+12,diffenv.sb_out, st->Ist.StoreG.details->addr);
 
         }
         IRType type = typeOfIRExpr(sb_in->tyenv,data);
@@ -537,7 +532,6 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         break;
       }
       case Ist_LoadG: {
-          nl_add_print_stmt(stmt_counter*100+13,diffenv.sb_out, st->Ist.LoadG.details->addr);
         IRLoadG* det = st->Ist.LoadG.details;
         IRType type = sb_in->tyenv->types[det->dst];
         if(type==Ity_F64 || type==Ity_I64 || type==Ity_I32){
