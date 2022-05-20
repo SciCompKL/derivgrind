@@ -460,6 +460,25 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         }
         break;
       }
+      case Ist_PutI: {
+        IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
+        if(type==Ity_F64){
+          IRExpr* differentiated_expr = differentiate_expr(st->Ist.PutI.details->data, diffenv);
+          if(!differentiated_expr){
+            differentiated_expr = IRExpr_Const(IRConst_F64(0.));
+            VG_(printf)("Warning: Expression\n");
+            ppIRExpr(st->Ist.PutI.details->data);
+            VG_(printf)("could not be differentiated, PutI'ing 0 instead.\n\n");
+          }
+          IRRegArray* descr = st->Ist.PutI.details->descr;
+          IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB, descr->elemTy, descr->nElems);
+          Int bias = st->Ist.PutI.details->bias;
+          IRExpr* ix = st->Ist.PutI.details->ix;
+          IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv.layout->total_sizeB,differentiated_expr));
+          addStmtToIRSB(sb_out, sp);
+        }
+        break;
+      }
       case Ist_Store: case Ist_StoreG: {
         IREndness end; IRExpr* addr; IRExpr* data; Bool guarded;
         if(st->tag == Ist_Store){
