@@ -129,6 +129,40 @@ VG_REGPARM(0) ULong nl_Load_diff( Addr addr){
   return derivative;
 }
 
+static VG_REGPARM(0) void nl_Print_double(ULong value){ VG_(printf)("Value: %lf\n", *(double*)&value); }
+static VG_REGPARM(0) void nl_Print_unsignedlong(ULong value){ VG_(printf)("Value: %lf\n", *(unsigned long*)&value); }
+
+/*! Add dirty statement to IRSB, which prints the value of expr.
+ */
+static
+void nl_add_print_stmt(IRSB* sb_out, IRExpr* expr){
+  IRType type = typeOfIRExpr(sb_out->tyenv, expr);
+  char* fname;
+  void* fptr;
+  IRExpr* expr_to_print;
+  switch(type){
+    case Ity_F64:
+      fname = "nl_Print_double";
+      fptr = nl_Print_double;
+      expr_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,expr);
+      break;
+    case Ity_I64:
+      fname = "nl_Print_unsignedlong";
+      fptr = nl_Print_unsignedlong;
+      expr_to_print = expr;
+      break;
+    default:
+      VG_(printf)("Bad type in nl_add_print_stmt.\n");
+      return;
+  }
+  IRDirty* di = unsafeIRDirty_0_N(
+        0,
+        fname, VG_(fnptr_to_fnentry)(fptr),
+        mkIRExprVec_1(expr_to_print));
+  addStmtToIRSB(sb_out, IRStmt_Dirty(di));
+
+}
+
 static
 Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
   HChar s[VG_(strlen)(req)+1]; //!< copy of req for strtok_r
@@ -258,6 +292,8 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           IRExpr* numerator = d2;
           IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
           IRExpr* denominator =  IRExpr_Triop(Iop_MulF64, arg1, consttwo, IRExpr_Binop(Iop_SqrtF64, arg1, arg2) );
+          nl_add_print_stmt(diffenv.sb_out, numerator);
+          nl_add_print_stmt(diffenv.sb_out, denominator);
           return IRExpr_Triop(Iop_DivF64, arg1, numerator, denominator);
         } break;
         default:
