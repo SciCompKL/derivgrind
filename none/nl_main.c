@@ -550,6 +550,11 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         }
       }
 
+      case Ist_Dirty: {
+        VG_(printf)("Cannot instrument Ist_Dirty statement.\n");
+        break;
+      }
+
       default: {
         break;
       }
