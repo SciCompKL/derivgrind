@@ -326,6 +326,8 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           return IRExpr_Const(IRConst_F64(0.));
         case Ico_F64i:
           return IRExpr_Const(IRConst_F64i(0.));
+        case Ico_U64:
+          return IRExpr_Const(IRConst_U64(0));
         default:
           return NULL;
       }
@@ -339,7 +341,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     case Iex_RdTmp: {
       IRTemp t = ex->Iex.RdTmp.tmp;
       switch(diffenv.sb_out->tyenv->types[t]){
-        case Ity_F64:
+        case Ity_F64: case Ity_I64:
           return IRExpr_RdTmp(t+diffenv.t_offset);
         default:
           return NULL;
@@ -347,8 +349,8 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     } break;
     case Iex_Get: {
       switch(ex->Iex.Get.ty){
-        case Ity_F64:
-          return IRExpr_Get(ex->Iex.Get.offset+diffenv.layout->total_sizeB,ex->Iex.Get.ty);
+        case Ity_F64: case Ity_I64:
+          return IRExpr_Get(ex->Iex.Get.offset+diffenv.layout->total_sizeB,Ity_F64);
         default:
           return NULL;
       }
@@ -358,8 +360,8 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       IRExpr* ix = ex->Iex.GetI.ix;
       Int bias = ex->Iex.GetI.bias;
       switch(descr->elemTy){
-        case Ity_F64: {
-          IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB,descr->elemTy,descr->nElems);
+        case Ity_F64: case Ity_I64: {
+          IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB,Ity_F64,descr->nElems);
           return IRExpr_GetI(descr_diff,ix,bias+diffenv.layout->total_sizeB);
         }
         default:
@@ -368,7 +370,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     } break;
     case Iex_Load: {
       switch(ex->Iex.Load.ty){
-        case Ity_F64: {
+        case Ity_F64: case Ity_I64: {
           // load data
           IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, Ity_I64);
           IRDirty* di = unsafeIRDirty_1_N(
@@ -393,6 +395,25 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
   }
 }
 
+/*! Try to differentiate expression. If this fails, return a constant zero expression.
+ *  \param[in] expr - expression to be differentiated
+ *  \param[in] diffenv - additional data
+ *  \param[in] warn - If true, a warning message will be printed.
+ *  \param[in] operation - Word for how the derivative is used, e.g. 'WrTmp' or 'Store'.
+ */
+static
+IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const char* operation){
+  IRExpr* diff = differentiate_expr(expr, diffenv);
+  if(diff==NULL){
+    diff = IRExpr_Const(IRConst_F64(0.));
+    if(warn){
+      VG_(printf)("Warning: Expression\n");
+      ppIRExpr(expr);
+      VG_(printf)("could not be differentiated, %s'ing 0 instead.\n\n", operation);
+    }
+  }
+  return diff;
+}
 
 static
 IRSB* nl_instrument ( VgCallbackClosure* closure,
@@ -414,7 +435,9 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
     }
   }
   for(IRTemp t=0; t<diffenv.t_offset; t++){
-    newIRTemp(sb_out->tyenv, sb_out->tyenv->types[t]);
+    IRType type = sb_out->tyenv->types[t];
+    if(type==Ity_I64) type=Ity_F64;
+    newIRTemp(sb_out->tyenv, type);
   }
 
   diffenv.sb_out = sb_out;
@@ -433,14 +456,8 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       case Ist_WrTmp: {
         // AD treatment only if a floating point type is written
         IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
-        if(type==Ity_F64){
-          IRExpr* differentiated_expr = differentiate_expr(st->Ist.WrTmp.data, diffenv);
-          if(!differentiated_expr){
-            differentiated_expr = IRExpr_Const(IRConst_F64(0.));
-            VG_(printf)("Warning: Expression\n");
-            ppIRExpr(st->Ist.WrTmp.data);
-            VG_(printf)("could not be differentiated, WrTmp'ting 0 instead.\n\n");
-          }
+        if(type==Ity_F64 || type==Ity_I64){
+          IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,type==Ity_F64,"WrTmp");
           IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
           addStmtToIRSB(sb_out, sp);
         }
@@ -448,14 +465,8 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       }
       case Ist_Put: {
         IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
-        if(type==Ity_F64){
-          IRExpr* differentiated_expr = differentiate_expr(st->Ist.Put.data, diffenv);
-          if(!differentiated_expr){
-            differentiated_expr = IRExpr_Const(IRConst_F64(0.));
-            VG_(printf)("Warning: Expression\n");
-            ppIRExpr(st->Ist.Put.data);
-            VG_(printf)("could not be differentiated, Put'ting 0 instead.\n\n");
-          }
+        if(type==Ity_F64 || type==Ity_I64){
+          IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,type==Ity_F64,"Put");
           IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
           addStmtToIRSB(sb_out, sp);
         }
@@ -463,14 +474,8 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       }
       case Ist_PutI: {
         IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
-        if(type==Ity_F64){
-          IRExpr* differentiated_expr = differentiate_expr(st->Ist.PutI.details->data, diffenv);
-          if(!differentiated_expr){
-            differentiated_expr = IRExpr_Const(IRConst_F64(0.));
-            VG_(printf)("Warning: Expression\n");
-            ppIRExpr(st->Ist.PutI.details->data);
-            VG_(printf)("could not be differentiated, PutI'ing 0 instead.\n\n");
-          }
+        if(type==Ity_F64 || type==Ity_I64){
+          IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,type==Ity_F64,"PutI");
           IRRegArray* descr = st->Ist.PutI.details->descr;
           IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB, descr->elemTy, descr->nElems);
           Int bias = st->Ist.PutI.details->bias;
@@ -494,19 +499,15 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           guarded = True;
         }
         IRType type = typeOfIRExpr(sb_in->tyenv,data);
-        if(type==Ity_F64){
-          IRExpr* differentiated_expr = differentiate_expr(data, diffenv);
+        if(type==Ity_F64 || type==Ity_I64){
+          IRExpr* differentiated_expr = differentiate_or_zero(data, diffenv, type==Ity_F64,"Store");
           // The Store.data is an IREXpr_Const or IRExpr_Tmp, so this holds
           // for its derivative as well. Compare this to Memcheck's IRAtom.
-          // Still general treatment here.
-          if(!differentiated_expr){
-            differentiated_expr = IRExpr_Const(IRConst_F64(0.));
-            VG_(printf)("Warning: Expression\n");
-            ppIRExpr(data);
-            VG_(printf)("could not be differentiated, Store'ing 0 instead.\n\n");
-          }
-          IRExpr* differentiated_expr_reinterpreted =
-              IRExpr_Unop(Iop_ReinterpF64asI64, differentiated_expr);
+          IRExpr* differentiated_expr_reinterpreted;
+          if(type==Ity_F64)
+            differentiated_expr_reinterpreted = IRExpr_Unop(Iop_ReinterpF64asI64, differentiated_expr);
+          else
+            differentiated_expr_reinterpreted = differentiated_expr;
           IRDirty* di = unsafeIRDirty_0_N(
                   0,
                   "nl_Store_diff", VG_(fnptr_to_fnentry)(nl_Store_diff),
@@ -522,15 +523,9 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       case Ist_LoadG: {
         IRLoadG* det = st->Ist.LoadG.details;
         IRType type = sb_in->tyenv->types[det->dst];
-        if(type==Ity_F64){
-          tl_assert(det->cvt == ILGop_Ident64); // what else could you load into double?
-          IRExpr* differentiated_expr_alt = differentiate_expr(det->alt,diffenv);
-          if(!differentiated_expr_alt){
-            differentiated_expr_alt = IRExpr_Const(IRConst_F64(0.));
-            VG_(printf)("Warning: Expression\n");
-            ppIRExpr(det->alt);
-            VG_(printf)("could not be differentiated, alternative-LoadG'ing 0 instead.\n\n");
-          }
+        if(type==Ity_F64 || type==Ity_I64){
+          if(type==Ity_F64) tl_assert(det->cvt == ILGop_Ident64); // what else could you load into double?
+          IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,type==Ity_F64,"alternative-LoadG");
           // compare the following to Iop_Load
           IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, Ity_I64);
           IRDirty* di = unsafeIRDirty_1_N(
