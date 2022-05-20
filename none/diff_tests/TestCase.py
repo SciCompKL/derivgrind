@@ -23,17 +23,17 @@ class TestCase:
       {self.include}
       int main(){{
         { " ".join([" double "+var+" = "+str(self.vals[var])+";" for var in self.vals]) }
-        _testcase_before_stmt: ;
+        /*_testcase_before_stmt*/ __asm__("nop");
         {self.stmt};
-        _testcase_after_stmt: ;
+        /*_testcase_after_stmt*/ __asm__("nop");
       }}
     """
     self.line_before_stmt = 0
     self.line_after_stmt = 0
     for i, line in enumerate(self.code.split("\n")):
-      if line.strip() == "_testcase_before_stmt: ;":
+      if line.strip().startswith("/*_testcase_before_stmt*/"):
         self.line_before_stmt = i+1
-      if line.strip() == "_testcase_after_stmt: ;":
+      if line.strip().startswith("/*_testcase_after_stmt*/"):
         self.line_after_stmt = i+1
     assert self.line_before_stmt != 0
     assert self.line_after_stmt != 0
@@ -45,14 +45,14 @@ class TestCase:
     # query GCC for all optimization options, and find flags to disable the enabled ones
     blacklist = ["stack-protector-strong","no-threadsafe-statics"] # these should not be disabled (as this would cause errors)
     options = []
-    compile_flags_process = subprocess.run(["gcc", "-Q", "--help=optimizers", "-g", "-m32", "TestCase_src.c", "-o", "TestCase_exec"] + self.cflags.split() + self.ldflags.split(),stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True)
+    compile_flags_process = subprocess.run(["gcc", "-Q", "--help=optimizers", "-g", "-O0", "-m32", "TestCase_src.c", "-o", "TestCase_exec"] + self.cflags.split() + self.ldflags.split(),stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True)
     for line in compile_flags_process.stdout.split("\n"):
       r = re.search(r"^\s*-f(\S+)\s*\[enabled\]", line)
       if r:
         if r.group(1) not in blacklist:
           options.append("-fno-"+r.group(1))
     # compile with disabled options
-    compile_process = subprocess.run(["gcc", "-g", "-m32", "TestCase_src.c", "-o", "TestCase_exec"] + options + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    compile_process = subprocess.run(["gcc", "-g", "-O0", "-m32", "TestCase_src.c", "-o", "TestCase_exec"] + options + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 

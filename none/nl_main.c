@@ -428,6 +428,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
   }
   for (/* use current i*/; i < sb_in->stmts_used; i++) {
     IRStmt* st = sb_in->stmts[i];
+    //ppIRStmt(st); VG_(printf)("\n");
     switch(st->tag){
       case Ist_WrTmp: {
         // AD treatment only if a floating point type is written
