@@ -70,6 +70,8 @@ inline void  shadow_out_of_memory() {
 
 ShadowMap* my_sm = NULL;
 
+static unsigned long stmt_counter = 0; // Can be used to tag nl_add_print_stmt outputs.
+
 static void nl_post_clo_init(void)
 {
 }
@@ -129,13 +131,17 @@ VG_REGPARM(0) ULong nl_Load_diff( Addr addr){
   return derivative;
 }
 
-static VG_REGPARM(0) void nl_Print_double(ULong value){ VG_(printf)("Value: %lf\n", *(double*)&value); }
-static VG_REGPARM(0) void nl_Print_unsignedlong(ULong value){ VG_(printf)("Value: %lf\n", *(unsigned long*)&value); }
+static VG_REGPARM(0) void nl_Print_double(ULong tag, ULong value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%lf\n", *(double*)&value); }
+static VG_REGPARM(0) void nl_Print_unsignedlong(ULong tag, ULong value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%p\n", (void*)value); }
+static VG_REGPARM(0) void nl_Print_unsignedint(ULong tag, Int value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%p\n", (void*)value); }
 
-/*! Add dirty statement to IRSB, which prints the value of expr.
+/*! Add a dirty statement to IRSB that prints the value of expr whenever it is run.
+ *  \param[in] tag - Choose arbitrarily, will be printed alongside.
+ *  \param[in] sb_out - IRSB to which the dirty statement is added.
+ *  \param[in] expr - Expression.
  */
 static
-void nl_add_print_stmt(IRSB* sb_out, IRExpr* expr){
+void nl_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
   IRType type = typeOfIRExpr(sb_out->tyenv, expr);
   char* fname;
   void* fptr;
@@ -151,6 +157,11 @@ void nl_add_print_stmt(IRSB* sb_out, IRExpr* expr){
       fptr = nl_Print_unsignedlong;
       expr_to_print = expr;
       break;
+    case Ity_I32:
+      fname = "nl_Print_unsignedint";
+      fptr = nl_Print_unsignedint;
+      expr_to_print = expr;
+      break;
     default:
       VG_(printf)("Bad type in nl_add_print_stmt.\n");
       return;
@@ -158,7 +169,7 @@ void nl_add_print_stmt(IRSB* sb_out, IRExpr* expr){
   IRDirty* di = unsafeIRDirty_0_N(
         0,
         fname, VG_(fnptr_to_fnentry)(fptr),
-        mkIRExprVec_1(expr_to_print));
+        mkIRExprVec_2(IRExpr_Const(IRConst_U64(tag)), expr_to_print));
   addStmtToIRSB(sb_out, IRStmt_Dirty(di));
 
 }
@@ -292,8 +303,8 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           IRExpr* numerator = d2;
           IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
           IRExpr* denominator =  IRExpr_Triop(Iop_MulF64, arg1, consttwo, IRExpr_Binop(Iop_SqrtF64, arg1, arg2) );
-          nl_add_print_stmt(diffenv.sb_out, numerator);
-          nl_add_print_stmt(diffenv.sb_out, denominator);
+          nl_add_print_stmt(stmt_counter*100+14,diffenv.sb_out, numerator);
+          nl_add_print_stmt(stmt_counter*100+15,diffenv.sb_out, denominator);
           return IRExpr_Triop(Iop_DivF64, arg1, numerator, denominator);
         } break;
         default:
@@ -369,6 +380,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       }
     } break;
     case Iex_Load: {
+      nl_add_print_stmt(stmt_counter*100+16,diffenv.sb_out, ex->Iex.Load.addr);
       switch(ex->Iex.Load.ty){
         case Ity_F64: case Ity_I64: {
           // load data
@@ -450,8 +462,9 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
      i++;
   }
   for (/* use current i*/; i < sb_in->stmts_used; i++) {
+    stmt_counter++;
     IRStmt* st = sb_in->stmts[i];
-    //VG_(printf)("next stmt:"); ppIRStmt(st); VG_(printf)("\n");
+    VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
     switch(st->tag){
       case Ist_WrTmp: {
         // AD treatment only if a floating point type is written
@@ -492,11 +505,14 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           addr = st->Ist.Store.addr;
           data = st->Ist.Store.data;
           guarded = False;
+          nl_add_print_stmt(stmt_counter*100+11,diffenv.sb_out, st->Ist.Store.addr);
         } else {
           end = st->Ist.StoreG.details->end;
           addr = st->Ist.StoreG.details->addr;
           data = st->Ist.StoreG.details->data;
           guarded = True;
+          nl_add_print_stmt(stmt_counter*100+12,diffenv.sb_out, st->Ist.StoreG.details->addr);
+
         }
         IRType type = typeOfIRExpr(sb_in->tyenv,data);
         if(type==Ity_F64 || type==Ity_I64){
@@ -521,6 +537,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         break;
       }
       case Ist_LoadG: {
+          nl_add_print_stmt(stmt_counter*100+13,diffenv.sb_out, st->Ist.LoadG.details->addr);
         IRLoadG* det = st->Ist.LoadG.details;
         IRType type = sb_in->tyenv->types[det->dst];
         if(type==Ity_F64 || type==Ity_I64){
