@@ -353,6 +353,19 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           return NULL;
       }
     } break;
+    case Iex_GetI: {
+      IRRegArray* descr = ex->Iex.GetI.descr;
+      IRExpr* ix = ex->Iex.GetI.ix;
+      Int bias = ex->Iex.GetI.bias;
+      switch(descr->elemTy){
+        case Ity_F64: {
+          IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB,descr->elemTy,descr->nElems);
+          return IRExpr_GetI(descr_diff,ix,bias+diffenv.layout->total_sizeB);
+        }
+        default:
+          return NULL;
+      }
+    } break;
     case Iex_Load: {
       switch(ex->Iex.Load.ty){
         case Ity_F64: {
