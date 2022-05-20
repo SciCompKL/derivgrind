@@ -10,7 +10,7 @@ sqrt.vals = {'a':4.0}
 sqrt.grads = {'a':1.0}
 sqrt.test_vals = {'c':2.0}
 sqrt.test_grads = {'c':0.5}
-testlist.append(sqrt)
+# testlist.append(sqrt)
 
 ### Basic arithmetic operations ###
 
