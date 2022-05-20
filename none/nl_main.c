@@ -247,6 +247,23 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           return NULL;
       }
     } break;
+    case Iex_Binop: {
+      IROp op = ex->Iex.Binop.op;
+      IRExpr* arg1 = ex->Iex.Binop.arg1;
+      IRExpr* arg2 = ex->Iex.Binop.arg2;
+      IRExpr* d2 = differentiate_expr(arg2,diffenv);
+      if(d2==NULL) return NULL;
+      switch(op){
+        case Iop_SqrtF64: {
+          IRExpr* numerator = d2;
+          IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
+          IRExpr* denominator =  IRExpr_Triop(Iop_MulF64, arg1, consttwo, IRExpr_Binop(Iop_SqrtF64, arg1, arg2) );
+          return IRExpr_Triop(Iop_DivF64, arg1, numerator, denominator);
+        } break;
+        default:
+          return NULL;
+      }
+    } break;
     case Iex_Unop: {
       IROp op = ex->Iex.Unop.op;
       IRExpr* arg = ex->Iex.Unop.arg;
@@ -255,12 +272,6 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       switch(op){
         case Iop_NegF64: {
           return IRExpr_Unop(Iop_NegF64,d);
-        } break;
-        case Iop_SqrtF64: {
-          IRExpr* numerator = d;
-          IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
-          IRExpr* denominator =  IRExpr_Triop(Iop_MulF64, DEFAULT_ROUNDING, consttwo, IRExpr_Unop(Iop_SqrtF64, arg) );
-          return IRExpr_Triop(Iop_DivF64, DEFAULT_ROUNDING, numerator, denominator);
         } break;
         case Iop_AbsF64: {
           // if arg evaluates positive, the Iop_CmpF64 evaluates to 0 i.e. false
@@ -479,9 +490,6 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
 
   }
 
-  U8 tmp = 0;
-   shadow_get_bits(my_sm, 0xffff1111, &tmp);
-  VG_(printf)("shadow bits: %d\n", tmp);
    return sb_out;
 }
 

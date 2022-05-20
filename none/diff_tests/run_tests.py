@@ -2,6 +2,18 @@ from TestCase import TestCase
 
 testlist = []
 
+sqrt = TestCase("sqrt")
+sqrt.include = "#include <math.h>"
+sqrt.ldflags = '-lm'
+sqrt.stmt = "double c = sqrt(a);"
+sqrt.vals = {'a':4.0}
+sqrt.grads = {'a':1.0}
+sqrt.test_vals = {'c':2.0}
+sqrt.test_grads = {'c':0.5}
+testlist.append(sqrt)
+
+### Basic arithmetic operations ###
+
 addition = TestCase("addition")
 addition.stmt = "double c = a+b;"
 addition.vals = {'a':1.0,'b':2.0}
