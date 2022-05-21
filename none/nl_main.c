@@ -326,10 +326,10 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           return IRExpr_Unop(Iop_NegF64,d);
         } break;
         case Iop_AbsF64: {
-          // if arg evaluates positive, the Iop_CmpF64 evaluates to 0 i.e. false
+          // If arg >= 0, we get Ircr_GT or Ircr_EQ, thus the Iop_32to1 gives a 0 bit.
           IRExpr* cond = IRExpr_Binop(Iop_CmpF64, arg, IRExpr_Const(IRConst_F64(0.)));
           IRExpr* minus_d = IRExpr_Unop(Iop_NegF64, d);
-          return IRExpr_ITE(cond, minus_d, d);
+          return IRExpr_ITE(IRExpr_Unop(Iop_32to1,cond), minus_d, d);
         } break;
         default:
           return NULL;

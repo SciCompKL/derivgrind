@@ -1,6 +1,27 @@
+import numpy as np
 from TestCase import TestCase
 
 testlist = []
+
+sin_405 = TestCase("sin_405")
+sin_405.include = "#include <math.h>"
+sin_405.ldflags = '-lm'
+sin_405.stmt = "double c = sin(a);"
+sin_405.vals = {'a':np.pi*405/180}
+sin_405.grads = {'a':1.0}
+sin_405.test_vals = {'c':1/np.sqrt(2)}
+sin_405.test_grads = {'c':1/np.sqrt(2)}
+#testlist.append(sin_405)
+
+cos_405 = TestCase("cos_405")
+cos_405.include = "#include <math.h>"
+cos_405.ldflags = '-lm'
+cos_405.stmt = "double c = cos(a);"
+cos_405.vals = {'a':np.pi*405/180}
+cos_405.grads = {'a':1.0}
+cos_405.test_vals = {'c':1/np.sqrt(2)}
+cos_405.test_grads = {'c':-1/np.sqrt(2)}
+#testlist.append(cos_405)
 
 ### Basic arithmetic operations ###
 
@@ -100,6 +121,8 @@ division_const_r.test_vals = {'c':4.0}
 division_const_r.test_grads = {'c':6.0}
 testlist.append(division_const_r)
 
+### Advances arithmetic and trigonometric operations ###
+
 sqrt = TestCase("sqrt")
 sqrt.include = "#include <math.h>"
 sqrt.ldflags = '-lm'
@@ -109,6 +132,50 @@ sqrt.grads = {'a':1.0}
 sqrt.test_vals = {'c':2.0}
 sqrt.test_grads = {'c':0.25}
 testlist.append(sqrt)
+
+abs_plus = TestCase("abs_plus")
+abs_plus.include = "#include <math.h>"
+abs_plus.ldflags = '-lm'
+abs_plus.stmt = "double c = fabs(a);"
+abs_plus.vals = {'a':1.0}
+abs_plus.grads = {'a':2.0}
+abs_plus.test_vals = {'c':1.0}
+abs_plus.test_grads = {'c':2.0}
+testlist.append(abs_plus)
+
+abs_minus = TestCase("abs_minus")
+abs_minus.include = "#include <math.h>"
+abs_minus.ldflags = '-lm'
+abs_minus.stmt = "double c = fabs(a);"
+abs_minus.vals = {'a':-1.0}
+abs_minus.grads = {'a':2.0}
+abs_minus.test_vals = {'c':1.0}
+abs_minus.test_grads = {'c':-2.0}
+testlist.append(abs_minus)
+
+sin_0 = TestCase("sin_0")
+sin_0.include = "#include <math.h>"
+sin_0.ldflags = '-lm'
+sin_0.stmt = "double c = sin(a);"
+sin_0.vals = {'a':0.0}
+sin_0.grads = {'a':1.0}
+sin_0.test_vals = {'c':0.0}
+sin_0.test_grads = {'c':1.0}
+testlist.append(sin_0)
+
+cos_0 = TestCase("cos_0")
+cos_0.include = "#include <math.h>"
+cos_0.ldflags = '-lm'
+cos_0.stmt = "double c = cos(a);"
+cos_0.vals = {'a':0.0}
+cos_0.grads = {'a':1.0}
+cos_0.test_vals = {'c':1.0}
+cos_0.test_grads = {'c':0.0}
+testlist.append(cos_0)
+
+
+
+### Control structures ###
 
 ifbranch = TestCase("ifbranch")
 ifbranch.stmt = "double c; if(a<1) c = 2+a; else c = 2*a; "
@@ -125,6 +192,23 @@ elsebranch.grads = {'a':1.0}
 elsebranch.test_vals = {'c':0.0}
 elsebranch.test_grads = {'c':2.0}
 testlist.append(elsebranch)
+
+ternary_true = TestCase("ternary_true")
+ternary_true.stmt = "double c = (a>-1) ? (3*a) : (a*a);"
+ternary_true.vals = {'a':10.0}
+ternary_true.grads = {'a':1.0}
+ternary_true.test_vals = {'c':30.0}
+ternary_true.test_grads = {'c':3.0}
+testlist.append(ternary_true)
+
+ternary_false = TestCase("ternary_false")
+ternary_false.stmt = "double c = (a>-1) ? (3*a) : (a*a);"
+ternary_false.vals = {'a':-10.0}
+ternary_false.grads = {'a':1.0}
+ternary_false.test_vals = {'c':100.0}
+ternary_false.test_grads = {'c':-20.0}
+testlist.append(ternary_false)
+
 
 addition_forloop = TestCase("addition_forloop")
 addition_forloop.stmt = "double c = 0; for(int i=0; i<10; i++) c+=a;"
