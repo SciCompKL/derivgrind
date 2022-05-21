@@ -2,16 +2,6 @@ from TestCase import TestCase
 
 testlist = []
 
-sqrt = TestCase("sqrt")
-sqrt.include = "#include <math.h>"
-sqrt.ldflags = '-lm'
-sqrt.stmt = "double c = sqrt(a);"
-sqrt.vals = {'a':4.0}
-sqrt.grads = {'a':1.0}
-sqrt.test_vals = {'c':2.0}
-sqrt.test_grads = {'c':0.5}
-# testlist.append(sqrt)
-
 ### Basic arithmetic operations ###
 
 addition = TestCase("addition")
@@ -110,6 +100,15 @@ division_const_r.test_vals = {'c':4.0}
 division_const_r.test_grads = {'c':6.0}
 testlist.append(division_const_r)
 
+sqrt = TestCase("sqrt")
+sqrt.include = "#include <math.h>"
+sqrt.ldflags = '-lm'
+sqrt.stmt = "double c = sqrt(a);"
+sqrt.vals = {'a':4.0}
+sqrt.grads = {'a':1.0}
+sqrt.test_vals = {'c':2.0}
+sqrt.test_grads = {'c':0.25}
+testlist.append(sqrt)
 
 ifbranch = TestCase("ifbranch")
 ifbranch.stmt = "double c; if(a<1) c = 2+a; else c = 2*a; "
