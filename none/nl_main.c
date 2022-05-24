@@ -201,7 +201,7 @@ static IRExpr* convertToInteger(IRExpr* expr, IRType type){
 static IRExpr* convertFromInteger(IRExpr* expr, IRType type){
   switch(type){
     case Ity_F32:
-      return IRExpr_Unop(Iop_ReinterpI32asF32, expr);
+      return IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32,expr));
     case Ity_F64:
       return IRExpr_Unop(Iop_ReinterpI64asF64, expr);
     case Ity_I8:
@@ -445,6 +445,9 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         IRExpr* denominator =  IRExpr_Triop(Iop_MulF32, arg1, consttwo, IRExpr_Binop(Iop_SqrtF32, arg1, arg2) );
         return IRExpr_Triop(Iop_DivF32, arg1, numerator, denominator);
       }
+      case Iop_F64toF32: {
+        return IRExpr_Binop(Iop_F64toF32, arg1, d2);
+      }
       default:
         return NULL;
     }
@@ -466,6 +469,9 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         IRExpr* cond = IRExpr_Binop(Iop_CmpF32, arg, IRExpr_Const(IRConst_F32(0.)));
         IRExpr* minus_d = IRExpr_Unop(Iop_NegF32, d);
         return IRExpr_ITE(IRExpr_Unop(Iop_32to1,cond), minus_d, d);
+      }
+      case Iop_F32toF64: {
+        return IRExpr_Unop(Iop_F32toF64, d);
       }
       default:
         return NULL;
