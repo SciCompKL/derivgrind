@@ -83,136 +83,121 @@ static void nl_post_clo_init(void)
  *  we emit Ist_Dirty statements. When those are executed, the call the
  *  functions nl_Store_diffN, nl_Load_diffN which access the shadow memory.
  *
- *  However, these functions can only accept and return integers arguments.
- *  Therefore we have to reinterpret floating-point variables as integers.
+ *  However, these functions can only accept and return 4- and 8-byte
+ *  integers arguments. Therefore we reinterpret all types, including
+ *  floating-point types, as 8-byte integers.
  *
  *  These casts have been implemented for Ity_I8, Ity_I16, Ity_I32, Ity_I64,
- *  Ity_F32, Ity_F64. For the remaining types, gradient information is not
- *  further transported currently.
+ *  Ity_F32, Ity_F64. For the remaining types, we miss suitable Iop's to
+ *  convert them. As a consequence, we cannot transport gradient information
+ *  through the remaining types.
  *
  */
 
 /*! Store an 8-byte tangent value in shadow memory. Invoked by an Ist_Dirty during execution
  *  of the generated code.
- *  \param[in] addr - Address of the original variable.
+ *  \param[in] addr - Address of the variable.
  *  \param[in] derivative - Tangent value, reinterpreted as 8-byte integer.
+ *  \param[in] size - Original size of the variable.
  */
-#define MAKE_nl_Store_diff(nbytes,type) \
-static VG_REGPARM(0) void nl_Store_diff##nbytes(Addr addr, type derivative){ \
-  for(int i=0; i<nbytes; i++){ \
-    shadow_set_bits(my_sm,((SM_Addr)addr)+i,  *( ((U8*)&derivative) + i )); \
-  } \
+static
+VG_REGPARM(0) void nl_Store_diff(Addr addr, ULong derivative, UChar size){
+  for(int i=0; i<size; i++){
+    shadow_set_bits(my_sm,((SM_Addr)addr)+i,  *( ((U8*)&derivative) + i ));
+  }
 }
-MAKE_nl_Store_diff(1,UChar)
-MAKE_nl_Store_diff(2,UShort)
-MAKE_nl_Store_diff(4,UInt)
-MAKE_nl_Store_diff(8,ULong)
+
+static VG_REGPARM(0) void nl_Store_diff1(Addr addr, ULong derivative){nl_Store_diff(addr,derivative,1);}
+static VG_REGPARM(0) void nl_Store_diff2(Addr addr, ULong derivative){nl_Store_diff(addr,derivative,2);}
+static VG_REGPARM(0) void nl_Store_diff4(Addr addr, ULong derivative){nl_Store_diff(addr,derivative,4);}
+static VG_REGPARM(0) void nl_Store_diff8(Addr addr, ULong derivative){nl_Store_diff(addr,derivative,8);}
 
 /*! Load a tangent value from shadow memory. Invokes by an Ist_Dirty during execution
  *  of the generated code.
- *  \param[in] addr - Address of the original variable.
- *  \returns Tangent value.
+ *  \param[in] addr - Address of the variable.
+ *  \param[in] size - Original size of the variable
+ *  \returns Tangent value, reinterpreted as 8-byte integer.
  */
-#define MAKE_nl_Load_diff(nbytes,type) \
-static VG_REGPARM(0) type nl_Load_diff##nbytes(Addr addr){ \
-  type derivative=0; \
-  for(int i=0; i<nbytes; i++){ \
-    shadow_get_bits(my_sm,((SM_Addr)addr)+i, ((U8*)&derivative)+i); \
-  } \
-  return derivative; \
+static
+VG_REGPARM(0) ULong nl_Load_diff(Addr addr, UChar size){
+  ULong derivative=0;
+  for(int i=0; i<size; i++){
+    shadow_get_bits(my_sm,((SM_Addr)addr)+i, (U8*)&derivative+i);
+  }
+  for(int i=size; i<8; i++){
+    *((U8*)&derivative+i) = 0;
+  }
+  return derivative;
 }
-MAKE_nl_Load_diff(1,UChar)
-MAKE_nl_Load_diff(2,UShort)
-MAKE_nl_Load_diff(4,UInt)
-MAKE_nl_Load_diff(8,ULong)
 
-/*! Return integer type of the same size, or Ity_INVALID if
- *  we cannot reinterpret this type as integer.
+static VG_REGPARM(0) ULong nl_Load_diff1(Addr addr){return nl_Load_diff(addr,1);}
+static VG_REGPARM(0) ULong nl_Load_diff2(Addr addr){return nl_Load_diff(addr,2);}
+static VG_REGPARM(0) ULong nl_Load_diff4(Addr addr){return nl_Load_diff(addr,4);}
+static VG_REGPARM(0) ULong nl_Load_diff8(Addr addr){return nl_Load_diff(addr,8);}
+
+
+/*! Return whether we can reinterpret this type as integer.
  */
-static IRType integerIRType(IRType type){
+static Bool canConvertToI64(IRType type){
   switch(type){
-    case Ity_I1: case Ity_I128:
-    case Ity_D32: case Ity_D64: case Ity_D128:
-    case Ity_V128: case Ity_V256:
-    case Ity_F16: case Ity_F128:
-      return Ity_INVALID;
-    case Ity_F32:
-      return Ity_I32;
-    case Ity_F64:
-      return Ity_I64;
     case Ity_I8: case Ity_I16: case Ity_I32: case Ity_I64:
-      return type;
+    case Ity_F32: case Ity_F64:
+      return True;
     case Ity_INVALID:
-      VG_(printf)("Invalid type encountered in integerIRType.\n");
+      VG_(printf)("Invalid type encountered in canConvertToI64.\n");
       tl_assert(False);
-      return Ity_INVALID;
+      return False;
     default:
-      VG_(printf)("Incomplete switch in integerIRType.\n");
-      tl_assert(False);
-      return Ity_INVALID;
+      return False;
   }
 }
-/*! Reinterpret value as integer. Only those types are accepted
- *  for which integerIRType does not return Ity_INVALID.
+/*! Reinterpret expression as 8-byte integer.
+ *  Only those types are accepted for which integerIRType returns True.
  *  \param[in] expr - Expression whose value should be reinterpreted.
  *  \param[in] type - Type of expr.
- *  \returns Possibly reinterpreted expression
+ *  \returns Expression reinterpreted as 8-byte integer.
  */
 static IRExpr* convertToInteger(IRExpr* expr, IRType type){
   switch(type){
-    case Ity_I1: case Ity_I128:
-    case Ity_D32: case Ity_D64: case Ity_D128:
-    case Ity_V128: case Ity_V256:
-    case Ity_F16: case Ity_F128:
-      VG_(printf)("Bad type in convertToInteger.\n");
-      tl_assert(False);
-      return NULL;
     case Ity_F32:
-      return IRExpr_Unop(Iop_ReinterpF32asI32, expr);
+      return IRExpr_Unop(Iop_32Uto64, IRExpr_Unop(Iop_ReinterpF32asI32, expr));
     case Ity_F64:
       return IRExpr_Unop(Iop_ReinterpF64asI64, expr);
-    case Ity_I8: case Ity_I16: case Ity_I32: case Ity_I64:
+    case Ity_I8:
+      return IRExpr_Unop(Iop_8Uto64, expr);
+    case Ity_I16:
+      return IRExpr_Unop(Iop_16Uto64, expr);
+    case Ity_I32:
+      return IRExpr_Unop(Iop_32Uto64, expr);
+    case Ity_I64:
       return expr;
-    case Ity_INVALID:
-      VG_(printf)("Invalid type encountered in convertToInteger.\n");
-      tl_assert(False);
-      return NULL;
     default:
-      VG_(printf)("Incomplete switch in convertToInteger.\n");
+      VG_(printf)("Bad type encountered in convertToInteger.\n");
       tl_assert(False);
       return NULL;
   }
 }
 
-/*! Reinterpret integer value as another type. Only those types are accepted
- *  for which integerIRType does not return Ity_INVALID.
+/*! Reinterpret 8-byte integer expression as another type.
+ *  Only those types are accepted for which integerIRType returns True.
  *  \param[in] expr - Expression whose value should be reinterpreted.
  *  \param[in] type - Type to convert to.
- *  \returns Possibly reinterpreted expression
+ *  \returns Expression reinterpreted as another type.
  */
 static IRExpr* convertFromInteger(IRExpr* expr, IRType type){
   switch(type){
-    case Ity_I1: case Ity_I128:
-    case Ity_D32: case Ity_D64: case Ity_D128:
-    case Ity_V128: case Ity_V256:
-    case Ity_F16: case Ity_F128:
-      VG_(printf)("Bad type in convertToInteger.\n");
-      tl_assert(False);
-      return NULL;
     case Ity_F32:
       return IRExpr_Unop(Iop_ReinterpI32asF32, expr);
     case Ity_F64:
       return IRExpr_Unop(Iop_ReinterpI64asF64, expr);
-    case Ity_I8: case Ity_I16: case Ity_I32: case Ity_I64:
+    case Ity_I8:
+      return IRExpr_Unop(Iop_64to8, expr);
+    case Ity_I16:
+      return IRExpr_Unop(Iop_64to16, expr);
+    case Ity_I32:
+      return IRExpr_Unop(Iop_64to32, expr);
+    case Ity_I64:
       return expr;
-    case Ity_INVALID:
-      VG_(printf)("Invalid type encountered in convertFromInteger.\n");
-      tl_assert(False);
-      return NULL;
-    default:
-      VG_(printf)("Incomplete switch in convertFromInteger.\n");
-      tl_assert(False);
-      return NULL;
   }
 }
 
@@ -496,16 +481,15 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     // Load tangent value into this temporary.
     // Apparantly it must be of an integer type.
     IRType type = ex->Iex.Load.ty;
-    IRType integer_type = integerIRType(type);
-    if(integer_type==Ity_INVALID) return NULL;
-    IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, integer_type);
+    if(!canConvertToI64(type)) return NULL;
+    IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, Ity_I64);
     const char* fname;
     void* fn;
-    switch(integer_type){
-      case Ity_I8: fname="nl_Load_diff1"; fn=nl_Load_diff1; break;
-      case Ity_I16: fname="nl_Load_diff2"; fn=nl_Load_diff2; break;
-      case Ity_I32: fname="nl_Load_diff4"; fn=nl_Load_diff4; break;
-      case Ity_I64: fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
+    switch(sizeofIRType(type)){
+      case 1: fname="nl_Load_diff1"; fn=nl_Load_diff1; break;
+      case 2: fname="nl_Load_diff2"; fn=nl_Load_diff2; break;
+      case 4: fname="nl_Load_diff4"; fn=nl_Load_diff4; break;
+      case 8: fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
       default: tl_assert(False);
     }
     IRDirty* di = unsafeIRDirty_1_N(
@@ -611,8 +595,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         guarded = True;
       }
       IRType type = typeOfIRExpr(sb_in->tyenv,data);
-      IRType integer_type = integerIRType(type);
-      if(integer_type!=Ity_INVALID){
+      if(canConvertToI64(type)){
         IRExpr* differentiated_expr = differentiate_or_zero(data, diffenv, type==Ity_F64||type==Ity_F32,"Store");
         // The Store.data is an IREXpr_Const or IRExpr_Tmp, so this holds
         // for its derivative as well. Compare this to Memcheck's IRAtom.
@@ -622,13 +605,14 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         IRExpr* differentiated_expr_reinterpreted = convertToInteger(differentiated_expr,type);
         const char* fname;
         void* fn;
-        switch(integer_type){
-          case Ity_I8: fname="nl_Store_diff1"; fn=nl_Store_diff1; break;
-          case Ity_I16: fname="nl_Store_diff2"; fn=nl_Store_diff2; break;
-          case Ity_I32: fname="nl_Store_diff4"; fn=nl_Store_diff4; break;
-          case Ity_I64: fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
+        switch(sizeofIRType(type)){
+          case 1: fname="nl_Store_diff1"; fn=nl_Store_diff1; break;
+          case 2: fname="nl_Store_diff2"; fn=nl_Store_diff2; break;
+          case 4: fname="nl_Store_diff4"; fn=nl_Store_diff4; break;
+          case 8: fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
           default: tl_assert(False);
         }
+        VG_(printf)("Adding dirty: "); ppIRExpr(differentiated_expr_reinterpreted); VG_(printf)("\n");
         IRDirty* di = unsafeIRDirty_0_N(
                 0,
                 fname, VG_(fnptr_to_fnentry)(fn),
@@ -642,20 +626,19 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
     } else if(st->tag==Ist_LoadG) {
       IRLoadG* det = st->Ist.LoadG.details;
       IRType type = sb_in->tyenv->types[det->dst];
-      IRType integer_type = integerIRType(type);
-      if(integer_type!=Ity_INVALID){
+      if(canConvertToI64(type)){
         if(type==Ity_F64) tl_assert(det->cvt == ILGop_Ident64); // what else could you load into double?
         if(type==Ity_F32) tl_assert(det->cvt == ILGop_Ident32); // what else could you load into double?
         IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,type==Ity_F64||type==Ity_F32,"alternative-LoadG");
         // compare the following to Iop_Load
-        IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, integer_type);
+        IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, Ity_I64);
         const char* fname;
         void* fn;
-        switch(integer_type){
-          case Ity_I8: fname="nl_Load_diff1"; fn=nl_Load_diff1; break;
-          case Ity_I16: fname="nl_Load_diff2"; fn=nl_Load_diff2; break;
-          case Ity_I32: fname="nl_Load_diff4"; fn=nl_Load_diff4; break;
-          case Ity_I64: fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
+        switch(sizeofIRType(type)){
+          case 1: fname="nl_Load_diff1"; fn=nl_Load_diff1; break;
+          case 2: fname="nl_Load_diff2"; fn=nl_Load_diff2; break;
+          case 4: fname="nl_Load_diff4"; fn=nl_Load_diff4; break;
+          case 8: fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
           default: tl_assert(False);
         }
         IRDirty* di = unsafeIRDirty_1_N(
