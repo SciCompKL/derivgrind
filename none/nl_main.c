@@ -36,28 +36,7 @@
 
 
 #include "shadow-memory/src/shadow.h"
-// ----------------------------------------------------------------------------
-// The following might end up in its own header file eventually, but for now
-// only the application can really know how to set the right types and system
-// calls.
-/*#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <stddef.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/mman.h>
 
-void  shadow_free(void* addr) { VG_(free)(addr); }
-void *shadow_malloc(size_t size) { return VG_(malloc)(size); }
-void *shadow_calloc(size_t nmemb, size_t size) { return VG_(calloc)(nmemb, size); }
-void  shadow_memcpy(void* dst, void* src, size_t size) { VG_(memcpy)(dst,src,size); }
-void  shadow_out_of_memory() {
-  VG_(printf)("ERROR: Ran out of memory while allocating shadow memory.\n");
-  exit(1);
-}*/
-// ----------------------------------------------------------------------------
 inline void  shadow_free(void* addr) { VG_(free)(addr); }
 inline void *shadow_malloc(size_t size) { return VG_(malloc)("Test",size); }
 inline void *shadow_calloc(size_t nmemb, size_t size) { return VG_(calloc)("test", nmemb, size); }
@@ -74,40 +53,6 @@ static unsigned long stmt_counter = 0; // Can be used to tag nl_add_print_stmt o
 
 static void nl_post_clo_init(void)
 {
-}
-
-static void handle_expression(IRExpr* ex, Int recursive_level){
-  for(int i=0; i<recursive_level; i++)
-    VG_(printf)(" ");
-  ppIRExpr(ex);
-  VG_(printf)("\n");
-  switch(ex->tag){
-    case Iex_Qop:
-      handle_expression(ex->Iex.Qop.details->arg1, recursive_level+1);
-      handle_expression(ex->Iex.Qop.details->arg2, recursive_level+1);
-      handle_expression(ex->Iex.Qop.details->arg3, recursive_level+1);
-      handle_expression(ex->Iex.Qop.details->arg4, recursive_level+1);
-      break;
-    case Iex_Triop:
-      handle_expression(ex->Iex.Triop.details->arg1, recursive_level+1);
-      handle_expression(ex->Iex.Triop.details->arg2, recursive_level+1);
-      handle_expression(ex->Iex.Triop.details->arg3, recursive_level+1);
-      break;
-    case Iex_Binop:
-      handle_expression(ex->Iex.Binop.arg1, recursive_level+1);
-      handle_expression(ex->Iex.Binop.arg2, recursive_level+1);
-      break;
-    case Iex_Unop:
-      handle_expression(ex->Iex.Unop.arg, recursive_level+1);
-      break;
-    case Iex_Const:
-      break;
-  }
-
-  if(recursive_level>=1 &&
-     (ex->tag==Iex_Qop||ex->tag==Iex_Triop||ex->tag==Iex_Binop||ex->tag==Iex_Unop)){
-      VG_(printf)("Not flat!\n");
-  }
 }
 
 static
