@@ -165,7 +165,7 @@ static IRExpr* convertToInteger(IRExpr* expr, IRType type){
   IRExpr* zero32 = IRExpr_Const(IRConst_U32(0));
   switch(type){
     case Ity_F32:
-      return IRExpr_Unop(Iop_32Uto64, IRExpr_Unop(Iop_ReinterpF32asI32, expr));
+      return IRExpr_Binop(Iop_32HLto64, zero32, IRExpr_Unop(Iop_ReinterpF32asI32, expr));
     case Ity_F64:
       return IRExpr_Unop(Iop_ReinterpF64asI64, expr);
     case Ity_I8:
@@ -221,6 +221,10 @@ static IRExpr* convertFromInteger(IRExpr* expr, IRType type){
              );
     case Ity_I64:
       return expr;
+    default:
+      VG_(printf)("Bad type encountered in convertFromInteger.\n");
+      tl_assert(False);
+      return NULL;
   }
 }
 
@@ -486,9 +490,9 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
   } else if(ex->tag==Iex_ITE) {
     IRExpr* dtrue = differentiate_expr(ex->Iex.ITE.iftrue, diffenv);
     IRExpr* dfalse = differentiate_expr(ex->Iex.ITE.iffalse, diffenv);
-    VG_(printf)("generate ITE: iftrue=\n");
+    VG_(printf)("generate ITE 1: iftrue= type %d\n",typeOfIRExpr(diffenv.sb_out->tyenv,dtrue));
     ppIRExpr(dtrue);
-    VG_(printf)("\niffalse=\n");
+    VG_(printf)("\niffalse= type %d\n",typeOfIRExpr(diffenv.sb_out->tyenv,dtrue));
     ppIRExpr(dfalse);
     VG_(printf)("\n");
     if(dtrue==NULL || dfalse==NULL) return NULL;

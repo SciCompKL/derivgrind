@@ -1091,6 +1091,7 @@ static Bool sameIRExprs_aux2 ( IRExpr** env, IRExpr* e1, IRExpr* e2 )
       case Iex_Const: {
          IRConst *c1 = e1->Iex.Const.con;
          IRConst *c2 = e2->Iex.Const.con;
+         vex_printf("tag1: %d  tag2: %d\n",c1->tag,c2->tag);
          vassert(c1->tag == c2->tag);
          switch (c1->tag) {
             case Ico_U1:   return toBool( c1->Ico.U1  == c2->Ico.U1 );
