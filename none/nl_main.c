@@ -490,11 +490,6 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
   } else if(ex->tag==Iex_ITE) {
     IRExpr* dtrue = differentiate_expr(ex->Iex.ITE.iftrue, diffenv);
     IRExpr* dfalse = differentiate_expr(ex->Iex.ITE.iffalse, diffenv);
-    VG_(printf)("generate ITE 1: iftrue= type %d\n",typeOfIRExpr(diffenv.sb_out->tyenv,dtrue));
-    ppIRExpr(dtrue);
-    VG_(printf)("\niffalse= type %d\n",typeOfIRExpr(diffenv.sb_out->tyenv,dtrue));
-    ppIRExpr(dfalse);
-    VG_(printf)("\n");
     if(dtrue==NULL || dfalse==NULL) return NULL;
     else return IRExpr_ITE(ex->Iex.ITE.cond, dtrue, dfalse);
   } else if(ex->tag==Iex_RdTmp) {
@@ -539,6 +534,32 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
   }
 }
 
+/*! Make zero constant of certain type.
+ */
+static IRExpr* mkIRConst_zero(IRType type){
+  IRExpr* zeroF = IRExpr_Const(IRConst_F64(0.));
+  IRExpr* zeroU = IRExpr_Const(IRConst_U64(0));
+  switch(type){
+    case Ity_INVALID: tl_assert(False); return NULL;
+    case Ity_I1: return IRExpr_Const(IRConst_U1(0));
+    case Ity_I8: return IRExpr_Const(IRConst_U8(0));
+    case Ity_I16: return IRExpr_Const(IRConst_U16(0));
+    case Ity_I32: return IRExpr_Const(IRConst_U32(0));
+    case Ity_I64: return zeroU;
+    case Ity_I128: return IRExpr_Const(IRConst_U128(0));
+    case Ity_F16: return IRExpr_Binop(Iop_F64toF16,DEFAULT_ROUNDING,zeroF);
+    case Ity_F32: return IRExpr_Const(IRConst_F32(0.));
+    case Ity_F64: return zeroF;
+    case Ity_D32: return IRExpr_Binop(Iop_F64toD32,DEFAULT_ROUNDING,zeroF);
+    case Ity_D64: return IRExpr_Binop(Iop_F64toD64,DEFAULT_ROUNDING,zeroF);
+    case Ity_D128: return IRExpr_Binop(Iop_F64toD128,DEFAULT_ROUNDING,zeroF);
+    case Ity_F128: return IRExpr_Unop(Iop_F64toF128,zeroF);
+    case Ity_V128: return IRExpr_Binop(Iop_64HLtoV128,zeroU,zeroU);
+    case Ity_V256: return IRExpr_Qop(Iop_64x4toV256,zeroU,zeroU,zeroU,zeroU);
+    default: tl_assert(False); return NULL;
+  }
+}
+
 /*! Compute derivative. If this fails, return a zero expression.
  *  \param[in] expr - expression to be differentiated
  *  \param[in] diffenv - Additional data necessary for differentiation.
@@ -549,35 +570,15 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
 static
 IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const char* operation){
   IRExpr* diff = differentiate_expr(expr,diffenv);
-  if(diff==NULL){
+  if(diff){
+    return diff;
+  } else {
     if(warn){
       VG_(printf)("Warning: Expression\n");
       ppIRExpr(expr);
       VG_(printf)("could not be differentiated, %s'ing zero instead.\n\n", operation);
     }
-    IRExpr* zeroF = IRExpr_Const(IRConst_F64(0.));
-    IRExpr* zeroU = IRExpr_Const(IRConst_U64(0));
-    switch(typeOfIRExpr(diffenv.sb_out->tyenv,expr)){
-      case Ity_INVALID: tl_assert(False); return NULL;
-      case Ity_I1: return IRExpr_Const(IRConst_U1(0));
-      case Ity_I8: return IRExpr_Const(IRConst_U8(0));
-      case Ity_I16: return IRExpr_Const(IRConst_U16(0));
-      case Ity_I32: return IRExpr_Const(IRConst_U32(0));
-      case Ity_I64: return zeroU;
-      case Ity_I128: return IRExpr_Const(IRConst_U128(0));
-      case Ity_F16: return IRExpr_Binop(Iop_F64toF16,DEFAULT_ROUNDING,zeroF);
-      case Ity_F32: return IRExpr_Binop(Iop_F64toF32,DEFAULT_ROUNDING,zeroF);
-      case Ity_F64: return zeroF;
-      case Ity_D32: return IRExpr_Binop(Iop_F64toD32,DEFAULT_ROUNDING,zeroF);
-      case Ity_D64: return IRExpr_Binop(Iop_F64toD64,DEFAULT_ROUNDING,zeroF);
-      case Ity_D128: return IRExpr_Binop(Iop_F64toD128,DEFAULT_ROUNDING,zeroF);
-      case Ity_F128: return IRExpr_Unop(Iop_F64toF128,zeroF);
-      case Ity_V128: return IRExpr_Binop(Iop_64HLtoV128,zeroU,zeroU);
-      case Ity_V256: return IRExpr_Qop(Iop_64x4toV256,zeroU,zeroU,zeroU,zeroU);
-      default: tl_assert(False); return NULL;
-    }
-  } else {
-   return diff;
+    return mkIRConst_zero(typeOfIRExpr(diffenv.sb_out->tyenv,expr));
   }
 }
 
@@ -665,7 +666,6 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           case 8: fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
           default: tl_assert(False);
         }
-        VG_(printf)("Adding dirty: "); ppIRExpr(differentiated_expr_reinterpreted); VG_(printf)("\n");
         IRDirty* di = unsafeIRDirty_0_N(
                 0,
                 fname, VG_(fnptr_to_fnentry)(fn),
@@ -713,9 +713,9 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       VG_(printf)("Did not instrument Ist_CAS statement.\n");
       IRTemp oldHi = st->Ist.CAS.details->oldHi;
       IRTemp oldLo = st->Ist.CAS.details->oldLo;
-      addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(oldLo + diffenv.t_offset, IRExpr_Const(IRConst_F64(0.))));
+      addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(oldLo + diffenv.t_offset, mkIRConst_zero(sb_in->tyenv->types[oldLo])));
       if(oldHi != IRTemp_INVALID)
-        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(oldHi + diffenv.t_offset, IRExpr_Const(IRConst_F64(0.))));
+        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(oldHi + diffenv.t_offset, mkIRConst_zero(sb_in->tyenv->types[oldHi])));
     } else if(st->tag==Ist_LLSC) {
       VG_(printf)("Did not instrument Ist_LLSC statement.\n");
     } else if(st->tag==Ist_Dirty) {
