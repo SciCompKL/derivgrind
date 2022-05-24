@@ -160,17 +160,29 @@ static Bool canConvertToI64(IRType type){
  *  \returns Expression reinterpreted as 8-byte integer.
  */
 static IRExpr* convertToInteger(IRExpr* expr, IRType type){
+  IRExpr* zero8 = IRExpr_Const(IRConst_U8(0));
+  IRExpr* zero16 = IRExpr_Const(IRConst_U16(0));
+  IRExpr* zero32 = IRExpr_Const(IRConst_U32(0));
   switch(type){
     case Ity_F32:
       return IRExpr_Unop(Iop_32Uto64, IRExpr_Unop(Iop_ReinterpF32asI32, expr));
     case Ity_F64:
       return IRExpr_Unop(Iop_ReinterpF64asI64, expr);
     case Ity_I8:
-      return IRExpr_Unop(Iop_8Uto64, expr);
+      return IRExpr_Binop(Iop_32HLto64, zero32,
+               IRExpr_Binop(Iop_16HLto32, zero16,
+                 IRExpr_Binop(Iop_8HLto16, zero8,
+                   expr
+             )));
     case Ity_I16:
-      return IRExpr_Unop(Iop_16Uto64, expr);
+      return IRExpr_Binop(Iop_32HLto64, zero32,
+               IRExpr_Binop(Iop_16HLto32, zero16,
+                 expr
+             ));
     case Ity_I32:
-      return IRExpr_Unop(Iop_32Uto64, expr);
+      return IRExpr_Binop(Iop_32HLto64, zero32,
+               expr
+             );
     case Ity_I64:
       return expr;
     default:
@@ -193,11 +205,20 @@ static IRExpr* convertFromInteger(IRExpr* expr, IRType type){
     case Ity_F64:
       return IRExpr_Unop(Iop_ReinterpI64asF64, expr);
     case Ity_I8:
-      return IRExpr_Unop(Iop_64to8, expr);
+      return IRExpr_Unop(Iop_16to8,
+               IRExpr_Unop(Iop_32to16,
+                 IRExpr_Unop(Iop_64to32,
+                   expr
+             )));
     case Ity_I16:
-      return IRExpr_Unop(Iop_64to16, expr);
+      return IRExpr_Unop(Iop_32to16,
+               IRExpr_Unop(Iop_64to32,
+                 expr
+             ));
     case Ity_I32:
-      return IRExpr_Unop(Iop_64to32, expr);
+      return IRExpr_Unop(Iop_64to32,
+               expr
+             );
     case Ity_I64:
       return expr;
   }
