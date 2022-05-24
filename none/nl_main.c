@@ -514,22 +514,46 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
   }
 }
 
-/*! Checks if diff is not NULL, and possibly outputs warning.
+/*! Compute derivative. If this fails, return a zero expression.
  *  \param[in] expr - expression to be differentiated
  *  \param[in] diffenv - Additional data necessary for differentiation.
- *  \param[in] warn - If true, a warning message will be printed if derivative is not found.
+ *  \param[in] warn - If true, a warning message will be printed if differentiation fails.
  *  \param[in] operation - Word for how the derivative is used, e.g. 'WrTmp' or 'Store'.
- * \returns Differentiated expression or NULL
+ * \returns Differentiated expression or zero expression.
  */
 static
-IRExpr* differentiate_or_warn(IRExpr* expr, DiffEnv diffenv, Bool warn, const char* operation){
+IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const char* operation){
   IRExpr* diff = differentiate_expr(expr,diffenv);
-  if(diff==NULL && warn){
-    VG_(printf)("Warning: Expression\n");
-    ppIRExpr(expr);
-    VG_(printf)("could not be differentiated in %s.\n\n", operation);
+  if(diff==NULL){
+    if(warn){
+      VG_(printf)("Warning: Expression\n");
+      ppIRExpr(expr);
+      VG_(printf)("could not be differentiated, %s'ing zero instead.\n\n", operation);
+    }
+    IRExpr* zeroF = IRExpr_Const(IRConst_F64(0.));
+    IRExpr* zeroU = IRExpr_Const(IRConst_U64(0));
+    switch(typeOfIRExpr(diffenv.sb_out->tyenv,expr)){
+      case Ity_INVALID: tl_assert(False); return NULL;
+      case Ity_I1: return IRExpr_Const(IRConst_U1(0));
+      case Ity_I8: return IRExpr_Const(IRConst_U8(0));
+      case Ity_I16: return IRExpr_Const(IRConst_U16(0));
+      case Ity_I32: return IRExpr_Const(IRConst_U32(0));
+      case Ity_I64: return zeroU;
+      case Ity_I128: return IRExpr_Const(IRConst_U128(0));
+      case Ity_F16: return IRExpr_Binop(Iop_F64toF16,DEFAULT_ROUNDING,zeroF);
+      case Ity_F32: return IRExpr_Binop(Iop_F64toF32,DEFAULT_ROUNDING,zeroF);
+      case Ity_F64: return zeroF;
+      case Ity_D32: return IRExpr_Binop(Iop_F64toD32,DEFAULT_ROUNDING,zeroF);
+      case Ity_D64: return IRExpr_Binop(Iop_F64toD64,DEFAULT_ROUNDING,zeroF);
+      case Ity_D128: return IRExpr_Binop(Iop_F64toD128,DEFAULT_ROUNDING,zeroF);
+      case Ity_F128: return IRExpr_Unop(Iop_F64toF128,zeroF);
+      case Ity_V128: return IRExpr_Binop(Iop_64HLtoV128,zeroU,zeroU);
+      case Ity_V256: return IRExpr_Qop(Iop_64x4toV256,zeroU,zeroU,zeroU,zeroU);
+      default: tl_assert(False); return NULL;
+    }
+  } else {
+   return diff;
   }
-  return diff;
 }
 
 /*! Instrument an IRSB.
@@ -568,29 +592,23 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
     if(st->tag==Ist_WrTmp) {
       IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
-      IRExpr* differentiated_expr = differentiate_or_warn(st->Ist.WrTmp.data, diffenv,type==Ity_F64||type==Ity_F32,"WrTmp");
-      if(differentiated_expr){
-        IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
-        addStmtToIRSB(sb_out, sp);
-      }
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,type==Ity_F64||type==Ity_F32,"WrTmp");
+      IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
+      addStmtToIRSB(sb_out, sp);
     } else if(st->tag==Ist_Put) {
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
-      IRExpr* differentiated_expr = differentiate_or_warn(st->Ist.Put.data, diffenv,type==Ity_F64||type==Ity_F32,"Put");
-      if(differentiated_expr){
-        IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
-        addStmtToIRSB(sb_out, sp);
-      }
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,type==Ity_F64||type==Ity_F32,"Put");
+      IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
+      addStmtToIRSB(sb_out, sp);
     } else if(st->tag==Ist_PutI) {
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
-      IRExpr* differentiated_expr = differentiate_or_warn(st->Ist.PutI.details->data, diffenv,type==Ity_F64||type==Ity_F32,"PutI");
-      if(differentiated_expr){
-        IRRegArray* descr = st->Ist.PutI.details->descr;
-        IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB, descr->elemTy, descr->nElems);
-        Int bias = st->Ist.PutI.details->bias;
-        IRExpr* ix = st->Ist.PutI.details->ix;
-        IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv.layout->total_sizeB,differentiated_expr));
-        addStmtToIRSB(sb_out, sp);
-      }
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,type==Ity_F64||type==Ity_F32,"PutI");
+      IRRegArray* descr = st->Ist.PutI.details->descr;
+      IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB, descr->elemTy, descr->nElems);
+      Int bias = st->Ist.PutI.details->bias;
+      IRExpr* ix = st->Ist.PutI.details->ix;
+      IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv.layout->total_sizeB,differentiated_expr));
+      addStmtToIRSB(sb_out, sp);
     } else if(st->tag==Ist_Store || st->tag==Ist_StoreG) {
       IREndness end; IRExpr* addr; IRExpr* data; Bool guarded;
       if(st->tag == Ist_Store){
@@ -606,34 +624,32 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       }
       IRType type = typeOfIRExpr(sb_in->tyenv,data);
       if(canConvertToI64(type)){
-        IRExpr* differentiated_expr = differentiate_or_warn(data, diffenv, type==Ity_F64||type==Ity_F32,"Store");
-        if(differentiated_expr){
-          // The Store.data is an IREXpr_Const or IRExpr_Tmp, so this holds
-          // for its derivative as well. Compare this to Memcheck's IRAtom.
-          // TODO treat D16,D32,D64,V256,F16
-          // Before we can store the tangent value, we must convert
-          // it to an integer type. Compare to Iex_Load.
-          IRExpr* differentiated_expr_reinterpreted = convertToInteger(differentiated_expr,type);
-          const char* fname;
-          void* fn;
-          switch(sizeofIRType(type)){
-            case 1: fname="nl_Store_diff1"; fn=nl_Store_diff1; break;
-            case 2: fname="nl_Store_diff2"; fn=nl_Store_diff2; break;
-            case 4: fname="nl_Store_diff4"; fn=nl_Store_diff4; break;
-            case 8: fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
-            default: tl_assert(False);
-          }
-          VG_(printf)("Adding dirty: "); ppIRExpr(differentiated_expr_reinterpreted); VG_(printf)("\n");
-          IRDirty* di = unsafeIRDirty_0_N(
-                  0,
-                  fname, VG_(fnptr_to_fnentry)(fn),
-                  mkIRExprVec_2(addr,differentiated_expr_reinterpreted));
-          if(guarded){
-            di->guard = st->Ist.StoreG.details->guard;
-          }
-          IRStmt* sp = IRStmt_Dirty(di);
-          addStmtToIRSB(sb_out, sp);
+        IRExpr* differentiated_expr = differentiate_or_zero(data, diffenv, type==Ity_F64||type==Ity_F32,"Store");
+        // The Store.data is an IREXpr_Const or IRExpr_Tmp, so this holds
+        // for its derivative as well. Compare this to Memcheck's IRAtom.
+        // TODO treat D16,D32,D64,V256,F16
+        // Before we can store the tangent value, we must convert
+        // it to an integer type. Compare to Iex_Load.
+        IRExpr* differentiated_expr_reinterpreted = convertToInteger(differentiated_expr,type);
+        const char* fname;
+        void* fn;
+        switch(sizeofIRType(type)){
+          case 1: fname="nl_Store_diff1"; fn=nl_Store_diff1; break;
+          case 2: fname="nl_Store_diff2"; fn=nl_Store_diff2; break;
+          case 4: fname="nl_Store_diff4"; fn=nl_Store_diff4; break;
+          case 8: fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
+          default: tl_assert(False);
         }
+        VG_(printf)("Adding dirty: "); ppIRExpr(differentiated_expr_reinterpreted); VG_(printf)("\n");
+        IRDirty* di = unsafeIRDirty_0_N(
+                0,
+                fname, VG_(fnptr_to_fnentry)(fn),
+                mkIRExprVec_2(addr,differentiated_expr_reinterpreted));
+        if(guarded){
+          di->guard = st->Ist.StoreG.details->guard;
+        }
+        IRStmt* sp = IRStmt_Dirty(di);
+        addStmtToIRSB(sb_out, sp);
       }
     } else if(st->tag==Ist_LoadG) {
       IRLoadG* det = st->Ist.LoadG.details;
@@ -641,34 +657,32 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       if(canConvertToI64(type)){
         if(type==Ity_F64) tl_assert(det->cvt == ILGop_Ident64); // what else could you load into double?
         if(type==Ity_F32) tl_assert(det->cvt == ILGop_Ident32); // what else could you load into double?
-        IRExpr* differentiated_expr_alt = differentiate_or_warn(det->alt,diffenv,type==Ity_F64||type==Ity_F32,"alternative-LoadG");
-        if(differentiated_expr_alt){
+        IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,type==Ity_F64||type==Ity_F32,"alternative-LoadG");
           // compare the following to Iop_Load
-          IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, Ity_I64);
-          const char* fname;
-          void* fn;
-          switch(sizeofIRType(type)){
-            case 1: fname="nl_Load_diff1"; fn=nl_Load_diff1; break;
-            case 2: fname="nl_Load_diff2"; fn=nl_Load_diff2; break;
-            case 4: fname="nl_Load_diff4"; fn=nl_Load_diff4; break;
-            case 8: fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
-            default: tl_assert(False);
-          }
-          IRDirty* di = unsafeIRDirty_1_N(
-                loadAddr,
-                0,
-                fname, VG_(fnptr_to_fnentry)(fn),
-                mkIRExprVec_1(det->addr));
-          addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di));
-          IRTemp loadAddr_reinterpreted = newIRTemp(diffenv.sb_out->tyenv, type);
-          addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(loadAddr_reinterpreted,
-              convertFromInteger(IRExpr_RdTmp(loadAddr), type)));
-          // copy it into shadow variable for temporary dst,
-          // or the derivative of alt, depending on the guard
-          addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(det->dst+diffenv.t_offset,
-            IRExpr_ITE(det->guard,IRExpr_RdTmp(loadAddr_reinterpreted),differentiated_expr_alt)
-          ));
+        IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, Ity_I64);
+        const char* fname;
+        void* fn;
+        switch(sizeofIRType(type)){
+          case 1: fname="nl_Load_diff1"; fn=nl_Load_diff1; break;
+          case 2: fname="nl_Load_diff2"; fn=nl_Load_diff2; break;
+          case 4: fname="nl_Load_diff4"; fn=nl_Load_diff4; break;
+          case 8: fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
+          default: tl_assert(False);
         }
+        IRDirty* di = unsafeIRDirty_1_N(
+              loadAddr,
+              0,
+              fname, VG_(fnptr_to_fnentry)(fn),
+              mkIRExprVec_1(det->addr));
+        addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di));
+        IRTemp loadAddr_reinterpreted = newIRTemp(diffenv.sb_out->tyenv, type);
+        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(loadAddr_reinterpreted,
+            convertFromInteger(IRExpr_RdTmp(loadAddr), type)));
+        // copy it into shadow variable for temporary dst,
+        // or the derivative of alt, depending on the guard
+        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(det->dst+diffenv.t_offset,
+          IRExpr_ITE(det->guard,IRExpr_RdTmp(loadAddr_reinterpreted),differentiated_expr_alt)
+        ));
       }
     } else if(st->tag==Ist_CAS) {
       VG_(printf)("Did not instrument Ist_CAS statement.\n");
