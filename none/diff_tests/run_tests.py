@@ -153,27 +153,26 @@ abs_minus.test_vals = {'c':1.0}
 abs_minus.test_grads = {'c':-2.0}
 testlist.append(abs_minus)
 
-sin_0 = TestCase("sin_0")
-sin_0.include = "#include <math.h>"
-sin_0.ldflags = '-lm'
-sin_0.stmt = "double c = sin(a);"
-sin_0.vals = {'a':0.0}
-sin_0.grads = {'a':1.0}
-sin_0.test_vals = {'c':0.0}
-sin_0.test_grads = {'c':1.0}
-testlist.append(sin_0)
+for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"1")]:
+  sin = TestCase("sin_"+angletext)
+  sin.include = "#include <math.h>"
+  sin.ldflags = '-lm'
+  sin.stmt = "double c = sin(a);"
+  sin.vals = {'a':angle}
+  sin.grads = {'a':1.0}
+  sin.test_vals = {'c':np.sin(angle)}
+  sin.test_grads = {'c':np.cos(angle)}
+  testlist.append(sin)
 
-cos_0 = TestCase("cos_0")
-cos_0.include = "#include <math.h>"
-cos_0.ldflags = '-lm'
-cos_0.stmt = "double c = cos(a);"
-cos_0.vals = {'a':0.0}
-cos_0.grads = {'a':1.0}
-cos_0.test_vals = {'c':1.0}
-cos_0.test_grads = {'c':0.0}
-testlist.append(cos_0)
-
-
+  cos = TestCase("cos_"+angletext)
+  cos.include = "#include <math.h>"
+  cos.ldflags = '-lm'
+  cos.stmt = "double c = cos(a);"
+  cos.vals = {'a':angle}
+  cos.grads = {'a':1.0}
+  cos.test_vals = {'c':np.cos(angle)}
+  cos.test_grads = {'c':-np.sin(angle)}
+  testlist.append(cos)
 
 ### Control structures ###
 

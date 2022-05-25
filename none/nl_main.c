@@ -309,7 +309,7 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       for(int i=0; i<8; i++){
         shadow_get_bits(my_sm,((SM_Addr)address)+i, ((U8*)&derivative)+i);
       }
-      VG_(gdb_printf)("Derivative: %lf\n", derivative);
+      VG_(gdb_printf)("Derivative: %.16lf\n", derivative);
       return True;
     }
     case 2: { // set
