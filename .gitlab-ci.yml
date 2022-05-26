@@ -15,6 +15,7 @@ build:
   artifacts:
     paths:
       - install/
+      - none/libm-replacement/libm.so*
 
 test:
   stage: test

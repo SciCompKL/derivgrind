@@ -4,7 +4,7 @@ import re
 # Sample program to find libm.so and GLIBC versions.
 compile_sample = subprocess.run(["gcc", "sample.c", "-o", "sample", "-m32", "-lm"],universal_newlines=True)
 if compile_sample.returncode!=0:
-  raise Error("Couldn't compile sample C program.")
+  raise Exception("Couldn't compile sample C program.")
 # ldd: path and filename of libm.so.N
 ldd_sample = subprocess.run(["ldd", "sample"], stdout=subprocess.PIPE,universal_newlines=True)
 libmso_name = None
@@ -16,16 +16,16 @@ for line in ldd_sample.stdout.split("\n"):
     libmso_path = r.group(2)
     break
 if libmso_name==None or libmso_path==None:
-  raise Error("Couldn't find libm.so with ldd.")
+  raise Exception("Couldn't find libm.so with ldd.")
 # nm: GLIBC version
 nm_sample = subprocess.run(["nm", "./sample"], stdout=subprocess.PIPE,universal_newlines=True)
 glibc_version = None
 for line in nm_sample.stdout.split("\n"):
-  r = re.search(r"^U sin@(GLIBC_.*)$", line.strip())
+  r = re.search(r"^U sin@+(GLIBC_.*)$", line.strip())
   if r:
     glibc_version = r.group(1)
 if glibc_version==None:
-  raise Error("Couldn'T find GLIBC version with nm.")
+  raise Exception("Couldn't find GLIBC version with nm.")
 
 # Produce version script.
 version_script_template = None
