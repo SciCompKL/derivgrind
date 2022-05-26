@@ -163,7 +163,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.grads = {'a':1.0}
   sin.test_vals = {'c':np.sin(angle)}
   sin.test_grads = {'c':np.cos(angle)}
-  testlist.append(sin)
+  #testlist.append(sin)
 
   cos = ClientRequestTestCase("cos_"+angletext)
   cos.include = "#include <math.h>"
@@ -173,7 +173,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.grads = {'a':1.0}
   cos.test_vals = {'c':np.cos(angle)}
   cos.test_grads = {'c':-np.sin(angle)}
-  testlist.append(cos)
+  #testlist.append(cos)
 
 ### Control structures ###
 
