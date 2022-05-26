@@ -7,10 +7,11 @@ build:
   stage: build
   script:
     - apt-get update
-    - apt-get install -y build-essential automake gcc-multilib
+    - apt-get install -y build-essential binutils automake gcc-multilib python3
     - ./autogen.sh
     - CFLAGS=-g ./configure --prefix=$PWD/install
     - make install
+    - cd none/libm-replacement && python3 compile.py && cd -
   artifacts:
     paths:
       - install/

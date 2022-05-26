@@ -3,27 +3,6 @@ from TestCase import InteractiveTestCase, ClientRequestTestCase
 
 testlist = []
 
-sin_405 = ClientRequestTestCase("sin_405")
-sin_405.include = "#include <math.h>"
-sin_405.ldflags = '-lm'
-sin_405.stmt = "double c = sin(a);"
-sin_405.vals = {'a':np.pi*405/180}
-sin_405.grads = {'a':1.0}
-sin_405.test_vals = {'c':1/np.sqrt(2)}
-sin_405.test_grads = {'c':1/np.sqrt(2)}
-#testlist.append(sin_405)
-
-cos_405 = ClientRequestTestCase("cos_405")
-cos_405.include = "#include <math.h>"
-cos_405.ldflags = '-lm'
-cos_405.stmt = "double c = cos(a);"
-cos_405.vals = {'a':np.pi*405/180}
-cos_405.grads = {'a':1.0}
-cos_405.test_vals = {'c':1/np.sqrt(2)}
-cos_405.test_grads = {'c':-1/np.sqrt(2)}
-#testlist.append(cos_405)
-
-
 ### Basic arithmetic operations ###
 
 addition = ClientRequestTestCase("addition")
@@ -154,26 +133,26 @@ abs_minus.test_vals = {'c':1.0}
 abs_minus.test_grads = {'c':-2.0}
 testlist.append(abs_minus)
 
-for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"1")]:
+for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"1"), (-10.,"neg10"), (100.,"100")]:
   sin = ClientRequestTestCase("sin_"+angletext)
   sin.include = "#include <math.h>"
   sin.ldflags = '-lm'
   sin.stmt = "double c = sin(a);"
   sin.vals = {'a':angle}
-  sin.grads = {'a':1.0}
+  sin.grads = {'a':3.1}
   sin.test_vals = {'c':np.sin(angle)}
-  sin.test_grads = {'c':np.cos(angle)}
-  #testlist.append(sin)
+  sin.test_grads = {'c':np.cos(angle)*3.1}
+  testlist.append(sin)
 
   cos = ClientRequestTestCase("cos_"+angletext)
   cos.include = "#include <math.h>"
   cos.ldflags = '-lm'
   cos.stmt = "double c = cos(a);"
   cos.vals = {'a':angle}
-  cos.grads = {'a':1.0}
+  cos.grads = {'a':2.7}
   cos.test_vals = {'c':np.cos(angle)}
-  cos.test_grads = {'c':-np.sin(angle)}
-  #testlist.append(cos)
+  cos.test_grads = {'c':-np.sin(angle)*2.7}
+  testlist.append(cos)
 
 ### Memory operations from string.h ###
 
@@ -323,6 +302,16 @@ multiplication_interactive.grads = {'a':3.0,'b':4.0}
 multiplication_interactive.test_vals = {'c':2.0}
 multiplication_interactive.test_grads = {'c':10.0}
 testlist.append(multiplication_interactive)
+
+sin_100_interactive = ClientRequestTestCase("sin_100_interactive")
+sin_100_interactive.include = "#include <math.h>"
+sin_100_interactive.ldflags = '-lm'
+sin_100_interactive.stmt = "double c = sin(a);"
+sin_100_interactive.vals = {'a':100}
+sin_100_interactive.grads = {'a':3.1}
+sin_100_interactive.test_vals = {'c':np.sin(100)}
+sin_100_interactive.test_grads = {'c':np.cos(100)*3.1}
+testlist.append(sin)
 
 outcomes = []
 for test in testlist:

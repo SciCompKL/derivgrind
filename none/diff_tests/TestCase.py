@@ -1,6 +1,7 @@
 import subprocess
 import re
 import time
+import os
 
 class TestCase:
   """Basic data for a DerivGrind test case."""
@@ -66,7 +67,11 @@ class InteractiveTestCase(TestCase):
     self.valgrind_log = ""
     self.gdb_log = ""
     # start Valgrind and extract "target remote" line
-    valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=none", "--vgdb-error=0", "./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
+    environ = os.environ.copy()
+    if "LD_LIBRARY_PATH" not in environ:
+      environ["LD_LIBRARY_PATH"]=""
+    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/"
+    valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=none", "--vgdb-error=0", "./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0,env=environ)
     time.sleep(1)
     while True:
       line = valgrind.stdout.readline()
@@ -76,7 +81,7 @@ class InteractiveTestCase(TestCase):
         target_remote_command = r.group(1)
         break
     # start GDB and connect to Valgrind
-    gdb = subprocess.Popen(["gdb", "./TestCase_exec"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
+    gdb = subprocess.Popen(["gdb", "./TestCase_exec"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0,env=environ)
     gdb.stdin.write(target_remote_command+"\n")
     # set breakpoints and continue
     gdb.stdin.write("break TestCase_src.c:"+str(self.line_before_stmt)+"\n")
@@ -190,7 +195,11 @@ class ClientRequestTestCase(TestCase):
 
   def run_c_code(self):
     self.valgrind_log = ""
-    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none", "./TestCase_exec"],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True)
+    environ = os.environ.copy()
+    if "LD_LIBRARY_PATH" not in environ:
+      environ["LD_LIBRARY_PATH"]=""
+    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/"
+    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none", "./TestCase_exec"],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
     
