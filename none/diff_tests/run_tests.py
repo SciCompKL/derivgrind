@@ -175,6 +175,36 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.test_grads = {'c':-np.sin(angle)}
   #testlist.append(cos)
 
+### Memory operations from string.h ###
+
+memcpy = ClientRequestTestCase("memcpy")
+memcpy.include = "#include <string.h>"
+memcpy.stmt = "double aa[3],ac[3],c; aa[1] = a; memcpy(ac,aa,3*sizeof(double)); c=ac[1];"
+memcpy.vals = {'a':-12.34}
+memcpy.grads = {'a':-56.78}
+memcpy.test_vals = {'c':-12.34}
+memcpy.test_grads = {'c':-56.78}
+testlist.append(memcpy)
+
+memmove = ClientRequestTestCase("memmove")
+memmove.include = "#include <string.h>"
+memmove.stmt = "double aa[3],c; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(double)); c=aa[1];"
+memmove.vals = {'a':-12.34}
+memmove.grads = {'a':-56.78}
+memmove.test_vals = {'c':-12.34*3.14}
+memmove.test_grads = {'c':-56.78*3.14}
+testlist.append(memmove)
+
+memset = ClientRequestTestCase("memset")
+memset.include = "#include <string.h>"
+memset.stmt = "memset(&a,0,sizeof(double));"
+memset.vals = {'a':-12.34}
+memset.grads = {'a':-56.78}
+memset.test_vals = {'a':0.0}
+memset.test_grads = {'a':0.0}
+testlist.append(memset)
+
+
 ### Control structures ###
 
 ifbranch = ClientRequestTestCase("ifbranch")
