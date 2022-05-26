@@ -3,6 +3,7 @@ import re
 import time
 
 class TestCase:
+  """Basic data for a DerivGrind test case."""
   def __init__(self, name):
     self.name = name # Name of TestCase
     self.stmt = "" # Code to be run in main function
@@ -12,8 +13,13 @@ class TestCase:
     self.test_vals = {} # Expected values of output variables computed by stmt
     self.test_grads = {} # Expected gradients of output variables computed by stmt
     self.timeout = 10 # Timeout for execution in Valgrind, in seconds
-    self.cflags = ""
-    self.ldflags = ""
+    self.cflags = "" # Additional flags for the C compiler
+    self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
+
+class InteractiveTestCase(TestCase):
+  """Methods to run a DerivGrind test case interactively in VGDB."""
+  def __init__(self,name):
+    super().__init__(name)
 
   def produce_c_code(self):
     # Insert testcase data into C code template. 
@@ -129,7 +135,7 @@ class TestCase:
     self.gdb_log += stdout_data
 
   def run(self):
-    print("##### Running test '"+self.name+"'... #####", flush=True)
+    print("##### Running interactive test '"+self.name+"'... #####", flush=True)
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_c_code()
@@ -150,6 +156,61 @@ class TestCase:
       return False
     
 
+class ClientRequestTestCase(TestCase):
+  """Methods to run a DerivGrind test case using Valgrind client requests."""
+  def __init__(self,name):
+    super().__init__(name)
+
+  def produce_c_code(self):
+    # Insert testcase data into C code template. 
+    self.code = "#include <stdio.h>\n"
+    self.code += "#include <valgrind/derivgrind.h>\n"
+    self.code += self.include + "\n"
+    self.code += "int main(){\n  int ret=0;\n"
+    self.code += "".join([f"  double {var} = {self.vals[var]};\n" for var in self.vals]) 
+    self.code += "  {\n"
+    self.code += "".join([f"    double _derivative_of_{var} = {self.grads[var]}; VALGRIND_SET_DERIVATIVE(&{var},&_derivative_of_{var},8);\n" for var in self.grads])
+    self.code += "  }\n"
+    self.code += "  " + self.stmt + "\n"
+    self.code += "  {\n"
+    self.code += "".join([f'    if({var} < {self.test_vals[var]-1e-8} || {var} > {self.test_vals[var]+1e-8}) {{ printf("VALUES DISAGREE: {var} stored=%.16lf computed=%.16lf\\n",(double){self.test_vals[var]},{var}); ret = 1; }}\n' for var in self.test_vals])
+    self.code += "".join([f"    double _derivative_of_{var} = 0.; VALGRIND_GET_DERIVATIVE(&{var},&_derivative_of_{var},8);\n" for var in self.test_grads])
+    self.code += "".join([f'    if(_derivative_of_{var} < {self.test_grads[var]-1e-8} || _derivative_of_{var} > {self.test_grads[var]+1e-8}) {{ printf("GRADIENTS DISAGREE: {var} stored=%.16lf computed=%.16lf\\n",(double){self.test_grads[var]}, _derivative_of_{var}); ret = 1; }}\n' for var in self.test_grads])
+    self.code += "  }\n"
+    self.code += "  return ret;\n}\n"
+
+  def compile_c_code(self):
+    # write C code into file
+    with open("TestCase_src.c", "w") as f:
+      f.write(self.code)
+    # compile 
+    compile_process = subprocess.run(["gcc", "-g", "-O0", "-m32", "TestCase_src.c", "-o", "TestCase_exec", "-I../../install/include"] + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    if compile_process.returncode!=0:
+      self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
+
+  def run_c_code(self):
+    self.valgrind_log = ""
+    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none", "./TestCase_exec"],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True)
+    if valgrind.returncode!=0:
+      self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
+    
+
+  def run(self):
+    print("##### Running client request test '"+self.name+"'... #####", flush=True)
+    self.errmsg = ""
+    if self.errmsg=="":
+      self.produce_c_code()
+    if self.errmsg=="":
+     self.compile_c_code()
+    if self.errmsg=="":
+      self.run_c_code()
+    if self.errmsg=="":
+      print("OK.\n")
+      return True
+    else:
+      print("FAIL:")
+      print(self.errmsg)
+      return False
 
 
 

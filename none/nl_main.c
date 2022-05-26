@@ -33,6 +33,7 @@
 #include "pub_tool_gdbserver.h"
 #include "pub_tool_libcbase.h"
 #include "valgrind.h"
+#include "derivgrind.h"
 
 
 #include "shadow-memory/src/shadow.h"
@@ -307,7 +308,7 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       }
       double derivative=0;
       for(int i=0; i<8; i++){
-        shadow_get_bits(my_sm,((SM_Addr)address)+i, ((U8*)&derivative)+i);
+        shadow_get_bits(my_sm,(SM_Addr)address+i, (U8*)&derivative+i);
       }
       VG_(gdb_printf)("Derivative: %.16lf\n", derivative);
       return True;
@@ -322,7 +323,7 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       HChar* derivative_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
       double derivative = VG_(strtod)(derivative_str, NULL);
       for(int i=0; i<8; i++){
-        shadow_set_bits( my_sm,((SM_Addr)address)+i, *( ((U8*)&derivative)+i ) );
+        shadow_set_bits( my_sm,(SM_Addr)address+i, *( (U8*)&derivative+i ) );
       }
       return True;
     }
@@ -345,6 +346,24 @@ Bool nl_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
       *ret = 0;
     }
     return handled;
+  } else if(arg[0]==VG_USERREQ__GET_DERIVATIVE) {
+    void* addr = (void*) arg[1];
+    void* daddr = (void*) arg[2];
+    UWord size = arg[3];
+    for(UWord i=0; i<size; i++){
+      shadow_get_bits(my_sm,(SM_Addr)addr+i, (U8*)daddr+i);
+    }
+    *ret = 1;
+    return True;
+  } else if(arg[0]==VG_USERREQ__SET_DERIVATIVE) {
+    void* addr = (void*) arg[1];
+    void* daddr = (void*) arg[2];
+    UWord size = arg[3];
+    for(UWord i=0; i<size; i++){
+      shadow_set_bits(my_sm,(SM_Addr)addr+i, *((U8*)daddr+i));
+    }
+    *ret = 1;
+    return True;
   } else {
     VG_(printf)("Unhandled user request.\n");
     return True;
