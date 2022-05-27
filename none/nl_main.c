@@ -467,6 +467,14 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_F64toF32: {
         return IRExpr_Binop(Iop_F64toF32, arg1, d2);
       }
+      case Iop_I64StoF64:
+      case Iop_I64UtoF64:
+        return IRExpr_Const(IRConst_F64(0.));
+      case Iop_I64StoF32:
+      case Iop_I64UtoF32:
+      case Iop_I32StoF32:
+      case Iop_I32UtoF32:
+        return IRExpr_Const(IRConst_F32(0.));
       default:
         return NULL;
     }
@@ -492,6 +500,9 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_F32toF64: {
         return IRExpr_Unop(Iop_F32toF64, d);
       }
+      case Iop_I32StoF64:
+      case Iop_I32UtoF64:
+        return IRExpr_Const(IRConst_F64(0.));
       default:
         return NULL;
     }
