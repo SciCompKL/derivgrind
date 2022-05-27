@@ -876,7 +876,9 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       VG_(printf)("Did not instrument Ist_LLSC statement.\n");
     } else if(st->tag==Ist_Dirty) {
       addStmtToIRSB(sb_out, st_orig);
-      VG_(printf)("Cannot instrument Ist_Dirty statement.\n");
+      VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
+      ppIRStmt(st);
+      VG_(printf)("\n");
     } else if(st->tag==Ist_NoOp || st->tag==Ist_IMark || st->tag==Ist_AbiHint){
       addStmtToIRSB(sb_out, st_orig);
       // no relevance for any tool, do nothing

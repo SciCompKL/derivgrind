@@ -3,27 +3,6 @@ from TestCase import InteractiveTestCase, ClientRequestTestCase
 
 testlist = []
 
-omp = ClientRequestTestCase("addition")
-omp.cflags = "-fopenmp -lm"
-omp.include = "#include <omp.h>\n#include <math.h>"
-omp.stmt = """
-double sum=0;
-#pragma omp parallel for reduction(+:sum)
-for(int i=0; i<100; i++){
-  sum += sin(i*a);
-}
-"""
-omp.vals = {'a':1.0}
-omp.grads = {'a':3.0}
-omp_test_sum_val=0
-omp_test_sum_grad=0
-for i in range(100):
-  omp_test_sum_val += np.sin(i*1.0)
-  omp_test_sum_grad += np.cos(i*1.0)*i*3.0
-omp.test_vals = {'sum':omp_test_sum_val}
-omp.test_grads = {'sum':omp_test_sum_grad}
-testlist.append(omp)
-
 ### Basic arithmetic operations ###
 
 addition = ClientRequestTestCase("addition")
@@ -305,7 +284,38 @@ multiplication_recursion.grads = {'a':1.0}
 multiplication_recursion.test_vals = {'c':1024.0}
 multiplication_recursion.test_grads = {'c':5120.0}
 testlist.append(multiplication_recursion)
-  
+
+### OpenMP ###
+
+# The following test succeeds, but variations of
+# it fail. E.g. you cannot put a reduction clause or
+# an  atomic directive instead of the critical 
+# directive.
+omp = ClientRequestTestCase("omp")
+omp.cflags = "-fopenmp -lm"
+omp.include = "#include <omp.h>\n#include <math.h>"
+omp.stmt = """
+double sum=0;
+#pragma omp parallel for
+for(int i=0; i<100; i++){
+  double s = sin(i*a);
+  #pragma omp critical
+  {
+    sum += s;
+  }
+}
+"""
+omp.vals = {'a':1.0}
+omp.grads = {'a':3.0}
+omp_test_sum_val=0
+omp_test_sum_grad=0
+for i in range(100):
+  omp_test_sum_val += np.sin(i*1.0)
+  omp_test_sum_grad += np.cos(i*1.0)*i*3.0
+omp.test_vals = {'sum':omp_test_sum_val}
+omp.test_grads = {'sum':omp_test_sum_grad}
+testlist.append(omp)
+
 
 ### Interactive tests ###
 addition_interactive = InteractiveTestCase("addition_interactive")
