@@ -657,11 +657,13 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,type==Ity_F64||type==Ity_F32,"WrTmp");
       IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
       addStmtToIRSB(sb_out, sp);
+      addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_Put) {
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
       IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,type==Ity_F64||type==Ity_F32,"Put");
       IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
       addStmtToIRSB(sb_out, sp);
+      addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_PutI) {
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
       IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,type==Ity_F64||type==Ity_F32,"PutI");
@@ -671,6 +673,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       IRExpr* ix = st->Ist.PutI.details->ix;
       IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv.layout->total_sizeB,differentiated_expr));
       addStmtToIRSB(sb_out, sp);
+      addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_Store || st->tag==Ist_StoreG) {
       IREndness end; IRExpr* addr; IRExpr* data; Bool guarded;
       if(st->tag == Ist_Store){
@@ -712,6 +715,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         IRStmt* sp = IRStmt_Dirty(di);
         addStmtToIRSB(sb_out, sp);
       }
+      addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_LoadG) {
       IRLoadG* det = st->Ist.LoadG.details;
       IRType type = sb_in->tyenv->types[det->dst];
@@ -745,25 +749,144 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
           IRExpr_ITE(det->guard,IRExpr_RdTmp(loadAddr_reinterpreted),differentiated_expr_alt)
         ));
       }
+      addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_CAS) {
-      VG_(printf)("Did not instrument Ist_CAS statement.\n");
-      IRTemp oldHi = st->Ist.CAS.details->oldHi;
-      IRTemp oldLo = st->Ist.CAS.details->oldLo;
-      addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(oldLo + diffenv.t_offset, mkIRConst_zero(sb_in->tyenv->types[oldLo])));
-      if(oldHi != IRTemp_INVALID)
-        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(oldHi + diffenv.t_offset, mkIRConst_zero(sb_in->tyenv->types[oldHi])));
+
+      IRCAS* det = st->Ist.CAS.details;
+      IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
+      Bool double_element = (det->expdHi!=NULL);
+
+      // add original statement before AD treatment, because we need to know
+      // if the CAS succeeded
+      addStmtToIRSB(sb_out, st_orig);
+
+      // Now we will add a couple more statements. Note that the complete
+      // translation of the Ist_CAS is not atomic any more, so it's
+      // possible that we create a race condition here.
+      // This issue also exists in do_shadow_CAS in mc_translate.c.
+      // There, the comment states that because Valgrind runs only one
+      // thread at a time and there are no context switches within a
+      // single IRSB, this is not a problem.
+
+      // Find addresses of Hi and Lo part.
+      IRExpr* offset; // offset between Hi and Lo part of addr
+      IRExpr* addr_Lo; // one of addr_Lo, addr_Hi is det->addr,
+      IRExpr* addr_Hi; // the other one is det->addr + offset
+      IROp add; // operation to add addresses
+      switch(typeOfIRExpr(diffenv.sb_out->tyenv,det->addr)){
+        case Ity_I32:
+          add = Iop_Add32;
+          offset = IRExpr_Const(IRConst_U32(sizeofIRType(type)));
+          break;
+        case Ity_I64:
+          add = Iop_Add64;
+          offset = IRExpr_Const(IRConst_U64(sizeofIRType(type)));
+          break;
+        default:
+          VG_(printf)("Unhandled type for address in translation of Ist_CAS.\n");
+          tl_assert(False);
+          break;
+      }
+      if(det->end==Iend_LE){
+        if(double_element){
+          addr_Lo = det->addr;
+          addr_Hi = IRExpr_Binop(add,det->addr,offset);
+        } else {
+          addr_Lo = det->addr;
+          addr_Hi = NULL;
+        }
+      } else { // Iend_BE
+        if(double_element){
+          addr_Lo = IRExpr_Binop(add,det->addr,offset);
+          addr_Hi = det->addr;
+        } else {
+          addr_Lo = det->addr;
+          addr_Hi = NULL;
+        }
+      }
+
+      // Load derivatives of oldLo.
+      const char* fname_load;
+      void* fn_load;
+      switch(sizeofIRType(type)){
+        case 1: fname_load="nl_Load_diff1"; fn_load=nl_Load_diff1; break;
+        case 2: fname_load="nl_Load_diff2"; fn_load=nl_Load_diff2; break;
+        case 4: fname_load="nl_Load_diff4"; fn_load=nl_Load_diff4; break;
+        case 8: fname_load="nl_Load_diff8"; fn_load=nl_Load_diff8; break;
+        default: tl_assert(False);
+      }
+      IRDirty* di_Lo_load = unsafeIRDirty_1_N(
+            det->oldLo + diffenv.t_offset,
+            0,
+            fname_load, VG_(fnptr_to_fnentry)(fn_load),
+            mkIRExprVec_1(addr_Lo));
+      addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di_Lo_load));
+      // Possibly load derivatives of oldHi.
+      if(double_element){
+        IRDirty* di_Hi_load = unsafeIRDirty_1_N(
+                det->oldHi + diffenv.t_offset,
+                0,
+                fname_load, VG_(fnptr_to_fnentry)(fn_load),
+                mkIRExprVec_1(addr_Hi));
+          addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di_Hi_load));
+      }
+      // Find out if CAS succeeded.
+      IROp cmp;
+      switch(type){
+        case Ity_I8: cmp = Iop_CmpEQ8; break;
+        case Ity_I16: cmp = Iop_CmpEQ16; break;
+        case Ity_I32: cmp = Iop_CmpEQ32; break;
+        case Ity_I64: cmp = Iop_CmpEQ64; break;
+        default: VG_(printf)("Unhandled type in translation of Ist_CAS.\n"); tl_assert(False); break;
+      }
+      IRTemp cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
+      addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
+        IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_1Uto32,
+          IRExpr_Binop(cmp,IRExpr_RdTmp(det->oldLo), det->expdLo)
+      ))));
+      // Guarded write of Lo part to shadow memory.
+      IRExpr* differentiated_expdLo = differentiate_or_zero(det->expdLo,diffenv,False,"");
+      const char* fname;
+      void* fn;
+      switch(sizeofIRType(type)){
+        case 1: fname="nl_Store_diff1"; fn=nl_Store_diff1; break;
+        case 2: fname="nl_Store_diff2"; fn=nl_Store_diff2; break;
+        case 4: fname="nl_Store_diff4"; fn=nl_Store_diff4; break;
+        case 8: fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
+        default: tl_assert(False);
+      }
+      IRDirty* di_Lo = unsafeIRDirty_0_N(
+              0,
+              fname, VG_(fnptr_to_fnentry)(fn),
+              mkIRExprVec_2(addr_Lo,differentiated_expdLo));
+      di_Lo->guard = IRExpr_RdTmp(cas_succeeded);
+      addStmtToIRSB(sb_out, IRStmt_Dirty(di_Lo));
+      // Possibly guarded write of Hi part to shadow memory.
+      if(double_element){
+        IRExpr* differentiated_expdHi =  differentiate_or_zero(det->expdHi,diffenv,False,"");
+        IRDirty* di_Hi = unsafeIRDirty_0_N(
+                0,
+                fname, VG_(fnptr_to_fnentry)(fn),
+                mkIRExprVec_2(addr_Hi,differentiated_expdHi));
+        di_Hi->guard = IRExpr_RdTmp(cas_succeeded);
+        addStmtToIRSB(sb_out, IRStmt_Dirty(di_Hi));
+      }
     } else if(st->tag==Ist_LLSC) {
+      addStmtToIRSB(sb_out, st_orig);
       VG_(printf)("Did not instrument Ist_LLSC statement.\n");
     } else if(st->tag==Ist_Dirty) {
+      addStmtToIRSB(sb_out, st_orig);
       VG_(printf)("Cannot instrument Ist_Dirty statement.\n");
     } else if(st->tag==Ist_NoOp || st->tag==Ist_IMark || st->tag==Ist_AbiHint){
+      addStmtToIRSB(sb_out, st_orig);
       // no relevance for any tool, do nothing
     } else if(st->tag==Ist_Exit || st->tag==Ist_MBE) {
+      addStmtToIRSB(sb_out, st_orig);
       // no relevance for AD, do nothing
     } else {
       tl_assert(False);
     }
-    addStmtToIRSB(sb_out, st_orig);
+
 
   }
 
