@@ -51,8 +51,8 @@ f"""
   return ret;
 }}
 """
-  def declaration_of_original(self):
-    return f"""{self.type} LIBM({self.name}) ({self.type});\n"""
+  def declaration_original_pointer(self):
+    return f"""{self.type} (*LIBM({self.name})) ({self.type});\n"""
 
 class DERIVGRIND_MATH_FUNCTION2(DERIVGRIND_MATH_FUNCTION_BASE):
   """Wrap a math.h function with two arguments
@@ -74,8 +74,8 @@ f"""
   return ret;
 }}
 """
-  def declaration_of_original(self):
-    return f"""{self.type} LIBM({self.name}) ({self.type}, {self.type});\n"""
+  def declaration_original_pointer(self):
+    return f"""{self.type} (*LIBM({self.name})) ({self.type}, {self.type});\n"""
 
 class DERIVGRIND_MATH_FUNCTION2e(DERIVGRIND_MATH_FUNCTION_BASE):
   """Wrap a math.h function on (double,othertype)
@@ -96,8 +96,8 @@ f"""
   return ret;
 }}
 """
-  def declaration_of_original(self):
-    return f"""{self.type} LIBM({self.name}) ({self.type}, {self.othertype});\n"""
+  def declaration_original_pointer(self):
+    return f"""{self.type} (*LIBM({self.name})) ({self.type}, {self.othertype});\n"""
 
 functions = [
 

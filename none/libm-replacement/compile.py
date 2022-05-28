@@ -41,27 +41,41 @@ for glibc_version in glibc_versions_inv:
 with open("version-script", "w") as f:
   f.write(version_script)
 
-# Produce list of symbols that need to be renamed.
-with open("redefine-syms","w") as f:
-  for function in functions:
-    f.write(function.name+" LIBM_ORIGINAL_"+function.name+"\n")
+# Copy original libm.so.
+cp_libm = subprocess.run(["cp", libmso_path, "libmoriginal.so"],universal_newlines=True)
 
-# Copy libm.so and rename certain symbols.
-adapt_libm = subprocess.run(["objcopy", "--redefine-syms", "redefine-syms", libmso_path, "libmoriginal.so"],universal_newlines=True)
-
-# Produce header file declaring the renamed symbols.
-with open("mathoriginal.h","w") as f:
-  f.write("#define LIBM(name) LIBM_ORIGINAL_##name \n")
-  for function in functions:
-    f.write(function.declaration_of_original())
-
-# Produce source file defining the wrapped math symbols.
+# Produce source file of the library.
 with open("math.c","w") as f:
-  f.write('#include "mathoriginal.h"\n')
-  f.write('#include "valgrind/derivgrind.h"\n')
+  f.write("""
+    #include "valgrind/derivgrind.h" // for client requests
+    #include <dlfcn.h> // for dynamic loading
+    #include <stdio.h> // for printing error messages
+    #define LIBM(function) DG_MATH_ORIGINAL_##function
+    void* libmoriginal; // handle to original libm
+  """)
+  # declare pointers to functions from the original libm
+  for function in functions:
+    f.write(function.declaration_original_pointer())
+  # when the library is loaded, dynamically load 
+  # the original libm and initialize these pointers
+  f.write("""
+  __attribute__((constructor)) void DG_MATH_init(void){
+    void* libmoriginal = dlopen("libmoriginal.so",RTLD_LAZY);
+    if(!libmoriginal) printf("Cannot load libmoriginal.so\\n");
+  """)
+  for function in functions:
+    f.write(f"""LIBM({function.name}) = dlsym(libmoriginal, "{function.name}");\n""")
+  f.write("}\n")
+  # when the library is unloaded, don't unload the original libm
+  # as this causes a segmentation fault 
+  f.write("""
+  __attribute__((destructor)) void DG_MATH_fini(void){
+  }
+  """)
+  # define wrapped math functions   
   for function in functions:
     f.write(function.c_code())
 
 # Compile wrapper libm.so.
-compile_libm = subprocess.run(["gcc","math.c", "-o",libmso_name,"-L.","-lmoriginal","-shared","-fPIC","-Wl,--version-script","version-script","-m32","-I../../install/include"], universal_newlines=True)
+compile_libm = subprocess.run(["gcc","math.c", "-o",libmso_name,"-shared","-fPIC","-Wl,--version-script","version-script","-m32","-I../../install/include","-ldl"], universal_newlines=True)
 
