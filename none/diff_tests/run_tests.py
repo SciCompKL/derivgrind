@@ -103,16 +103,6 @@ testlist.append(division_const_r)
 
 ### Advances arithmetic and trigonometric operations ###
 
-sqrt = ClientRequestTestCase("sqrt")
-sqrt.include = "#include <math.h>"
-sqrt.ldflags = '-lm'
-sqrt.stmt = "double c = sqrt(a);"
-sqrt.vals = {'a':4.0}
-sqrt.grads = {'a':1.0}
-sqrt.test_vals = {'c':2.0}
-sqrt.test_grads = {'c':0.25}
-testlist.append(sqrt)
-
 abs_plus = ClientRequestTestCase("abs_plus")
 abs_plus.include = "#include <math.h>"
 abs_plus.ldflags = '-lm'
@@ -132,6 +122,38 @@ abs_minus.grads = {'a':2.0}
 abs_minus.test_vals = {'c':1.0}
 abs_minus.test_grads = {'c':-2.0}
 testlist.append(abs_minus)
+
+sqrt = ClientRequestTestCase("sqrt")
+sqrt.include = "#include <math.h>"
+sqrt.ldflags = '-lm'
+sqrt.stmt = "double c = sqrt(a);"
+sqrt.vals = {'a':4.0}
+sqrt.grads = {'a':1.0}
+sqrt.test_vals = {'c':2.0}
+sqrt.test_grads = {'c':0.25}
+testlist.append(sqrt)
+
+# if pow(a,b) is implemented as a*a for b==2., 
+# the gradient of b would be discarded
+pow_2 = ClientRequestTestCase("pow_2") 
+pow_2.include = "#include <math.h>"
+pow_2.ldflags = '-lm'
+pow_2.stmt = "double c = pow(a,b);"
+pow_2.vals = {'a':4.0,'b':2.0}
+pow_2.grads = {'a':1.6,'b':1.9}
+pow_2.test_vals = {'c':4.0**2}
+pow_2.test_grads = {'c':1.6*2*4.0 + 1.9*4.0**2*np.log(4)}
+testlist.append(pow_2)
+
+pow_both = ClientRequestTestCase("pow_both")
+pow_both.include = "#include <math.h>"
+pow_both.ldflags = '-lm'
+pow_both.stmt = "double c = pow(a,b);"
+pow_both.vals = {'a':4.0,'b':3.0}
+pow_both.grads = {'a':1.6,'b':1.9}
+pow_both.test_vals = {'c':4.0**3.0}
+pow_both.test_grads = {'c':1.6*3*4.0**2 + 1.9*4.0**3.0*np.log(4)}
+testlist.append(pow_both)
 
 for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"1"), (-10.,"neg10"), (100.,"100")]:
   sin = ClientRequestTestCase("sin_"+angletext)
@@ -174,6 +196,115 @@ exp.test_vals = {'c':np.exp(4)}
 exp.test_grads = {'c':np.exp(4)*5.0}
 testlist.append(exp)
 
+log = ClientRequestTestCase("log")
+log.include = "#include <math.h>"
+log.ldflags = '-lm'
+log.stmt = "double c = log(a);"
+log.vals = {'a':20}
+log.grads = {'a':1.0}
+log.test_vals = {'c':np.log(20)}
+log.test_grads = {'c':0.05}
+testlist.append(log)
+
+log10 = ClientRequestTestCase("log10")
+log10.include = "#include <math.h>"
+log10.ldflags = '-lm'
+log10.stmt = "double c = log10(a);"
+log10.vals = {'a':0.01}
+log10.grads = {'a':1.0}
+log10.test_vals = {'c':-2}
+log10.test_grads = {'c':100/np.log(10)}
+testlist.append(log10)
+
+sinh = ClientRequestTestCase("sinh")
+sinh.include = "#include <math.h>"
+sinh.ldflags = '-lm'
+sinh.stmt = "double c = sinh(a);"
+sinh.vals = {'a':2.0}
+sinh.grads = {'a':1.0}
+sinh.test_vals = {'c':np.sinh(2.0)}
+sinh.test_grads = {'c':np.cosh(2.0)}
+testlist.append(sinh)
+
+cosh = ClientRequestTestCase("cosh")
+cosh.include = "#include <math.h>"
+cosh.ldflags = '-lm'
+cosh.stmt = "double c = cosh(a);"
+cosh.vals = {'a':-2.0}
+cosh.grads = {'a':1.0}
+cosh.test_vals = {'c':np.cosh(-2.0)}
+cosh.test_grads = {'c':np.sinh(-2.0)}
+testlist.append(cosh)
+
+tanh = ClientRequestTestCase("tanh")
+tanh.include = "#include <math.h>"
+tanh.ldflags = '-lm'
+tanh.stmt = "double c = tanh(a);"
+tanh.vals = {'a':-0.5}
+tanh.grads = {'a':1.0}
+tanh.test_vals = {'c':np.tanh(-0.5)}
+tanh.test_grads = {'c':1-np.tanh(-0.5)**2}
+testlist.append(tanh)
+
+asin = ClientRequestTestCase("asin")
+asin.include = "#include <math.h>"
+asin.ldflags = '-lm'
+asin.stmt = "double c = asin(a);"
+asin.vals = {'a':0.9}
+asin.grads = {'a':1.0}
+asin.test_vals = {'c':np.arcsin(0.9)}
+asin.test_grads = {'c':1/np.sqrt(1-0.9**2)}
+testlist.append(asin)
+
+acos = ClientRequestTestCase("acos")
+acos.include = "#include <math.h>"
+acos.ldflags = '-lm'
+acos.stmt = "double c = acos(a);"
+acos.vals = {'a':-0.4}
+acos.grads = {'a':1.0}
+acos.test_vals = {'c':np.arccos(-0.4)}
+acos.test_grads = {'c':-1/np.sqrt(1-(-0.4)**2)}
+testlist.append(acos)
+
+atan = ClientRequestTestCase("atan")
+atan.include = "#include <math.h>"
+atan.ldflags = '-lm'
+atan.stmt = "double c = atan(a);"
+atan.vals = {'a':100}
+atan.grads = {'a':1.0}
+atan.test_vals = {'c':np.arctan(100)}
+atan.test_grads = {'c':1/(1+100**2)}
+testlist.append(atan)
+
+atan2 = ClientRequestTestCase("atan2")
+atan2.include = "#include <math.h>"
+atan2.ldflags = '-lm'
+atan2.stmt = "double c = atan2(a,b);"
+atan2.vals = {'a':3,'b':4}
+atan2.grads = {'a':1.3, 'b':1.5}
+atan2.test_vals = {'c':np.arctan2(3,4)}
+atan2.test_grads = {'c':1.3*(-4)/(3**2+4**2) + 1.5*3/(3**2+4**2)}
+testlist.append(atan2)
+
+floor = ClientRequestTestCase("floor")
+floor.include = "#include <math.h>"
+floor.ldflags = '-lm'
+floor.stmt = "double c = floor(a);"
+floor.vals = {'a':2.0}
+floor.grads = {'a':1.0}
+floor.test_vals = {'c':2.0}
+floor.test_grads = {'c':0.0}
+# testlist.append(floor)
+
+ceil = ClientRequestTestCase("ceil")
+ceil.include = "#include <math.h>"
+ceil.ldflags = '-lm'
+ceil.stmt = "double c = ceil(a);"
+ceil.vals = {'a':2.1}
+ceil.grads = {'a':1.0}
+ceil.test_vals = {'c':3.0}
+ceil.test_grads = {'c':0.0}
+# testlist.append(ceil)
 
 
 ### Memory operations from string.h ###
