@@ -284,7 +284,7 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
   VG_(strcpy)(s, req);
   HChar* ssaveptr; //!< internal state of strtok_r
 
-  const HChar commands[] = "help get set"; //!< list of possible commands
+  const HChar commands[] = "help get set fget fset"; //!< list of possible commands
   HChar* wcmd = VG_(strtok_r)(s, " ", &ssaveptr); //!< User command
   int key = VG_(keyword_id)(commands, wcmd, kwd_report_duplicated_matches);
   switch(key){
@@ -295,34 +295,44 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
     case 0: // help
       VG_(gdb_printf)(
         "monitor commands:\n"
-        "  get <addr>       - Prints derivative\n"
-        "  set <addr> <val> - Sets derivative\n"
+        "  get  <addr>       - Prints derivative of double\n"
+        "  set  <addr> <val> - Sets derivative of double\n"
+        "  fget <addr>       - Prints derivative of float\n"
+        "  fset <addr> <val> - Sets derivative of float\n"
       );
       return True;
-    case 1: { // get
+    case 1: case 3: { // get, fget
       HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
       Addr address;
       if(!VG_(parse_Addr)(&address_str, &address)){
-        VG_(gdb_printf)("Usage: get <addr>\n");
+        VG_(gdb_printf)("Usage: get  <addr>\n"
+                        "       fget <addr>\n");
         return False;
       }
-      double derivative=0;
-      for(int i=0; i<8; i++){
+      union {double d; float f;} derivative;
+      for(int i=0; i<((key==1)?8:4); i++){
         shadow_get_bits(my_sm,(SM_Addr)address+i, (U8*)&derivative+i);
       }
-      VG_(gdb_printf)("Derivative: %.16lf\n", derivative);
+      if(key==1)
+        VG_(gdb_printf)("Derivative: %.16lf\n", derivative.d);
+      else
+        VG_(gdb_printf)("Derivative: %.9f\n", derivative.f);
       return True;
     }
-    case 2: { // set
+    case 2: case 4: { // set, fset
       HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
       Addr address;
       if(!VG_(parse_Addr)(&address_str, &address)){
-        VG_(gdb_printf)("Usage: set <addr> <derivative>\n");
+        VG_(gdb_printf)("Usage: set  <addr> <derivative>\n"
+                        "       setf <addr> <derivative>\n");
         return False;
       }
       HChar* derivative_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
-      double derivative = VG_(strtod)(derivative_str, NULL);
-      for(int i=0; i<8; i++){
+      union {double d; float f;} derivative;
+      derivative.d = VG_(strtod)(derivative_str, NULL);
+      if(key==4)
+        derivative.f = (float) derivative.d;
+      for(int i=0; i<((key==2)?8:4); i++){
         shadow_set_bits( my_sm,(SM_Addr)address+i, *( (U8*)&derivative+i ) );
       }
       return True;
@@ -876,7 +886,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       VG_(printf)("Did not instrument Ist_LLSC statement.\n");
     } else if(st->tag==Ist_Dirty) {
       // We should have a look at all Ist_Dirty statements that
-      // are added to the VEX IR in guerst_x86_to_IR.c. Maybe
+      // are added to the VEX IR in guest_x86_to_IR.c. Maybe
       // some of them need AD treatment. For now let's just
       // return zero derivatives.
       IRTemp t = st->Ist.Dirty.details->tmp;

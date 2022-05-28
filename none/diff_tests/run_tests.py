@@ -487,7 +487,7 @@ multiplication_interactive.test_vals = {'c':2.0}
 multiplication_interactive.test_grads = {'c':10.0}
 testlist.append(multiplication_interactive)
 
-sin_100_interactive = ClientRequestTestCase("sin_100_interactive")
+sin_100_interactive = InteractiveTestCase("sin_100_interactive")
 sin_100_interactive.include = "#include <math.h>"
 sin_100_interactive.ldflags = '-lm'
 sin_100_interactive.stmt = "double c = sin(a);"
