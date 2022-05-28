@@ -2,6 +2,13 @@ import subprocess
 import re
 from overloaded_functions import functions
 
+# \file compile.py
+# Generate the source code for, and build, the 
+# DerivGrind libm replacement.
+# The wrapped functions are defined in
+# overloaded_functions.py.
+
+
 # Sample program to find libm.so.
 compile_sample = subprocess.run(["gcc", "sample.c", "-o", "sample", "-m32", "-lm"],universal_newlines=True)
 if compile_sample.returncode!=0:
@@ -47,6 +54,9 @@ cp_libm = subprocess.run(["cp", libmso_path, "libmoriginal.so"],universal_newlin
 # Produce source file of the library.
 with open("math.c","w") as f:
   f.write("""
+    // -------------------------------------------
+    // THIS FILE HAS BEEN AUTOMATICALLY GENERATED.
+    // -------------------------------------------
     #include "valgrind/derivgrind.h" // for client requests
     #include <dlfcn.h> // for dynamic loading
     #include <stdio.h> // for printing error messages

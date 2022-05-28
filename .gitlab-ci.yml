@@ -16,6 +16,7 @@ build:
     paths:
       - install/
       - none/libm-replacement/libm.so*
+      - none/libm-replacement/libmoriginal.so*
 
 test:
   stage: test

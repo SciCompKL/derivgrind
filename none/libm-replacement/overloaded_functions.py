@@ -1,30 +1,17 @@
 
 # \file overloaded_functions.py
-# Compile to a replacement libm.so, whose functions 
-# - do their original job, and additionally 
-# - update the gradient information.
-# 
-# Access to the gradient information is given through
-# the DerivGrind client requests.
-# 
-# It does not suffice to just wrap machine instructions.
-# For instance, some versions of the glibc libm do not use
-# the x86 fsin instruction to implement sin. Rather,
-# they use several numerical approximations depending on
-# the magnitude of the angle. The derivatives of these 
-# approximations seem to be bad approximations of the
-# derivative sometimes. A replacement libm allows us to
-# use the accurate analytic derivatives.
 #
-# We often need to call math.h functions for the 
-# derivatives, e.g. the derivative of sin is cos. 
-# Therefore we make a copy of the original libm and
-# replace the wrapped function f by LIBM(f).
+# Define how to wrap math.h functions in the
+# DerivGrind replacement libm.so.
+# 
+# Basically, each wrapped function is specified by its
+# name, parameter/return types, and derivative.
+# In order to use original math.h functions for the 
+# calculation of the derivative, use the macro
+# LIBM(functionname). 
 #
-# Warning: This file is scanned by the libm-replacement
-# compile script to obtain all names of wrapped functions.
-# Therefore the wrapping must be done by the macros defined 
-# in this file.
+# The actual source code is generated in compile.py.
+#
 
 class DERIVGRIND_MATH_FUNCTION_BASE:
   def __init__(self,name,type_):
@@ -52,7 +39,7 @@ f"""
 }}
 """
   def declaration_original_pointer(self):
-    return f"""{self.type} (*LIBM({self.name})) ({self.type});\n"""
+    return f"""{self.type} (*LIBM({self.name})) ({self.type}) = NULL;\n"""
 
 class DERIVGRIND_MATH_FUNCTION2(DERIVGRIND_MATH_FUNCTION_BASE):
   """Wrap a math.h function with two arguments
@@ -75,7 +62,7 @@ f"""
 }}
 """
   def declaration_original_pointer(self):
-    return f"""{self.type} (*LIBM({self.name})) ({self.type}, {self.type});\n"""
+    return f"""{self.type} (*LIBM({self.name})) ({self.type}, {self.type}) = NULL;\n"""
 
 class DERIVGRIND_MATH_FUNCTION2e(DERIVGRIND_MATH_FUNCTION_BASE):
   """Wrap a math.h function on (double,othertype)
@@ -97,7 +84,7 @@ f"""
 }}
 """
   def declaration_original_pointer(self):
-    return f"""{self.type} (*LIBM({self.name})) ({self.type}, {self.othertype});\n"""
+    return f"""{self.type} (*LIBM({self.name})) ({self.type}, {self.othertype}) = NULL;\n"""
 
 functions = [
 
