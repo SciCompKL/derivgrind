@@ -3,6 +3,9 @@ import re
 import time
 import os
 
+TYPE_DOUBLE = {"ctype":"double", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.16lf"}
+TYPE_FLOAT = {"ctype":"float", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
+
 class TestCase:
   """Basic data for a DerivGrind test case."""
   def __init__(self, name):
@@ -16,6 +19,7 @@ class TestCase:
     self.timeout = 10 # Timeout for execution in Valgrind, in seconds
     self.cflags = "" # Additional flags for the C compiler
     self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
+    self.type = TYPE_DOUBLE # TYPE_DOUBLE or TYPE_FLOAT
 
 class InteractiveTestCase(TestCase):
   """Methods to run a DerivGrind test case interactively in VGDB."""
@@ -29,7 +33,7 @@ class InteractiveTestCase(TestCase):
     self.code = f"""
       {self.include}
       int main(){{
-        { " ".join([" double "+var+" = "+str(self.vals[var])+";" for var in self.vals]) }
+        { " ".join([self.type["ctype"]+" "+var+" = "+str(self.vals[var])+";" for var in self.vals]) }
         /*_testcase_before_stmt*/ __asm__("nop");
         {self.stmt};
         /*_testcase_after_stmt*/ __asm__("nop");
@@ -93,10 +97,10 @@ class InteractiveTestCase(TestCase):
       while True:
         line = gdb.stdout.readline()
         self.gdb_log += line
-        r = re.search(r"\$\d+ = \(v?o?l?a?t?i?l?e?\s?double \*\) (0x[0-9a-f]+)$", line.strip())
+        r = re.search(r"\$\d+ = \("+self.type["ctype"]+" \*\) (0x[0-9a-f]+)$", line.strip())
         if r:
           pointer = r.group(1)
-          gdb.stdin.write("monitor set "+pointer+" "+str(self.grads[var])+"\n")
+          gdb.stdin.write("monitor "+self.type["set"]+" "+pointer+" "+str(self.grads[var])+"\n")
           break
     gdb.stdin.write("continue\n")
     # check values
@@ -108,7 +112,7 @@ class InteractiveTestCase(TestCase):
         r = re.search(r"\$\d+ = ([0-9\.\-]+)$", line.strip())
         if r:
           computed_value = float(r.group(1))
-          if abs(computed_value-self.test_vals[var]) > 1e-8:
+          if abs(computed_value-self.test_vals[var]) > self.type["tol"]:
             self.errmsg += "VALUES DISAGREE: "+var+" stored="+str(self.test_vals[var])+" computed="+str(computed_value)+"\n"
           break
     # check gradients
@@ -117,10 +121,10 @@ class InteractiveTestCase(TestCase):
       while True:
         line = gdb.stdout.readline()
         self.gdb_log += line
-        r = re.search(r"\$\d+ = \(v?o?l?a?t?i?l?e?\s?double \*\) (0x[0-9a-f]+)$", line.strip())
+        r = re.search(r"\$\d+ = \("+self.type["ctype"]+" \*\) (0x[0-9a-f]+)$", line.strip())
         if r:
           pointer = r.group(1)
-          gdb.stdin.write("monitor get "+pointer+"\n")
+          gdb.stdin.write("monitor "+self.type["get"]+" "+pointer+"\n")
           break
       while True:
         line = gdb.stdout.readline()
@@ -128,7 +132,7 @@ class InteractiveTestCase(TestCase):
         r = re.search("Derivative: ([0-9.\-]+)$", line.strip())
         if r:
           computed_gradient = float(r.group(1))
-          if abs(computed_gradient-self.test_grads[var]) > 1e-8:
+          if abs(computed_gradient-self.test_grads[var]) > self.type["tol"]:
             self.errmsg += "GRADIENTS DISAGREE: "+var+" stored="+str(self.test_grads[var])+" computed="+str(computed_gradient)+"\n"
           break
     # finish
@@ -172,15 +176,15 @@ class ClientRequestTestCase(TestCase):
     self.code += "#include <valgrind/derivgrind.h>\n"
     self.code += self.include + "\n"
     self.code += "int main(){\n  int ret=0;\n"
-    self.code += "".join([f"  double {var} = {self.vals[var]};\n" for var in self.vals]) 
+    self.code += "".join([f"  {self.type['ctype']} {var} = {self.vals[var]};\n" for var in self.vals]) 
     self.code += "  {\n"
-    self.code += "".join([f"    double _derivative_of_{var} = {self.grads[var]}; VALGRIND_SET_DERIVATIVE(&{var},&_derivative_of_{var},8);\n" for var in self.grads])
+    self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = {self.grads[var]}; VALGRIND_SET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.grads])
     self.code += "  }\n"
     self.code += "  " + self.stmt + "\n"
     self.code += "  {\n"
-    self.code += "".join([f'    if({var} < {self.test_vals[var]-1e-8} || {var} > {self.test_vals[var]+1e-8}) {{ printf("VALUES DISAGREE: {var} stored=%.16lf computed=%.16lf\\n",(double){self.test_vals[var]},{var}); ret = 1; }}\n' for var in self.test_vals])
-    self.code += "".join([f"    double _derivative_of_{var} = 0.; VALGRIND_GET_DERIVATIVE(&{var},&_derivative_of_{var},8);\n" for var in self.test_grads])
-    self.code += "".join([f'    if(_derivative_of_{var} < {self.test_grads[var]-1e-8} || _derivative_of_{var} > {self.test_grads[var]+1e-8}) {{ printf("GRADIENTS DISAGREE: {var} stored=%.16lf computed=%.16lf\\n",(double){self.test_grads[var]}, _derivative_of_{var}); ret = 1; }}\n' for var in self.test_grads])
+    self.code += "".join([f'    if({var} < {self.test_vals[var]-self.type["tol"]} || {var} > {self.test_vals[var]+self.type["tol"]}) {{ printf("VALUES DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_vals[var]},{var}); ret = 1; }}\n' for var in self.test_vals])
+    self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = 0.; VALGRIND_GET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.test_grads])
+    self.code += "".join([f'    if(_derivative_of_{var} < {self.test_grads[var]-self.type["tol"]} || _derivative_of_{var} > {self.test_grads[var]+self.type["tol"]}) {{ printf("GRADIENTS DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_grads[var]}, _derivative_of_{var}); ret = 1; }}\n' for var in self.test_grads])
     self.code += "  }\n"
     self.code += "  return ret;\n}\n"
 
