@@ -1,29 +1,20 @@
 #include <math.h>
 #include "valgrind/derivgrind.h"
 
-double sin(double x){
-  double x_d;
-  VALGRIND_GET_DERIVATIVE(&x,&x_d,8);
-  double ret = __sin(x);
-  double ret_d = __cos(x) * x_d;
-  VALGRIND_SET_DERIVATIVE(&ret,&ret_d,8);
-  return ret;
+/*! Wrap a math.h function to also handle
+ * the derivative information.
+ */
+#define DERIVGRIND_MATH_FUNCTION(name, deriv)\
+double name (double x){ \
+  double x_d; \
+  VALGRIND_GET_DERIVATIVE(&x,&x_d,8); \
+  double ret = __##name(x); \
+  double ret_d = deriv * x_d; \
+  VALGRIND_SET_DERIVATIVE(&ret,&ret_d,8); \
+  return ret; \
 }
 
-double cos(double x){
-  double x_d;
-  VALGRIND_GET_DERIVATIVE(&x,&x_d,8);
-  double ret = __cos(x);
-  double ret_d =- __sin(x) * x_d;
-  VALGRIND_SET_DERIVATIVE(&ret,&ret_d,8);
-  return ret;
-}
+DERIVGRIND_MATH_FUNCTION(sin, __cos(x))
+DERIVGRIND_MATH_FUNCTION(cos, -__sin(x))
+DERIVGRIND_MATH_FUNCTION(sqrt,0.5/__sqrt(x))
 
-double sqrt(double x){
-  double x_d;
-  VALGRIND_GET_DERIVATIVE(&x,&x_d,8);
-  double ret = __sqrt(x);
-  double ret_d = 0.5/__sqrt(x) * x_d;
-  VALGRIND_SET_DERIVATIVE(&ret,&ret_d,8);
-  return ret;
-}

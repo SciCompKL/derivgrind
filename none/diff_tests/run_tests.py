@@ -342,7 +342,7 @@ sin_100_interactive.vals = {'a':100}
 sin_100_interactive.grads = {'a':3.1}
 sin_100_interactive.test_vals = {'c':np.sin(100)}
 sin_100_interactive.test_grads = {'c':np.cos(100)*3.1}
-testlist.append(sin)
+testlist.append(sin_100_interactive)
 
 outcomes = []
 for test in testlist:
