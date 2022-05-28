@@ -10,7 +10,8 @@ class TestCase:
   """Basic data for a DerivGrind test case."""
   def __init__(self, name):
     self.name = name # Name of TestCase
-    self.stmt = "" # Code to be run in main function
+    self.stmt = "" # Code to be run in main function for double test
+    self.stmtf = None # Code to be run in main function for float test
     self.include = "" # Code pasted above main function
     self.vals = {} # Assigns values to input variables used by stmt
     self.grads = {} # Assigns gradients to input variables used by stmt
