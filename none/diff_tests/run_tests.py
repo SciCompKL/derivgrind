@@ -294,7 +294,7 @@ floor.vals = {'a':2.0}
 floor.grads = {'a':1.0}
 floor.test_vals = {'c':2.0}
 floor.test_grads = {'c':0.0}
-# testlist.append(floor)
+testlist.append(floor)
 
 ceil = ClientRequestTestCase("ceil")
 ceil.include = "#include <math.h>"
@@ -304,7 +304,7 @@ ceil.vals = {'a':2.1}
 ceil.grads = {'a':1.0}
 ceil.test_vals = {'c':3.0}
 ceil.test_grads = {'c':0.0}
-# testlist.append(ceil)
+testlist.append(ceil)
 
 
 ### Memory operations from string.h ###

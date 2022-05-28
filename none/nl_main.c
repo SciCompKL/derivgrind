@@ -875,6 +875,15 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       addStmtToIRSB(sb_out, st_orig);
       VG_(printf)("Did not instrument Ist_LLSC statement.\n");
     } else if(st->tag==Ist_Dirty) {
+      // We should have a look at all Ist_Dirty statements that
+      // are added to the VEX IR in guerst_x86_to_IR.c. Maybe
+      // some of them need AD treatment. For now let's just
+      // return zero derivatives.
+      IRTemp t = st->Ist.Dirty.details->tmp;
+      if(t!=IRTemp_INVALID){ // write zero derivative
+        IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,t);
+        addStmtToIRSB(sb_out,IRStmt_WrTmp(t+diffenv.t_offset,mkIRConst_zero(type)));
+      }
       addStmtToIRSB(sb_out, st_orig);
       VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
       ppIRStmt(st);
