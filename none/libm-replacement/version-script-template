@@ -1,3 +1,0 @@
-GLIBC_VERSION {
-  sin;
-};
