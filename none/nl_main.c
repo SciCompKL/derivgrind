@@ -284,7 +284,7 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
   VG_(strcpy)(s, req);
   HChar* ssaveptr; //!< internal state of strtok_r
 
-  const HChar commands[] = "help get set fget fset"; //!< list of possible commands
+  const HChar commands[] = "help get set fget fset lget lset"; //!< list of possible commands
   HChar* wcmd = VG_(strtok_r)(s, " ", &ssaveptr); //!< User command
   int key = VG_(keyword_id)(commands, wcmd, kwd_report_duplicated_matches);
   switch(key){
@@ -299,40 +299,61 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         "  set  <addr> <val> - Sets derivative of double\n"
         "  fget <addr>       - Prints derivative of float\n"
         "  fset <addr> <val> - Sets derivative of float\n"
+        "  lget <addr>       - Prints derivative of long double\n"
+        "  lset <addr> <val> - Sets derivative of long double\n"
       );
       return True;
-    case 1: case 3: { // get, fget
+    case 1: case 3: case 5: { // get, fget, lget
       HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
       Addr address;
       if(!VG_(parse_Addr)(&address_str, &address)){
         VG_(gdb_printf)("Usage: get  <addr>\n"
-                        "       fget <addr>\n");
+                        "       fget <addr>\n"
+                        "       lget <addr>\n");
         return False;
       }
-      union {double d; float f;} derivative;
-      for(int i=0; i<((key==1)?8:4); i++){
+      int size;
+      switch(key){
+        case 1: size = 8; break;
+        case 3: size = 4; break;
+        case 5: size = 16; break;
+      }
+      union {long double l; double d; float f;} derivative;
+      for(int i=0; i<size; i++){
         shadow_get_bits(my_sm,(SM_Addr)address+i, (U8*)&derivative+i);
       }
-      if(key==1)
-        VG_(gdb_printf)("Derivative: %.16lf\n", derivative.d);
-      else
-        VG_(gdb_printf)("Derivative: %.9f\n", derivative.f);
+      switch(key){
+        case 1:
+          VG_(gdb_printf)("Derivative: %.16lf\n", derivative.d);
+          break;
+        case 3:
+          VG_(gdb_printf)("Derivative: %.9f\n", derivative.f);
+          break;
+        case 5:
+          VG_(gdb_printf)("Derivative: %.16lf\n", (double)derivative.l);
+          break;
+      }
       return True;
     }
-    case 2: case 4: { // set, fset
+    case 2: case 4: case 6: { // set, fset, lset
       HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
       Addr address;
       if(!VG_(parse_Addr)(&address_str, &address)){
         VG_(gdb_printf)("Usage: set  <addr> <derivative>\n"
-                        "       setf <addr> <derivative>\n");
+                        "       fset <addr> <derivative>\n"
+                        "       lset <addr> <derivative>\n");
         return False;
       }
       HChar* derivative_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
-      union {double d; float f;} derivative;
-      derivative.d = VG_(strtod)(derivative_str, NULL);
-      if(key==4)
-        derivative.f = (float) derivative.d;
-      for(int i=0; i<((key==2)?8:4); i++){
+      union {long double l; double d; float f;} derivative;
+      derivative.l = VG_(strtold)(derivative_str, NULL);
+      int size;
+      switch(key){
+        case 2: size = 8; derivative.d = (double) derivative.l; break;
+        case 4: size = 4; derivative.f = (float) derivative.l; break;
+        case 6: size = 16; break;
+      }
+      for(int i=0; i<size; i++){
         shadow_set_bits( my_sm,(SM_Addr)address+i, *( (U8*)&derivative+i ) );
       }
       return True;

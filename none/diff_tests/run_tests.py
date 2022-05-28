@@ -510,6 +510,7 @@ testlist.append(omp)
 ### Interactive tests ###
 addition_interactive = InteractiveTestCase("addition_interactive")
 addition_interactive.stmt = "double c = a+b;"
+addition_interactive.stmtf = "float c = a+b;"
 addition_interactive.vals = {'a':1.0,'b':2.0}
 addition_interactive.grads = {'a':3.0,'b':4.0}
 addition_interactive.test_vals = {'c':3.0}
@@ -518,6 +519,7 @@ testlist.append(addition_interactive)
 
 multiplication_interactive = InteractiveTestCase("multiplication_interactive")
 multiplication_interactive.stmt = "double c = a*b;"
+multiplication_interactive.stmtf = "float c = a*b;"
 multiplication_interactive.vals = {'a':1.0,'b':2.0}
 multiplication_interactive.grads = {'a':3.0,'b':4.0}
 multiplication_interactive.test_vals = {'c':2.0}
@@ -528,6 +530,7 @@ sin_100_interactive = InteractiveTestCase("sin_100_interactive")
 sin_100_interactive.include = "#include <math.h>"
 sin_100_interactive.ldflags = '-lm'
 sin_100_interactive.stmt = "double c = sin(a);"
+sin_100_interactive.stmtf = "float c = sinf(a);"
 sin_100_interactive.vals = {'a':100}
 sin_100_interactive.grads = {'a':3.1}
 sin_100_interactive.test_vals = {'c':np.sin(100)}
