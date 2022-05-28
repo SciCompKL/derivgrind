@@ -154,6 +154,28 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.test_grads = {'c':-np.sin(angle)*2.7}
   testlist.append(cos)
 
+  tan = ClientRequestTestCase("tan_"+angletext)
+  tan.include = "#include <math.h>"
+  tan.ldflags = '-lm'
+  tan.stmt = "double c = tan(a);"
+  tan.vals = {'a':angle}
+  tan.grads = {'a':1.0}
+  tan.test_vals = {'c':np.tan(angle)}
+  tan.test_grads = {'c':1./np.cos(angle)**2}
+  testlist.append(tan)
+
+exp = ClientRequestTestCase("exp")
+exp.include = "#include <math.h>"
+exp.ldflags = '-lm'
+exp.stmt = "double c = exp(a);"
+exp.vals = {'a':4}
+exp.grads = {'a':5.0}
+exp.test_vals = {'c':np.exp(4)}
+exp.test_grads = {'c':np.exp(4)*5.0}
+testlist.append(exp)
+
+
+
 ### Memory operations from string.h ###
 
 memcpy = ClientRequestTestCase("memcpy")
