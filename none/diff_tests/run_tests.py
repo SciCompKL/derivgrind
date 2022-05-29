@@ -13,7 +13,7 @@ testlist = []
 addition = ClientRequestTestCase("addition")
 addition.stmt = "double c = a+b;"
 addition.stmtf = "float c = a+b;"
-#addition.stmtl = "long double c = a+b;"
+addition.stmtl = "long double c = a+b;"
 addition.vals = {'a':1.0,'b':2.0}
 addition.grads = {'a':3.0,'b':4.0}
 addition.test_vals = {'c':3.0}
@@ -554,11 +554,11 @@ for i in range(ntests_now):
   if test.stmtl:
     long_double_test = copy.deepcopy(test)
     long_double_test.name = "long_double_"+test.name
-    long_double_test.stmt = test.stmtf
+    long_double_test.stmt = test.stmtl
     long_double_test.type = TYPE_LONG_DOUBLE
     testlist.append(long_double_test)
 
-
+testlist.reverse()
 outcomes = []
 for test in testlist:
   outcomes.append(test.run())

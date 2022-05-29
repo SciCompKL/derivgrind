@@ -296,7 +296,7 @@ static void convertToInteger(IRExpr* expr, IRExpr** converted, IRType type){
     default:
       VG_(printf)("Bad type encountered in convertToInteger.\n");
       tl_assert(False);
-      return NULL;
+      break;
   }
 }
 
@@ -699,7 +699,12 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     IRExpr* d3 = differentiate_expr(arg3,diffenv);
     if(d2==NULL || d3==NULL) return NULL;
     switch(rex->op){
-      case Iop_AddF64: return IRExpr_Triop(Iop_AddF64,arg1,d2,d3);
+      case Iop_AddF64:
+        nl_add_print_stmt(61,diffenv.sb_out,d2);
+        nl_add_print_stmt(62,diffenv.sb_out,d3);
+        nl_add_print_stmt(63,diffenv.sb_out,arg2);
+        nl_add_print_stmt(64,diffenv.sb_out,arg3);
+            return IRExpr_Triop(Iop_AddF64,arg1,d2,d3);
       case Iop_AddF32: return IRExpr_Triop(Iop_AddF32,arg1,d2,d3);
       case Iop_SubF64: return IRExpr_Triop(Iop_SubF64,arg1,d2,d3);
       case Iop_SubF32: return IRExpr_Triop(Iop_SubF32,arg1,d2,d3);
@@ -1031,34 +1036,41 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       addStmtToIRSB(sb_out, st_orig);
       VG_(printf)("Did not instrument Ist_LLSC statement.\n");
     } else if(st->tag==Ist_Dirty) {
-      if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_storeF80le")){
-        IRExpr** args = st->Ist.Dirty.details->args;
-        tl_assert(args[1]->tag==Iex_Unop);
-        tl_assert(args[1]->Iex.Unop.op==Iop_ReinterpF64asI64);
-        IRExpr* expr = args[1]->Iex.Unop.arg; // argument of Iop_ReinterpF64asI64
-        IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,False,"");
-        storeShadowMemory(sb_out,args[0],differentiated_expr,NULL);
-      } else if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_loadF80le")){
-        /*IRExpr** args = st->Ist.Dirty.details->args;
-        ;
-        IRExpr* expr = args[1]->Iex.Unop.arg;
-        IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,false,"");
-        loadShadowMemory(sb_out,args[0],);*/ // TODO
-      }
-
       // We should have a look at all Ist_Dirty statements that
       // are added to the VEX IR in guest_x86_to_IR.c. Maybe
-      // some of them need AD treatment. For now let's just
-      // return zero derivatives.
-      IRTemp t = st->Ist.Dirty.details->tmp;
-      if(t!=IRTemp_INVALID){ // write zero derivative
-        IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,t);
-        addStmtToIRSB(sb_out,IRStmt_WrTmp(t+diffenv.t_offset,mkIRConst_zero(type)));
+      // some of them need AD treatment.
+      // For now let's just return zero derivatives.
+      if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_storeF80le")){
+        IRExpr** args = st->Ist.Dirty.details->args;
+        IRExpr* addr = args[0];
+        IRExpr* expr = args[1];
+        IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,False,"");
+        nl_add_print_stmt(30,sb_out,addr);
+        nl_add_print_stmt(31,sb_out,expr);
+        nl_add_print_stmt(32,sb_out,differentiated_expr);
+        storeShadowMemory(sb_out,addr,differentiated_expr,NULL);
+        addStmtToIRSB(sb_out, st_orig);
+      } else if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_loadF80le")){
+        IRExpr** args = st->Ist.Dirty.details->args;
+        IRExpr* addr = args[0];
+        IRTemp t = st->Ist.Dirty.details->tmp;
+        addStmtToIRSB(sb_out, IRStmt_WrTmp(t+diffenv.t_offset, loadShadowMemory(sb_out,addr,Ity_I64)));
+        addStmtToIRSB(sb_out, st_orig);
+        nl_add_print_stmt(40,sb_out,addr);
+        nl_add_print_stmt(41,sb_out,IRExpr_RdTmp(t));
+        nl_add_print_stmt(42,sb_out,IRExpr_RdTmp(t+diffenv.t_offset));
+      } else {
+
+        IRTemp t = st->Ist.Dirty.details->tmp;
+        if(t!=IRTemp_INVALID){ // write zero derivative
+          IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,t);
+          addStmtToIRSB(sb_out,IRStmt_WrTmp(t+diffenv.t_offset,mkIRConst_zero(type)));
+        }
+        addStmtToIRSB(sb_out, st_orig);
+        VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
+        ppIRStmt(st);
+        VG_(printf)("\n");
       }
-      addStmtToIRSB(sb_out, st_orig);
-      VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
-      ppIRStmt(st);
-      VG_(printf)("\n");
     } else if(st->tag==Ist_NoOp || st->tag==Ist_IMark || st->tag==Ist_AbiHint){
       addStmtToIRSB(sb_out, st_orig);
       // no relevance for any tool, do nothing
