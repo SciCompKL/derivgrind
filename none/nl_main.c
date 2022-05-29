@@ -77,6 +77,33 @@ static void nl_post_clo_init(void)
 {
 }
 
+
+/*! Make zero constant of certain type.
+ */
+static IRExpr* mkIRConst_zero(IRType type){
+  IRExpr* zeroF = IRExpr_Const(IRConst_F64(0.));
+  IRExpr* zeroU = IRExpr_Const(IRConst_U64(0));
+  switch(type){
+    case Ity_INVALID: tl_assert(False); return NULL;
+    case Ity_I1: return IRExpr_Const(IRConst_U1(0));
+    case Ity_I8: return IRExpr_Const(IRConst_U8(0));
+    case Ity_I16: return IRExpr_Const(IRConst_U16(0));
+    case Ity_I32: return IRExpr_Const(IRConst_U32(0));
+    case Ity_I64: return zeroU;
+    case Ity_I128: return IRExpr_Const(IRConst_U128(0));
+    case Ity_F16: return IRExpr_Binop(Iop_F64toF16,DEFAULT_ROUNDING,zeroF);
+    case Ity_F32: return IRExpr_Const(IRConst_F32(0.));
+    case Ity_F64: return zeroF;
+    case Ity_D32: return IRExpr_Binop(Iop_F64toD32,DEFAULT_ROUNDING,zeroF);
+    case Ity_D64: return IRExpr_Binop(Iop_F64toD64,DEFAULT_ROUNDING,zeroF);
+    case Ity_D128: return IRExpr_Binop(Iop_F64toD128,DEFAULT_ROUNDING,zeroF);
+    case Ity_F128: return IRExpr_Unop(Iop_F64toF128,zeroF);
+    case Ity_V128: return IRExpr_Binop(Iop_64HLtoV128,zeroU,zeroU);
+    case Ity_V256: return IRExpr_Qop(Iop_64x4toV256,zeroU,zeroU,zeroU,zeroU);
+    default: tl_assert(False); return NULL;
+  }
+}
+
 /*! \page loading_and_storing Loading and storing tangent values in memory
  *
  *  When translating
@@ -86,14 +113,53 @@ static void nl_post_clo_init(void)
  *  we emit Ist_Dirty statements. When those are executed, the call the
  *  functions nl_Store_diffN, nl_Load_diffN which access the shadow memory.
  *
- *  However, these functions can only accept and return 4- and 8-byte
- *  integers arguments. Therefore we reinterpret all types, including
- *  floating-point types, as 8-byte integers.
+ *  These nl_Store_diffN and nl_Load_diffN functions can only accept and
+ *  return 4- and 8-byte integers arguments. Therefore we have to "encode" all
+ *  types, including floating-point and SIMD types, by up to four 8-byte
+ *  integers (Ity_I64 on the VEX side, ULong on the C side).
  *
- *  These casts have been implemented for Ity_I8, Ity_I16, Ity_I32, Ity_I64,
- *  Ity_F32, Ity_F64. For the remaining types, we miss suitable Iop's to
- *  convert them. As a consequence, we cannot transport gradient information
- *  through the remaining types.
+ *  Storing derivative information
+ *  ------------------------------
+ *  During translation, we call convertToInteger on the IRExpr for the
+ *  derivative. This wraps some instructions around the IRExpr, giving
+ *  an array of four IRExpr's that evaluate to the type Ity_I64. These
+ *  are used to create up to four Ist_Dirty statements for nl_Store_diffN.
+ *
+ *  When the translated IRSB is executed, the wrapper
+ *  VEX instructions encode the value on the simulated CPU and then the
+ *  Ist_Dirty mechanism calls nl_Store_diffN with the encoded values of
+ *  type ULong. Inside nl_Store_diffN we decode the data and store it in
+ *  shadow memory.
+ *
+ *  Loading derivative information
+ *  ------------------------------
+ *  Ist_Dirty statements calling nl_Load_diffN are added during translation.
+ *  When the translated IRSB is executed, the Ist_Dirty mechanism calls
+ *  nl_Load_diffN, which reads the gradient information from shadow memory,
+ *  encodes it, and returns a ULong which is stored as Ity_I64 in a temporary.
+ *  In the transation phase we also wrap these up to four temporaries by
+ *  convertFromInteger, which adds VEX instructions that convert the Ity_I64
+ *  data back to the original type.
+ *
+ *  How the encoding works
+ *  ----------------------
+ *  For most types, this "encoding" is a binary reinterpretation, and padding
+ *  by zeros. On the VEX side, this is accomplished by instructions like
+ *  Iop_ReinterpF64asI64, Iop_32HLto64, Iop_128to64. On the C side, no explicit
+ *  conversion is required because the gradient information is anyways accessed
+ *  per byte.
+ *
+ *  For the types Ity_F16 and Ity_D32, we miss the corresponding VEX
+ *  reinterpretation instructions. One way to circumvent this could be
+ *  to encode them in a different way, e.g. first cast Ity_D32 to Ity_D64
+ *  and then reinterpret this as Ity_I64. However, in order to revert this
+ *  on the C side, Valgrind must be compiled with a compiler that supports
+ *  the C type _Decimal32. To avoid this restriction, we just drop any gradient
+ *  information associated to such expressions when they are stored in memory.
+ *
+ *  Issues
+ *  ------
+ *  Not properly tested yet. Maybe error for big-endian storage order.
  *
  */
 
@@ -138,54 +204,95 @@ static VG_REGPARM(0) ULong nl_Load_diff2(Addr addr){return nl_Load_diff(addr,2);
 static VG_REGPARM(0) ULong nl_Load_diff4(Addr addr){return nl_Load_diff(addr,4);}
 static VG_REGPARM(0) ULong nl_Load_diff8(Addr addr){return nl_Load_diff(addr,8);}
 
-
-/*! Return whether we can reinterpret this type as integer.
- */
-static Bool canConvertToI64(IRType type){
-  switch(type){
-    case Ity_I8: case Ity_I16: case Ity_I32: case Ity_I64:
-    case Ity_F32: case Ity_F64:
-      return True;
-    case Ity_INVALID:
-      VG_(printf)("Invalid type encountered in canConvertToI64.\n");
-      tl_assert(False);
-      return False;
-    default:
-      return False;
-  }
-}
-/*! Reinterpret expression as 8-byte integer.
- *  Only those types are accepted for which integerIRType returns True.
- *  \param[in] expr - Expression whose value should be reinterpreted.
+/*! Reinterpret given expression as 4xI64 in VEX.
+ *  This function complements convertFromInteger.
+ *  \param[in] expr - Expression whose value should be reinterpreted as 4xI64.
+ *  \param[out] converted - 4xI64 reinterpreted expressions.
+ *    Unnecessary expressions can be NULL.
  *  \param[in] type - Type of expr.
- *  \returns Expression reinterpreted as 8-byte integer.
+ *  \returns Expression reinterpreted as 4xI64.
  */
-static IRExpr* convertToInteger(IRExpr* expr, IRType type){
+static void convertToInteger(IRExpr* expr, IRExpr** converted, IRType type){
+  converted[0] = converted[1] = converted[2] = converted[3] = NULL;
   IRExpr* zero8 = IRExpr_Const(IRConst_U8(0));
   IRExpr* zero16 = IRExpr_Const(IRConst_U16(0));
   IRExpr* zero32 = IRExpr_Const(IRConst_U32(0));
   switch(type){
+    case Ity_INVALID:
+      VG_(printf)("Ity_INVALID encountered in convertToInteger.\n");
+      tl_assert(False); break;
+    case Ity_I1:
+      // It would be very strange if this type transfers parts of an
+      // active variable, but let's still treat it.
+      converted[0] = IRExpr_Binop(Iop_32HLto64, zero32,
+               IRExpr_Binop(Iop_16HLto32, zero16,
+                 IRExpr_Binop(Iop_8HLto16, zero8,
+                   IRExpr_Unop(Iop_1Uto8, expr)
+             )));
+      break;
     case Ity_F32:
-      return IRExpr_Binop(Iop_32HLto64, zero32, IRExpr_Unop(Iop_ReinterpF32asI32, expr));
+      converted[0] = IRExpr_Binop(Iop_32HLto64, zero32, IRExpr_Unop(Iop_ReinterpF32asI32, expr));
+      break;
     case Ity_F64:
-      return IRExpr_Unop(Iop_ReinterpF64asI64, expr);
+      converted[0] = IRExpr_Unop(Iop_ReinterpF64asI64, expr);
+      break;
     case Ity_I8:
-      return IRExpr_Binop(Iop_32HLto64, zero32,
+      converted[0] = IRExpr_Binop(Iop_32HLto64, zero32,
                IRExpr_Binop(Iop_16HLto32, zero16,
                  IRExpr_Binop(Iop_8HLto16, zero8,
                    expr
              )));
+      break;
     case Ity_I16:
-      return IRExpr_Binop(Iop_32HLto64, zero32,
+      converted[0] = IRExpr_Binop(Iop_32HLto64, zero32,
                IRExpr_Binop(Iop_16HLto32, zero16,
                  expr
              ));
+      break;
     case Ity_I32:
-      return IRExpr_Binop(Iop_32HLto64, zero32,
+      converted[0] = IRExpr_Binop(Iop_32HLto64, zero32,
                expr
              );
+      break;
     case Ity_I64:
-      return expr;
+      converted[0] = expr;
+      break;
+    case Ity_I128:
+      converted[0] = IRExpr_Unop(Iop_128HIto64, expr);
+      converted[1] = IRExpr_Unop(Iop_128to64, expr);
+      break;
+    case Ity_V128:
+      converted[0] = IRExpr_Unop(Iop_V128HIto64, expr);
+      converted[1] = IRExpr_Unop(Iop_V128to64, expr);
+      break;
+    case Ity_V256:
+      converted[0] = IRExpr_Unop(Iop_V256to64_3, expr);
+      converted[1] = IRExpr_Unop(Iop_V256to64_2, expr);
+      converted[2] = IRExpr_Unop(Iop_V256to64_1, expr);
+      converted[3] = IRExpr_Unop(Iop_V256to64_0, expr);
+      break;
+    case Ity_D64:
+      converted[0] = IRExpr_Unop(Iop_ReinterpD64asI64, expr);
+      break;
+    case Ity_D32:
+      // We're missing the appropriate VEX instruction
+      // for reinterpretation.
+      converted[0] = IRExpr_Const(IRConst_U64(0));
+      break;
+    case Ity_D128:
+      // no idea if this is correct
+      converted[0] = IRExpr_Unop(Iop_ReinterpD64asI64, IRExpr_Unop(Iop_D128HItoD64, expr));
+      converted[1] = IRExpr_Unop(Iop_ReinterpD64asI64, IRExpr_Unop(Iop_D128toD64, expr));
+      break;
+    case Ity_F16:
+      // We're missing the appropriate VEX instruction
+      // for reinterpretation
+      converted[0] = IRExpr_Const(IRConst_U64(0));
+      break;
+    case Ity_F128:
+      converted[0] = IRExpr_Unop(Iop_128HIto64, IRExpr_Unop(Iop_ReinterpF128asI128, expr));
+      converted[1] = IRExpr_Unop(Iop_128to64, IRExpr_Unop(Iop_ReinterpF128asI128, expr));
+      break;
     default:
       VG_(printf)("Bad type encountered in convertToInteger.\n");
       tl_assert(False);
@@ -193,39 +300,188 @@ static IRExpr* convertToInteger(IRExpr* expr, IRType type){
   }
 }
 
-/*! Reinterpret 8-byte integer expression as another type.
- *  Only those types are accepted for which integerIRType returns True.
- *  \param[in] expr - Expression whose value should be reinterpreted.
+/*! Reinterpret 4xI64 as expression of a given type in VEX.
+ *  This function complements convertToInteger.
+ *  \param[in] expr - 4xI64 expressions whose value should be reinterpreted.
+ *     Unnecessary expressions can be NULL.
  *  \param[in] type - Type to convert to.
- *  \returns Expression reinterpreted as another type.
+ *  \returns 4xI64 expression reinterpreted in another type.
  */
-static IRExpr* convertFromInteger(IRExpr* expr, IRType type){
+static IRExpr* convertFromInteger(IRExpr** expr, IRType type){
   switch(type){
+    case Ity_INVALID:
+      VG_(printf)("Ity_INVALID encountered in convertFromInteger.\n");
+      tl_assert(False); break;
+    case Ity_I1:
+      return IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_64to32,expr[0]));
     case Ity_F32:
-      return IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32,expr));
+      return IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32,expr[0]));
     case Ity_F64:
-      return IRExpr_Unop(Iop_ReinterpI64asF64, expr);
+      return IRExpr_Unop(Iop_ReinterpI64asF64, expr[0]);
     case Ity_I8:
       return IRExpr_Unop(Iop_16to8,
                IRExpr_Unop(Iop_32to16,
                  IRExpr_Unop(Iop_64to32,
-                   expr
+                   expr[0]
              )));
     case Ity_I16:
       return IRExpr_Unop(Iop_32to16,
                IRExpr_Unop(Iop_64to32,
-                 expr
+                 expr[0]
              ));
     case Ity_I32:
       return IRExpr_Unop(Iop_64to32,
-               expr
+               expr[0]
              );
     case Ity_I64:
-      return expr;
+      return expr[0];
+    case Ity_I128:
+      return IRExpr_Binop(Iop_64HLto128,expr[0], expr[1]);
+    case Ity_V128:
+      return IRExpr_Binop(Iop_64HLtoV128,expr[0],expr[1]);
+    case Ity_V256:
+      return IRExpr_Qop(Iop_64x4toV256,expr[0],expr[1],expr[2],expr[3]);
+    case Ity_D64:
+      return IRExpr_Unop(Iop_ReinterpI64asD64, expr[0]);
+    case Ity_D32:
+      // Ity_D32 and Ity_F16 lose gradient information.
+      // See convertToInteger.
+      return mkIRConst_zero(Ity_D32);
+    case Ity_D128:
+      // no idea whether this is correct
+      return IRExpr_Binop(Iop_D64HLtoD128, IRExpr_Unop(Iop_ReinterpI64asD64,expr[0]), IRExpr_Unop(Iop_ReinterpI64asD64,expr[1]));
+    case Ity_F16:
+      // Ity_D32 and Ity_F16 lose gradient information.
+      // See convertToInteger.
+      return mkIRConst_zero(Ity_F16);
+    case Ity_F128:
+      return IRExpr_Unop(Iop_ReinterpI128asF128, IRExpr_Binop(Iop_64HLtoV128,expr[0],expr[1]));
     default:
       VG_(printf)("Bad type encountered in convertFromInteger.\n");
       tl_assert(False);
       return NULL;
+  }
+}
+
+/*! Add VEX instructions to read the shadow memory at a given address.
+ *  \param[in,out] sb_out - IRSB where VEX instruction can be added.
+ *  \param[in] addr - Address to be read from.
+ *  \param[in] type - Type of the variable stored at addr.
+ *  \returns IRExpr that evaluates to the content of the shadow memory.
+ */
+static IRExpr* loadShadowMemory(IRSB* sb_out, IRExpr* addr, IRType type){
+
+  UChar n64Blocks; // necessary number of loads of Ity_I64: 1, 2 or 4
+  const char* fname; // name of function that Ist_Dirty will call
+  void* fn; // pointer to function that Ist_Dirty will call
+  switch(sizeofIRType(type)){
+    case 1:  n64Blocks=1; fname="nl_Load_diff1"; fn=nl_Load_diff1; break;
+    case 2:  n64Blocks=1; fname="nl_Load_diff2"; fn=nl_Load_diff2; break;
+    case 4:  n64Blocks=1; fname="nl_Load_diff4"; fn=nl_Load_diff4; break;
+    case 8:  n64Blocks=1; fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
+    case 16: n64Blocks=2; fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
+    case 32: n64Blocks=4; fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
+    default: tl_assert(False);
+  }
+  // reserve Ity_I64 temporaries to load into
+  IRTemp loadAddr[4];
+  loadAddr[1] = loadAddr[2] = loadAddr[3] = IRTemp_INVALID;
+  loadAddr[0] = newIRTemp(sb_out->tyenv, Ity_I64);
+  if(n64Blocks>=2){
+    loadAddr[1] = newIRTemp(sb_out->tyenv, Ity_I64);
+    if(n64Blocks==4){
+      loadAddr[2] = newIRTemp(sb_out->tyenv, Ity_I64);
+      loadAddr[3] = newIRTemp(sb_out->tyenv, Ity_I64);
+    }
+  }
+  // find Iop and offsets to shift address
+  IROp add;
+  IRExpr* offsets[4];
+  switch(typeOfIRExpr(sb_out->tyenv,addr)){
+    case Ity_I32:
+      add = Iop_Add32;
+      for(int i=0; i<4; i++) offsets[i] = IRExpr_Const(IRConst_U32(i*8));
+      break;
+    case Ity_I64:
+      add = Iop_Add64;
+      for(int i=0; i<4; i++) offsets[i] = IRExpr_Const(IRConst_U64(i*8));
+      break;
+    default:
+      VG_(printf)("Unhandled type for address in loadShadowMemory.\n");
+      tl_assert(False);
+      break;
+  }
+  // load via Ist_Dirty
+  for(UChar i64Block=0; i64Block<n64Blocks; i64Block++){
+    IRDirty* di = unsafeIRDirty_1_N(
+      loadAddr[i64Block],
+      0,
+      fname, VG_(fnptr_to_fnentry)(fn),
+      mkIRExprVec_1(IRExpr_Binop(add,addr,offsets[i64Block])));
+    addStmtToIRSB(sb_out, IRStmt_Dirty(di));
+  }
+  // prepare IRExpr's that read from these
+  IRExpr* loadAddr_RdTmp[4];
+  for(int i=0; i<4; i++){
+    if(loadAddr[i]!=IRTemp_INVALID)
+      loadAddr_RdTmp[i] = IRExpr_RdTmp(loadAddr[i]);
+    else
+      loadAddr_RdTmp[i] = NULL;
+  }
+  // decode
+  return convertFromInteger(loadAddr_RdTmp,type);
+}
+
+
+/*! Add VEX instructions to store the shadow memory at a given address.
+ *  \param[in,out] sb_out - IRSB where VEX instruction can be added.
+ *  \param[in] addr - Address to store to.
+ *  \param[in] expr - Expression whose value is to be stored.
+ *  \param[in] guard - Store guard, can be NULL.
+ */
+static void storeShadowMemory(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
+  IRType type = typeOfIRExpr(sb_out->tyenv,expr);
+  UChar n64Blocks; // necessary number of stores of Ity_I64: 1, 2 or 4
+  const char* fname; // name of function that Ist_Dirty will call
+  void* fn; // pointer to function that Ist_Dirty will call
+  switch(sizeofIRType(type)){
+    case 1:  n64Blocks=1; fname="nl_Store_diff1"; fn=nl_Store_diff1; break;
+    case 2:  n64Blocks=1; fname="nl_Store_diff2"; fn=nl_Store_diff2; break;
+    case 4:  n64Blocks=1; fname="nl_Store_diff4"; fn=nl_Store_diff4; break;
+    case 8:  n64Blocks=1; fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
+    case 16: n64Blocks=2; fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
+    case 32: n64Blocks=4; fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
+    default: tl_assert(False);
+  }
+  // convert to up to four expressions of type Ity_I64
+  IRExpr* converted[4];
+  convertToInteger(expr,converted,type);
+  // find Iop and offsets to shift address
+  IROp add;
+  IRExpr* offsets[4];
+  switch(typeOfIRExpr(sb_out->tyenv,addr)){
+    case Ity_I32:
+      add = Iop_Add32;
+      for(int i=0; i<4; i++) offsets[i] = IRExpr_Const(IRConst_U32(i*8));
+      break;
+    case Ity_I64:
+      add = Iop_Add64;
+      for(int i=0; i<4; i++) offsets[i] = IRExpr_Const(IRConst_U64(i*8));
+      break;
+    default:
+      VG_(printf)("Unhandled type for address in storeShadowMemory.\n");
+      tl_assert(False);
+      break;
+  }
+  // store via Ist_Dirty
+  for(UChar i64Block=0; i64Block<n64Blocks; i64Block++){
+    IRDirty* di = unsafeIRDirty_0_N(
+      0,
+      fname, VG_(fnptr_to_fnentry)(fn),
+      mkIRExprVec_2(IRExpr_Binop(add,addr,offsets[i64Block]), converted[i64Block]));
+    if(guard)
+      di->guard = guard;
+    addStmtToIRSB(sb_out, IRStmt_Dirty(di));
   }
 }
 
@@ -570,62 +826,12 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB,descr->elemTy,descr->nElems);
     return IRExpr_GetI(descr_diff,ix,bias+diffenv.layout->total_sizeB);
   } else if (ex->tag==Iex_Load) {
-      // TODO treat D16,D32,D64,V256,F16
-    // Load tangent value into this temporary.
-    // Apparantly it must be of an integer type.
-    IRType type = ex->Iex.Load.ty;
-    if(!canConvertToI64(type)) return NULL;
-    IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, Ity_I64);
-    const char* fname;
-    void* fn;
-    switch(sizeofIRType(type)){
-      case 1: fname="nl_Load_diff1"; fn=nl_Load_diff1; break;
-      case 2: fname="nl_Load_diff2"; fn=nl_Load_diff2; break;
-      case 4: fname="nl_Load_diff4"; fn=nl_Load_diff4; break;
-      case 8: fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
-      default: tl_assert(False);
-    }
-    IRDirty* di = unsafeIRDirty_1_N(
-      loadAddr,
-      0,
-      fname, VG_(fnptr_to_fnentry)(fn),
-      mkIRExprVec_1(ex->Iex.Load.addr));
-    addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di));
-    // Convert into correct type.
-    IRTemp loadAddr_reinterpreted = newIRTemp(diffenv.sb_out->tyenv, type);
-    addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(loadAddr_reinterpreted,
-      convertFromInteger(IRExpr_RdTmp(loadAddr), type)));
-    return IRExpr_RdTmp(loadAddr_reinterpreted);
+    return loadShadowMemory(diffenv.sb_out,ex->Iex.Load.addr,ex->Iex.Load.ty);
   } else {
     return NULL;
   }
 }
 
-/*! Make zero constant of certain type.
- */
-static IRExpr* mkIRConst_zero(IRType type){
-  IRExpr* zeroF = IRExpr_Const(IRConst_F64(0.));
-  IRExpr* zeroU = IRExpr_Const(IRConst_U64(0));
-  switch(type){
-    case Ity_INVALID: tl_assert(False); return NULL;
-    case Ity_I1: return IRExpr_Const(IRConst_U1(0));
-    case Ity_I8: return IRExpr_Const(IRConst_U8(0));
-    case Ity_I16: return IRExpr_Const(IRConst_U16(0));
-    case Ity_I32: return IRExpr_Const(IRConst_U32(0));
-    case Ity_I64: return zeroU;
-    case Ity_I128: return IRExpr_Const(IRConst_U128(0));
-    case Ity_F16: return IRExpr_Binop(Iop_F64toF16,DEFAULT_ROUNDING,zeroF);
-    case Ity_F32: return IRExpr_Const(IRConst_F32(0.));
-    case Ity_F64: return zeroF;
-    case Ity_D32: return IRExpr_Binop(Iop_F64toD32,DEFAULT_ROUNDING,zeroF);
-    case Ity_D64: return IRExpr_Binop(Iop_F64toD64,DEFAULT_ROUNDING,zeroF);
-    case Ity_D128: return IRExpr_Binop(Iop_F64toD128,DEFAULT_ROUNDING,zeroF);
-    case Ity_F128: return IRExpr_Unop(Iop_F64toF128,zeroF);
-    case Ity_V128: return IRExpr_Binop(Iop_64HLtoV128,zeroU,zeroU);
-    case Ity_V256: return IRExpr_Qop(Iop_64x4toV256,zeroU,zeroU,zeroU,zeroU);
-    default: tl_assert(False); return NULL;
-  }
-}
 
 /*! Compute derivative. If this fails, return a zero expression.
  *  \param[in] expr - expression to be differentiated
@@ -705,81 +911,30 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv.layout->total_sizeB,differentiated_expr));
       addStmtToIRSB(sb_out, sp);
       addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_Store || st->tag==Ist_StoreG) {
-      IREndness end; IRExpr* addr; IRExpr* data; Bool guarded;
-      if(st->tag == Ist_Store){
-        end = st->Ist.Store.end;
-        addr = st->Ist.Store.addr;
-        data = st->Ist.Store.data;
-        guarded = False;
-      } else {
-        end = st->Ist.StoreG.details->end;
-        addr = st->Ist.StoreG.details->addr;
-        data = st->Ist.StoreG.details->data;
-        guarded = True;
-      }
-      IRType type = typeOfIRExpr(sb_in->tyenv,data);
-      if(canConvertToI64(type)){
-        IRExpr* differentiated_expr = differentiate_or_zero(data, diffenv, type==Ity_F64||type==Ity_F32,"Store");
-        // The Store.data is an IREXpr_Const or IRExpr_Tmp, so this holds
-        // for its derivative as well. Compare this to Memcheck's IRAtom.
-        // TODO treat D16,D32,D64,V256,F16
-        // Before we can store the tangent value, we must convert
-        // it to an integer type. Compare to Iex_Load.
-        IRExpr* differentiated_expr_reinterpreted = convertToInteger(differentiated_expr,type);
-        const char* fname;
-        void* fn;
-        switch(sizeofIRType(type)){
-          case 1: fname="nl_Store_diff1"; fn=nl_Store_diff1; break;
-          case 2: fname="nl_Store_diff2"; fn=nl_Store_diff2; break;
-          case 4: fname="nl_Store_diff4"; fn=nl_Store_diff4; break;
-          case 8: fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
-          default: tl_assert(False);
-        }
-        IRDirty* di = unsafeIRDirty_0_N(
-                0,
-                fname, VG_(fnptr_to_fnentry)(fn),
-                mkIRExprVec_2(addr,differentiated_expr_reinterpreted));
-        if(guarded){
-          di->guard = st->Ist.StoreG.details->guard;
-        }
-        IRStmt* sp = IRStmt_Dirty(di);
-        addStmtToIRSB(sb_out, sp);
-      }
+    } else if(st->tag==Ist_Store){
+      IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Store.data);
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Store.data, diffenv, type==Ity_F64||type==Ity_F32,"Store");
+      storeShadowMemory(diffenv.sb_out,st->Ist.Store.addr,differentiated_expr,NULL);
+      addStmtToIRSB(sb_out, st_orig);
+    } else if(st->tag==Ist_StoreG){
+      IRStoreG* det = st->Ist.StoreG.details;
+      IRType type = typeOfIRExpr(sb_in->tyenv,det->data);
+      IRExpr* differentiated_expr = differentiate_or_zero(det->data, diffenv, type==Ity_F64||type==Ity_F32,"StoreG");
+      storeShadowMemory(diffenv.sb_out,det->addr,differentiated_expr,det->guard);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_LoadG) {
       IRLoadG* det = st->Ist.LoadG.details;
+      // discard det->cvt; extra bits for widening should
+      // never be interpreted as derivative information
       IRType type = sb_in->tyenv->types[det->dst];
-      if(canConvertToI64(type)){
-        if(type==Ity_F64) tl_assert(det->cvt == ILGop_Ident64); // what else could you load into double?
-        if(type==Ity_F32) tl_assert(det->cvt == ILGop_Ident32); // what else could you load into double?
-        IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,type==Ity_F64||type==Ity_F32,"alternative-LoadG");
-          // compare the following to Iop_Load
-        IRTemp loadAddr = newIRTemp(diffenv.sb_out->tyenv, Ity_I64);
-        const char* fname;
-        void* fn;
-        switch(sizeofIRType(type)){
-          case 1: fname="nl_Load_diff1"; fn=nl_Load_diff1; break;
-          case 2: fname="nl_Load_diff2"; fn=nl_Load_diff2; break;
-          case 4: fname="nl_Load_diff4"; fn=nl_Load_diff4; break;
-          case 8: fname="nl_Load_diff8"; fn=nl_Load_diff8; break;
-          default: tl_assert(False);
-        }
-        IRDirty* di = unsafeIRDirty_1_N(
-              loadAddr,
-              0,
-              fname, VG_(fnptr_to_fnentry)(fn),
-              mkIRExprVec_1(det->addr));
-        addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di));
-        IRTemp loadAddr_reinterpreted = newIRTemp(diffenv.sb_out->tyenv, type);
-        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(loadAddr_reinterpreted,
-            convertFromInteger(IRExpr_RdTmp(loadAddr), type)));
-        // copy it into shadow variable for temporary dst,
-        // or the derivative of alt, depending on the guard
-        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(det->dst+diffenv.t_offset,
-          IRExpr_ITE(det->guard,IRExpr_RdTmp(loadAddr_reinterpreted),differentiated_expr_alt)
-        ));
-      }
+      // differentiate alternative value
+      IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,type==Ity_F64||type==Ity_F32,"alternative-LoadG");
+      // depending on the guard, copy either the derivative stored
+      // in shadow memory, or the derivative of the alternative value,
+      // to the shadow temporary.
+      addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(det->dst+diffenv.t_offset,
+        IRExpr_ITE(det->guard,loadShadowMemory(diffenv.sb_out,det->addr,type),differentiated_expr_alt)
+      ));
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_CAS) {
 
@@ -837,29 +992,12 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       }
 
       // Load derivatives of oldLo.
-      const char* fname_load;
-      void* fn_load;
-      switch(sizeofIRType(type)){
-        case 1: fname_load="nl_Load_diff1"; fn_load=nl_Load_diff1; break;
-        case 2: fname_load="nl_Load_diff2"; fn_load=nl_Load_diff2; break;
-        case 4: fname_load="nl_Load_diff4"; fn_load=nl_Load_diff4; break;
-        case 8: fname_load="nl_Load_diff8"; fn_load=nl_Load_diff8; break;
-        default: tl_assert(False);
-      }
-      IRDirty* di_Lo_load = unsafeIRDirty_1_N(
-            det->oldLo + diffenv.t_offset,
-            0,
-            fname_load, VG_(fnptr_to_fnentry)(fn_load),
-            mkIRExprVec_1(addr_Lo));
-      addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di_Lo_load));
+      addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
+        det->oldLo + diffenv.t_offset, loadShadowMemory(diffenv.sb_out,addr_Lo,type)));
       // Possibly load derivatives of oldHi.
       if(double_element){
-        IRDirty* di_Hi_load = unsafeIRDirty_1_N(
-                det->oldHi + diffenv.t_offset,
-                0,
-                fname_load, VG_(fnptr_to_fnentry)(fn_load),
-                mkIRExprVec_1(addr_Hi));
-          addStmtToIRSB(diffenv.sb_out, IRStmt_Dirty(di_Hi_load));
+          addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
+            det->oldHi + diffenv.t_offset, loadShadowMemory(diffenv.sb_out,addr_Hi,type)));
       }
       // Find out if CAS succeeded.
       IROp cmp;
@@ -877,30 +1015,11 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       ))));
       // Guarded write of Lo part to shadow memory.
       IRExpr* differentiated_expdLo = differentiate_or_zero(det->expdLo,diffenv,False,"");
-      const char* fname;
-      void* fn;
-      switch(sizeofIRType(type)){
-        case 1: fname="nl_Store_diff1"; fn=nl_Store_diff1; break;
-        case 2: fname="nl_Store_diff2"; fn=nl_Store_diff2; break;
-        case 4: fname="nl_Store_diff4"; fn=nl_Store_diff4; break;
-        case 8: fname="nl_Store_diff8"; fn=nl_Store_diff8; break;
-        default: tl_assert(False);
-      }
-      IRDirty* di_Lo = unsafeIRDirty_0_N(
-              0,
-              fname, VG_(fnptr_to_fnentry)(fn),
-              mkIRExprVec_2(addr_Lo,differentiated_expdLo));
-      di_Lo->guard = IRExpr_RdTmp(cas_succeeded);
-      addStmtToIRSB(sb_out, IRStmt_Dirty(di_Lo));
+      storeShadowMemory(sb_out,addr_Lo,differentiated_expdLo,IRExpr_RdTmp(cas_succeeded));
       // Possibly guarded write of Hi part to shadow memory.
       if(double_element){
         IRExpr* differentiated_expdHi =  differentiate_or_zero(det->expdHi,diffenv,False,"");
-        IRDirty* di_Hi = unsafeIRDirty_0_N(
-                0,
-                fname, VG_(fnptr_to_fnentry)(fn),
-                mkIRExprVec_2(addr_Hi,differentiated_expdHi));
-        di_Hi->guard = IRExpr_RdTmp(cas_succeeded);
-        addStmtToIRSB(sb_out, IRStmt_Dirty(di_Hi));
+        storeShadowMemory(sb_out,addr_Hi,differentiated_expdHi,IRExpr_RdTmp(cas_succeeded));
       }
     } else if(st->tag==Ist_LLSC) {
       addStmtToIRSB(sb_out, st_orig);
