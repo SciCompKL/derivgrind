@@ -556,8 +556,8 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         "  set  <addr> <val> - Sets derivative of double\n"
         "  fget <addr>       - Prints derivative of float\n"
         "  fset <addr> <val> - Sets derivative of float\n"
-        "  lget <addr>       - Prints derivative of long double\n"
-        "  lset <addr> <val> - Sets derivative of long double\n"
+        "  lget <addr>       - Prints derivative of x87 double extended\n"
+        "  lset <addr> <val> - Sets derivative of x87 double extended\n"
       );
       return True;
     case 1: case 3: case 5: { // get, fget, lget
@@ -587,6 +587,8 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
           VG_(gdb_printf)("Derivative: %.9f\n", derivative.f);
           break;
         case 5: {
+          // convert x87 double extended to 64-bit double
+          // so we can use the ordinary I/O.
           double tmp;
           convert_f80le_to_f64le(derivative.l,&tmp);
           VG_(gdb_printf)("Derivative: %.16lf\n", (double)tmp);
@@ -612,6 +614,8 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         case 2: size = 8; break;
         case 4: size = 4; derivative.f = (float) derivative.d; break;
         case 6: {
+          // read as ordinary double and convert to x87 double extended
+          // so we can use the ordinary I/O
           size = 10;
           double tmp = derivative.d;
           convert_f64le_to_f80le(&tmp,derivative.l);
