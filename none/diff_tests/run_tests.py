@@ -1,11 +1,23 @@
 import numpy as np
 import copy
 from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE
+import sys
+
+selected_testcase = None
+if len(sys.argv)>2:
+  printf("Usage: "+sys.argv[0]+"                      - Run all testcases.")
+  printf("       "+sys.argv[0]+" [name of testcase]   - Run single testcase.")
+  exit(1)
+elif len(sys.argv)==2:
+  selected_testcase = sys.argv[1]
+
 
 # We first define all the tests in testlist.
 # Then there is some additional processing to create a 
 # float test for each double test.
-# Then all tests are run in the end of the script.
+# Then all tests are run in the end of the script,
+# or, if a command-line argument is specified, only
+# that single test.
 testlist = []
 
 ### Basic arithmetic operations ###
@@ -589,18 +601,24 @@ for i in range(ntests_now):
     long_double_test.type = TYPE_LONG_DOUBLE
     testlist.append(long_double_test)
 
-outcomes = []
-for test in testlist:
-  outcomes.append(test.run())
-
-print("Summary:")
+### Run testcases ###
 there_are_failed_tests = False
-for i in range(len(testlist)):
-  if outcomes[i]:
-    print("  "+testlist[i].name+": PASSED")
-  else:
-    print("* "+testlist[i].name+": FAILED")
-    there_are_failed_tests = True
+if selected_testcase:
+  for test in testlist:
+    if test.name==selected_testcase:
+      there_are_failed_tests = test.run()
+else: 
+  outcomes = []
+  for test in testlist:
+    outcomes.append(test.run())
+
+  print("Summary:")
+  for i in range(len(testlist)):
+    if outcomes[i]:
+      print("  "+testlist[i].name+": PASSED")
+    else:
+      print("* "+testlist[i].name+": FAILED")
+      there_are_failed_tests = True
 
 if there_are_failed_tests:
   exit(1)

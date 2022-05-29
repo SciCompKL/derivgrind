@@ -927,7 +927,7 @@ ULong x86g_diff_dirtyhelper_loadF80le ( Addr addrU )
 {
    ULong f64, f128[2];
    f128[0] = nl_Load_diff8(addrU);
-   f128[1] = nl_Load_diff4(addrU+8);
+   f128[1] = nl_Load_diff2(addrU+8);
    convert_f80le_to_f64le ( (UChar*)f128, (UChar*)&f64 );
    return f64;
 }
@@ -942,7 +942,7 @@ void x86g_diff_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
    ULong f128[2];
    convert_f64le_to_f80le( (UChar*)&f64, (UChar*)f128 );
    nl_Store_diff8(addrU,f128[0]);
-   nl_Store_diff4(addrU+8,f128[1]);
+   nl_Store_diff2(addrU+8,f128[1]);
 }
 
 /*! Instrument an IRSB.
