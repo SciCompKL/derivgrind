@@ -784,12 +784,14 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         IRExpr* minus_d = IRExpr_Unop(Iop_NegF32, d);
         return IRExpr_ITE(IRExpr_Unop(Iop_32to1,cond), minus_d, d);
       }
-      case Iop_F32toF64: {
-        return IRExpr_Unop(Iop_F32toF64, d);
-      }
       case Iop_I32StoF64:
       case Iop_I32UtoF64:
         return IRExpr_Const(IRConst_F64(0.));
+      // the following instructions are simply applied to the derivative as well
+      case Iop_F32toF64:
+      case Iop_ReinterpI64asF64: case Iop_ReinterpF64asI64:
+      case Iop_ReinterpI32asF32: case Iop_ReinterpF32asI32:
+        return IRExpr_Unop(op, d);
       default:
         return NULL;
     }
@@ -854,6 +856,10 @@ IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const ch
     return mkIRConst_zero(typeOfIRExpr(diffenv.sb_out->tyenv,expr));
   }
 }
+/*
+static VG_REGPARM(0) void x86g_diff_dirtyhelper_storeF80le(Addr addrU, ULong f64){
+  double derivative =
+}*/
 
 /*! Instrument an IRSB.
  */
@@ -1025,6 +1031,21 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       addStmtToIRSB(sb_out, st_orig);
       VG_(printf)("Did not instrument Ist_LLSC statement.\n");
     } else if(st->tag==Ist_Dirty) {
+      if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_storeF80le")){
+        IRExpr** args = st->Ist.Dirty.details->args;
+        tl_assert(args[1]->tag==Iex_Unop);
+        tl_assert(args[1]->Iex.Unop.op==Iop_ReinterpF64asI64);
+        IRExpr* expr = args[1]->Iex.Unop.arg; // argument of Iop_ReinterpF64asI64
+        IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,False,"");
+        storeShadowMemory(sb_out,args[0],differentiated_expr,NULL);
+      } else if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_loadF80le")){
+        /*IRExpr** args = st->Ist.Dirty.details->args;
+        ;
+        IRExpr* expr = args[1]->Iex.Unop.arg;
+        IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,false,"");
+        loadShadowMemory(sb_out,args[0],);*/ // TODO
+      }
+
       // We should have a look at all Ist_Dirty statements that
       // are added to the VEX IR in guest_x86_to_IR.c. Maybe
       // some of them need AD treatment. For now let's just

@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT
+from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE
 
 # We first define all the tests in testlist.
 # Then there is some additional processing to create a 
@@ -13,6 +13,7 @@ testlist = []
 addition = ClientRequestTestCase("addition")
 addition.stmt = "double c = a+b;"
 addition.stmtf = "float c = a+b;"
+#addition.stmtl = "long double c = a+b;"
 addition.vals = {'a':1.0,'b':2.0}
 addition.grads = {'a':3.0,'b':4.0}
 addition.test_vals = {'c':3.0}
@@ -537,8 +538,9 @@ sin_100_interactive.test_vals = {'c':np.sin(100)}
 sin_100_interactive.test_grads = {'c':np.cos(100)*3.1}
 testlist.append(sin_100_interactive)
 
-### Floats ###
+### Floats and long doubles ###
 ntests_now = len(testlist)
+
 for i in range(ntests_now):
   test = testlist[i]
   if test.stmtf:
@@ -547,6 +549,14 @@ for i in range(ntests_now):
     float_test.stmt = test.stmtf
     float_test.type = TYPE_FLOAT
     testlist.append(float_test)
+for i in range(ntests_now):
+  test = testlist[i]
+  if test.stmtl:
+    long_double_test = copy.deepcopy(test)
+    long_double_test.name = "long_double_"+test.name
+    long_double_test.stmt = test.stmtf
+    long_double_test.type = TYPE_LONG_DOUBLE
+    testlist.append(long_double_test)
 
 
 outcomes = []

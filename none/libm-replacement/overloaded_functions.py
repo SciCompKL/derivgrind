@@ -130,7 +130,29 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("sinhf", "LIBM(coshf)(x)","float"),
   DERIVGRIND_MATH_FUNCTION("sqrtf", "1/(2*LIBM(sqrtf)(x))","float"),
   DERIVGRIND_MATH_FUNCTION("tanf", "1/(LIBM(cosf)(x)*LIBM(cosf)(x))","float"),
-  DERIVGRIND_MATH_FUNCTION("tanhf", "1-LIBM(tanhf)(x)*LIBM(tanhf)(x)","float")
+  DERIVGRIND_MATH_FUNCTION("tanhf", "1-LIBM(tanhf)(x)*LIBM(tanhf)(x)","float"),
+
+  # long double versions
+  DERIVGRIND_MATH_FUNCTION("acosl","-1/LIBM(sqrtl)(1-x*x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("asinl","1/LIBM(sqrtl)(1-x*x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("atanl","1/(1+x*x)","long double"),
+  DERIVGRIND_MATH_FUNCTION2("atan2l","-y/(x*x+y*y)","x/(x*x+y*y)","long double"),
+  DERIVGRIND_MATH_FUNCTION("ceill","0","long double"),
+  DERIVGRIND_MATH_FUNCTION("cosl", "-LIBM(sinl)(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("coshl", "LIBM(sinhl)(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("expl", "LIBM(expl)(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("fabsl", "(x>0?1:-1)","long double"),
+  DERIVGRIND_MATH_FUNCTION("floorl", "0","long double"),
+  DERIVGRIND_MATH_FUNCTION2e("frexpl","LIBM(ldexpl)(1,-*e)","long double","int*"),
+  DERIVGRIND_MATH_FUNCTION2e("ldexpl","LIBM(ldexpl)(1,e)","long double","int"),
+  DERIVGRIND_MATH_FUNCTION("logl","1/x","long double"),
+  DERIVGRIND_MATH_FUNCTION("log10l", "1/(LIBM(logl)(10)*x)","long double"),
+  DERIVGRIND_MATH_FUNCTION2("powl"," (y==0||y==-0)?0:(y*LIBM(powl)(x,y-1))", "LIBM(powl)(x,y)*LIBM(logl)(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("sinl", "LIBM(cosl)(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("sinhl", "LIBM(coshl)(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("sqrtl", "1/(2*LIBM(sqrtl)(x))","long double"),
+  DERIVGRIND_MATH_FUNCTION("tanl", "1/(LIBM(cosl)(x)*LIBM(cosl)(x))","long double"),
+  DERIVGRIND_MATH_FUNCTION("tanhl", "1-LIBM(tanhl)(x)*LIBM(tanhl)(x)","long double")
 
 ]
 
