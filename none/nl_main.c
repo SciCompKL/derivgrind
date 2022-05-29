@@ -532,6 +532,7 @@ void nl_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
   addStmtToIRSB(sb_out, IRStmt_Dirty(di));
 }
 
+#include <VEX/priv/guest_generic_x87.h>
 /*! React to gdb monitor commands.
  */
 static
@@ -572,9 +573,9 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       switch(key){
         case 1: size = 8; break;
         case 3: size = 4; break;
-        case 5: size = 16; break;
+        case 5: size = 10; break;
       }
-      union {long double l; double d; float f;} derivative;
+      union {char l[10]; double d; float f;} derivative;
       for(int i=0; i<size; i++){
         shadow_get_bits(my_sm,(SM_Addr)address+i, (U8*)&derivative+i);
       }
@@ -585,9 +586,12 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         case 3:
           VG_(gdb_printf)("Derivative: %.9f\n", derivative.f);
           break;
-        case 5:
-          VG_(gdb_printf)("Derivative: %.16lf\n", (double)derivative.l);
+        case 5: {
+          double tmp;
+          convert_f80le_to_f64le(derivative.l,&tmp);
+          VG_(gdb_printf)("Derivative: %.16lf\n", (double)tmp);
           break;
+        }
       }
       return True;
     }
@@ -601,13 +605,18 @@ Bool nl_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         return False;
       }
       HChar* derivative_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
-      union {long double l; double d; float f;} derivative;
-      derivative.l = VG_(strtold)(derivative_str, NULL);
+      union {char l[10]; double d; float f;} derivative;
+      derivative.d = VG_(strtod)(derivative_str, NULL);
       int size;
       switch(key){
-        case 2: size = 8; derivative.d = (double) derivative.l; break;
-        case 4: size = 4; derivative.f = (float) derivative.l; break;
-        case 6: size = 16; break;
+        case 2: size = 8; break;
+        case 4: size = 4; derivative.f = (float) derivative.d; break;
+        case 6: {
+          size = 10;
+          double tmp = derivative.d;
+          convert_f64le_to_f80le(&tmp,derivative.l);
+          break;
+        }
       }
       for(int i=0; i<size; i++){
         shadow_set_bits( my_sm,(SM_Addr)address+i, *( (U8*)&derivative+i ) );
@@ -861,10 +870,39 @@ IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const ch
     return mkIRConst_zero(typeOfIRExpr(diffenv.sb_out->tyenv,expr));
   }
 }
-/*
-static VG_REGPARM(0) void x86g_diff_dirtyhelper_storeF80le(Addr addrU, ULong f64){
-  double derivative =
-}*/
+
+/*! Dirtyhelper for the extra AD logic to dirty calls to
+ *  x86g_dirtyhelper_loadF80le.
+ *
+ *  It's very similar, but reads from shadow memory
+ *  instead of guest memory:
+ *  - Read 128 bit from the shadow memory,
+ *  - reinterpret its first 80 bit as an x87 extended double,
+ *  - cast it to a 64 bit double,
+ *  - reinterpret it as an unsigned long.
+ *  - return this.
+ */
+ULong x86g_diff_dirtyhelper_loadF80le ( Addr addrU )
+{
+   ULong f64, f128[2];
+   f128[0] = nl_Load_diff8(addrU);
+   f128[1] = nl_Load_diff4(addrU+8);
+   convert_f80le_to_f64le ( (UChar*)f128, (UChar*)&f64 );
+   return f64;
+}
+/*! Dirtyhelper for the extra AD logic to dirty calls to
+ *  x86g_dirtyhelper_storeF80le.
+ *
+ *  It's very similar, but writes to shadow memory instead
+ *  of guest memory.
+ */
+void x86g_diff_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
+{
+   ULong f128[2];
+   convert_f64le_to_f80le( (UChar*)&f64, (UChar*)f128 );
+   nl_Store_diff8(addrU,f128[0]);
+   nl_Store_diff4(addrU+8,f128[1]);
+}
 
 /*! Instrument an IRSB.
  */
@@ -1039,30 +1077,49 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // We should have a look at all Ist_Dirty statements that
       // are added to the VEX IR in guest_x86_to_IR.c. Maybe
       // some of them need AD treatment.
-      // For now let's just return zero derivatives.
+
+      // The x86g_dirtyhelper_storeF80le dirty call converts a 64-bit
+      // floating-point register to a 80-bit x87 extended double and
+      // stores it in 10 bytes of guest memory.
+      // We have to convert the 64-bit derivative information to 80 bit
+      // and store them in 10 bytes of shadow memory.
       if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_storeF80le")){
         IRExpr** args = st->Ist.Dirty.details->args;
         IRExpr* addr = args[0];
         IRExpr* expr = args[1];
         IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,False,"");
-        nl_add_print_stmt(30,sb_out,addr);
-        nl_add_print_stmt(31,sb_out,expr);
-        nl_add_print_stmt(32,sb_out,differentiated_expr);
-        storeShadowMemory(sb_out,addr,differentiated_expr,NULL);
+        IRDirty* dd = unsafeIRDirty_0_N(
+              0,
+              "x86g_diff_dirtyhelper_storeF80le",
+              &x86g_diff_dirtyhelper_storeF80le,
+              mkIRExprVec_2(addr, differentiated_expr));
+        addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         addStmtToIRSB(sb_out, st_orig);
-      } else if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_loadF80le")){
+      }
+      // The x86g_dirtyhelper_loadF80le dirty call loads 80 bit from
+      // memory, converts them to a 64 bit double and stores it in a
+      // Ity_I64 temporary. We have to do the same with the derivative
+      // information in the shadow memory.
+      // The temporary will later be reinterpreted as float and likely
+      // stored in a register, but the AD logic for this part is
+      // as usual.
+      else if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_loadF80le")){
         IRExpr** args = st->Ist.Dirty.details->args;
         IRExpr* addr = args[0];
         IRTemp t = st->Ist.Dirty.details->tmp;
-        addStmtToIRSB(sb_out, IRStmt_WrTmp(t+diffenv.t_offset, loadShadowMemory(sb_out,addr,Ity_I64)));
+        IRDirty* dd = unsafeIRDirty_1_N(
+              t + diffenv.t_offset,
+              0,
+              "x86g_diff_dirtyhelper_loadF80le",
+              &x86g_diff_dirtyhelper_loadF80le,
+              mkIRExprVec_1(addr));
+        addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         addStmtToIRSB(sb_out, st_orig);
-        nl_add_print_stmt(40,sb_out,addr);
-        nl_add_print_stmt(41,sb_out,IRExpr_RdTmp(t));
-        nl_add_print_stmt(42,sb_out,IRExpr_RdTmp(t+diffenv.t_offset));
       } else {
-
+        // Untreated Ist_Dirty's. At least write a zero derivative
+        // if there is an output temporary, so it has been assigned to.
         IRTemp t = st->Ist.Dirty.details->tmp;
-        if(t!=IRTemp_INVALID){ // write zero derivative
+        if(t!=IRTemp_INVALID){
           IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,t);
           addStmtToIRSB(sb_out,IRStmt_WrTmp(t+diffenv.t_offset,mkIRConst_zero(type)));
         }
