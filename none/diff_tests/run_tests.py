@@ -284,7 +284,7 @@ cosh.include = "#include <math.h>"
 cosh.ldflags = '-lm'
 cosh.stmt = "double c = cosh(a);"
 cosh.stmtf = "float c = coshf(a);"
-cosh.stmtf = "long double c = coshl(a);"
+cosh.stmtl = "long double c = coshl(a);"
 cosh.vals = {'a':-2.0}
 cosh.grads = {'a':1.0}
 cosh.test_vals = {'c':np.cosh(-2.0)}

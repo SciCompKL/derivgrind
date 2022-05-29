@@ -747,6 +747,35 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           ),
           IRExpr_Triop(Iop_MulF32, arg1, arg3, arg3)
         );
+      case Iop_AtanF64: {
+        IRExpr* fraction = IRExpr_Triop(Iop_DivF64,arg1,arg2,arg3);
+        IRExpr* fraction_d = IRExpr_Triop(Iop_DivF64,arg1,
+          IRExpr_Triop(Iop_SubF64, arg1,
+            IRExpr_Triop(Iop_MulF64, arg1, d2,arg3),
+            IRExpr_Triop(Iop_MulF64, arg1, d3,arg2)
+          ),
+          IRExpr_Triop(Iop_MulF64, arg1, arg3, arg3)
+        );
+        return IRExpr_Triop(Iop_DivF64,arg1,
+          fraction_d,
+          IRExpr_Triop(Iop_AddF64,arg1,
+            IRExpr_Const(IRConst_F64(1.)),
+            IRExpr_Triop(Iop_MulF64,arg1,fraction,fraction)
+          )
+        );
+      }
+      case Iop_ScaleF64:
+        return IRExpr_Triop(Iop_ScaleF64,arg1,d2,arg3);
+      case Iop_Yl2xF64:
+        return IRExpr_Triop(Iop_AddF64,arg1,
+          IRExpr_Triop(Iop_Yl2xF64,arg1,d2,arg3),
+          IRExpr_Triop(Iop_DivF64,arg1,
+            IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),
+            IRExpr_Triop(Iop_MulF64,arg1,
+              IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),
+              arg3))
+        );
+
       default:
         return NULL;
     }
@@ -772,14 +801,22 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_F64toF32: {
         return IRExpr_Binop(Iop_F64toF32, arg1, d2);
       }
+      case Iop_2xm1F64:
+        return IRExpr_Triop(Iop_MulF64, arg1,
+          IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),
+          IRExpr_Triop(Iop_AddF64, arg1,
+            IRExpr_Const(IRConst_F64(1.)),
+            IRExpr_Binop(Iop_2xm1F64,arg1,arg2)
+        ));
       case Iop_I64StoF64:
       case Iop_I64UtoF64:
-        return IRExpr_Const(IRConst_F64(0.));
+      case Iop_RoundF64toInt:
+        return mkIRConst_zero(Ity_F64);
       case Iop_I64StoF32:
       case Iop_I64UtoF32:
       case Iop_I32StoF32:
       case Iop_I32UtoF32:
-        return IRExpr_Const(IRConst_F32(0.));
+        return mkIRConst_zero(Ity_F32);
       default:
         return NULL;
     }
