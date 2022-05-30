@@ -1116,13 +1116,16 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // are added to the VEX IR in guest_x86_to_IR.c. Maybe
       // some of them need AD treatment.
 
+      IRDirty* det = st->Ist.Dirty.details;
+      const HChar* name = det->cee->name;
+
       // The x86g_dirtyhelper_storeF80le dirty call converts a 64-bit
       // floating-point register to a 80-bit x87 extended double and
       // stores it in 10 bytes of guest memory.
       // We have to convert the 64-bit derivative information to 80 bit
       // and store them in 10 bytes of shadow memory.
-      if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_storeF80le")){
-        IRExpr** args = st->Ist.Dirty.details->args;
+      if(!VG_(strcmp)(name, "x86g_dirtyhelper_storeF80le")){
+        IRExpr** args = det->args;
         IRExpr* addr = args[0];
         IRExpr* expr = args[1];
         IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,False,"");
@@ -1141,10 +1144,10 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // The temporary will later be reinterpreted as float and likely
       // stored in a register, but the AD logic for this part is
       // as usual.
-      else if(!VG_(strcmp)(st->Ist.Dirty.details->cee->name, "x86g_dirtyhelper_loadF80le")){
-        IRExpr** args = st->Ist.Dirty.details->args;
+      else if(!VG_(strcmp)(name, "x86g_dirtyhelper_loadF80le")){
+        IRExpr** args = det->args;
         IRExpr* addr = args[0];
-        IRTemp t = st->Ist.Dirty.details->tmp;
+        IRTemp t = det->tmp;
         IRDirty* dd = unsafeIRDirty_1_N(
               t + diffenv.t_offset,
               0,
@@ -1153,9 +1156,27 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
               mkIRExprVec_1(addr));
         addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         addStmtToIRSB(sb_out, st_orig);
-      } else {
-        // Untreated Ist_Dirty's. At least write a zero derivative
-        // if there is an output temporary, so it has been assigned to.
+      }
+      // The CPUID dirty calls set some registers in the guest state.
+      // As these should never end up as floating-point data, we don't
+      // need to do anything about AD.
+      else if(!VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23))){
+        addStmtToIRSB(sb_out, st_orig);
+      }
+      // The RDTSC instruction loads a 64-bit time-stamp counter into
+      // the (lower 32 bit of the) guest registers EAX and EDX (and
+      // clears the higher 32 bit on amd64). The dirty call just
+      // stores an Ity_I64 in its return temporary. We put a zero in
+      // the shadow temporary
+      else if(!VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC")) {
+        addStmtToIRSB(sb_out,
+          IRStmt_WrTmp(det->tmp+diffenv.t_offset,mkIRConst_zero(Ity_I64)));
+        addStmtToIRSB(sb_out, st_orig);
+      }
+      // Yet untreated Ist_Dirty's.
+      // At least write a zero derivative if there is an output temporary,
+      // so it has been assigned to in case it is copied around later.
+      else {
         IRTemp t = st->Ist.Dirty.details->tmp;
         if(t!=IRTemp_INVALID){
           IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,t);
@@ -1207,8 +1228,8 @@ static void nl_pre_clo_init(void)
 
 
    /* No needs, no core events to track */
-   VG_(printf)("Allocate SM...");
-   my_sm = (ShadowMap*) VG_(malloc)("Some text", sizeof(ShadowMap));
+   VG_(printf)("Allocate shadow memory... ");
+   my_sm = (ShadowMap*) VG_(malloc)("allocate_shadow_memory", sizeof(ShadowMap));
    if(my_sm==NULL) VG_(printf)("Error\n");
    my_sm->shadow_bits = 1;
    my_sm->application_bits = 1;
@@ -1217,8 +1238,6 @@ static void nl_pre_clo_init(void)
    VG_(printf)("done\n");
 
    VG_(needs_client_requests)     (nl_handle_client_request);
-
-  shadow_set_bits(my_sm, 0xffff1111, 0xab); // spam
 
 }
 
