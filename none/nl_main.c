@@ -803,7 +803,9 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       }
       case Iop_2xm1F64:
         return IRExpr_Triop(Iop_MulF64, arg1,
-          IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),
+          IRExpr_Triop(Iop_MulF64, arg1,
+            IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),
+            d2),
           IRExpr_Triop(Iop_AddF64, arg1,
             IRExpr_Const(IRConst_F64(1.)),
             IRExpr_Binop(Iop_2xm1F64,arg1,arg2)
