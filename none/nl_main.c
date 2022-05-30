@@ -713,10 +713,6 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     if(d2==NULL || d3==NULL) return NULL;
     switch(rex->op){
       case Iop_AddF64:
-        nl_add_print_stmt(61,diffenv.sb_out,d2);
-        nl_add_print_stmt(62,diffenv.sb_out,d3);
-        nl_add_print_stmt(63,diffenv.sb_out,arg2);
-        nl_add_print_stmt(64,diffenv.sb_out,arg3);
             return IRExpr_Triop(Iop_AddF64,arg1,d2,d3);
       case Iop_AddF32: return IRExpr_Triop(Iop_AddF32,arg1,d2,d3);
       case Iop_SubF64: return IRExpr_Triop(Iop_SubF64,arg1,d2,d3);

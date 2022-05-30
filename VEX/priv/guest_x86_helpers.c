@@ -1503,7 +1503,6 @@ ULong x86g_dirtyhelper_loadF80le ( Addr addrU )
 {
    ULong f64;
    convert_f80le_to_f64le ( (UChar*)addrU, (UChar*)&f64 );
-   vex_printf("load addr %p int %p\n", addrU,f64);
    return f64;
 }
 
@@ -1512,8 +1511,6 @@ ULong x86g_dirtyhelper_loadF80le ( Addr addrU )
 void x86g_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
 {
    convert_f64le_to_f80le( (UChar*)&f64, (UChar*)addrU );
-   vex_printf("store addr %p int %p\n", addrU,f64);
-
 }
 
 
