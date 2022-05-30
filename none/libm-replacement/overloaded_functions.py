@@ -17,7 +17,15 @@ class DERIVGRIND_MATH_FUNCTION_BASE:
   def __init__(self,name,type_):
     self.name = name
     self.type = type_
-    self.size = 8 if type_=="double" else 4
+    if self.type=="double":
+      self.size = 8
+    elif self.type=="float":
+      self.size = 4
+    elif self.type=="long double":
+      self.size = 10
+    else:
+      print("Unknown type '"+self.type+"'")
+      exit(1)
     self.glibc_version = None
 
 class DERIVGRIND_MATH_FUNCTION(DERIVGRIND_MATH_FUNCTION_BASE):
