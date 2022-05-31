@@ -1,0 +1,27 @@
+image: ubuntu:20.04
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+build:
+  stage: build
+  script:
+    - apt-get update
+    - apt-get install -y build-essential binutils automake gcc-multilib python3
+    - ./autogen.sh
+    - CFLAGS=-g ./configure --prefix=$PWD/install
+    - make install
+    - cd none/libm-replacement && python3 compile.py && cd -
+  artifacts:
+    paths:
+      - install/
+      - none/libm-replacement/libm.so*
+      - none/libm-replacement/libmoriginal.so*
+
+test:
+  stage: test
+  script:
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt-get update
+    - apt-get install -y build-essential python3 python3-numpy gdb gcc-multilib libc6-dbg
+    - cd none/diff_tests && python3 run_tests.py

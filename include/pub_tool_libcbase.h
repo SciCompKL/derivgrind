@@ -66,6 +66,7 @@ extern ULong  VG_(strtoull16) ( const HChar* str, HChar** endptr );
 // decimal digits possibly containing a '.'.  Hexadecimal floats are not
 // accepted, nor are "fancy" floats (eg. "3.4e-5", "NAN").
 extern double VG_(strtod)  ( const HChar* str, HChar** endptr );
+extern long double VG_(strtold)  ( const HChar* str, HChar** endptr );
 
 /* ---------------------------------------------------------------------
    String functions and macros

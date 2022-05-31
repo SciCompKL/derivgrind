@@ -210,11 +210,48 @@ ULong VG_(strtoull16) ( const HChar* str, HChar** endptr )
    return n;
 }
 
+__attribute__((optimize("O0")))
 double VG_(strtod) ( const HChar* str, HChar** endptr )
 {
    Bool neg = False;
    Long digit;
    double n = 0, frac = 0, x = 0.1;
+
+   // Skip leading whitespace.
+   while (VG_(isspace)(*str)) str++;
+
+   // Allow a leading '-' or '+'.
+   if (*str == '-') { str++; neg = True; }
+   else if (*str == '+') { str++; }
+
+   while (is_dec_digit(*str, &digit)) {
+      n = 10*n + digit;
+      str++;
+   }
+
+   if (*str == '.') {
+      str++;
+      while (is_dec_digit(*str, &digit)) {
+         frac += x*digit;
+         x /= 10;
+         str++;
+      }
+   }
+
+   n += frac;
+   if (neg) n = -n;
+   if (endptr)
+      *endptr = CONST_CAST(HChar *,str); // Record first failing character.
+   return n;
+}
+
+// copy of VG_(strtod), only replaced double -> long double
+__attribute__((optimize("O0")))
+long double VG_(strtold) ( const HChar* str, HChar** endptr )
+{
+   Bool neg = False;
+   Long digit;
+   long double n = 0, frac = 0, x = 0.1;
 
    // Skip leading whitespace.
    while (VG_(isspace)(*str)) str++;
