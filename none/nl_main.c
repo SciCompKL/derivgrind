@@ -35,8 +35,20 @@
 #include "valgrind.h"
 #include "derivgrind.h"
 
+#ifndef __GNUC__
+  #error "Only tested with GCC."
+#endif
 
+#if __x86_64__
+#else
+#define BUILD_32BIT
+#endif
+
+#ifdef BUILD_32BIT
 #include "shadow-memory/src/shadow.h"
+#else
+#include "shadow-memory/src/shadow-64.h"
+#endif
 
 inline void  shadow_free(void* addr) { VG_(free)(addr); }
 inline void *shadow_malloc(size_t size) { return VG_(malloc)("Test",size); }
@@ -1230,11 +1242,15 @@ static void nl_pre_clo_init(void)
    /* No needs, no core events to track */
    VG_(printf)("Allocate shadow memory... ");
    my_sm = (ShadowMap*) VG_(malloc)("allocate_shadow_memory", sizeof(ShadowMap));
+   #ifdef BUILD_32BIT
    if(my_sm==NULL) VG_(printf)("Error\n");
    my_sm->shadow_bits = 1;
    my_sm->application_bits = 1;
    my_sm->num_distinguished = 1;
    shadow_initialize_map(my_sm);
+   #else
+   shadow_initialize_with_mmap(my_sm);
+   #endif
    VG_(printf)("done\n");
 
    VG_(needs_client_requests)     (nl_handle_client_request);
