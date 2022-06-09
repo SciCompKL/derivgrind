@@ -715,7 +715,26 @@ typedef struct {
  */
 static
 IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
-  if(ex->tag==Iex_Triop){
+  if(ex->tag==Iex_Qop){
+    IRQop* rex = ex->Iex.Qop.details;
+    IRExpr* arg1 = rex->arg1;
+    IRExpr* arg2 = rex->arg2;
+    IRExpr* arg3 = rex->arg3;
+    IRExpr* arg4 = rex->arg4;
+    IRExpr* d2 = differentiate_expr(arg2,diffenv);
+    IRExpr* d3 = differentiate_expr(arg3,diffenv);
+    IRExpr* d4 = differentiate_expr(arg4,diffenv);
+    if(d2==NULL || d3==NULL || d4==NULL) return NULL;
+    switch(rex->op){
+      case Iop_MAddF64:
+            return IRExpr_Triop(Iop_AddF64,arg1,
+              IRExpr_Triop(Iop_MulF64,arg1,d2,arg3),
+              IRExpr_Qop(Iop_MAddF64,arg1,arg2,d3,d4)
+             );
+      default:
+        return NULL;
+    }
+  } else if(ex->tag==Iex_Triop){
     IRTriop* rex = ex->Iex.Triop.details;
     IRExpr* arg1 = rex->arg1;
     IRExpr* arg2 = rex->arg2;
