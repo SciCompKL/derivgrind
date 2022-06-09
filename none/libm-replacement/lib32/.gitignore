@@ -1,0 +1,4 @@
+sample
+version-script
+libmoriginal.so*
+libm.so*

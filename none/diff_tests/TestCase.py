@@ -77,7 +77,7 @@ class InteractiveTestCase(TestCase):
     environ = os.environ.copy()
     if "LD_LIBRARY_PATH" not in environ:
       environ["LD_LIBRARY_PATH"]=""
-    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/"
+    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/lib32/"
     valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=none", "--vgdb-error=0", "./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0,env=environ)
     time.sleep(1)
     while True:
@@ -205,7 +205,7 @@ class ClientRequestTestCase(TestCase):
     environ = os.environ.copy()
     if "LD_LIBRARY_PATH" not in environ:
       environ["LD_LIBRARY_PATH"]=""
-    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/"
+    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/lib32/"
     valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none", "./TestCase_exec"],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
