@@ -15,8 +15,10 @@ build:
   artifacts:
     paths:
       - install/
-      - none/libm-replacement/libm.so*
-      - none/libm-replacement/libmoriginal.so*
+      - none/libm-replacement/lib32/libm.so*
+      - none/libm-replacement/lib32/libmoriginal.so*
+      - none/libm-replacement/lib64/libm.so*
+      - none/libm-replacement/lib64/libmoriginal.so*
 
 test:
   stage: test
