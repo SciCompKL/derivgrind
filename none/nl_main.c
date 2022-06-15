@@ -1191,7 +1191,8 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // The CPUID dirty calls set some registers in the guest state.
       // As these should never end up as floating-point data, we don't
       // need to do anything about AD.
-      else if(!VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23))){
+      else if(!VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23)) ||
+              !VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) ){
         addStmtToIRSB(sb_out, st_orig);
       }
       // The RDTSC instruction loads a 64-bit time-stamp counter into
@@ -1199,7 +1200,8 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // clears the higher 32 bit on amd64). The dirty call just
       // stores an Ity_I64 in its return temporary. We put a zero in
       // the shadow temporary
-      else if(!VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC")) {
+      else if(!VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") ||
+              !VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") ) {
         addStmtToIRSB(sb_out,
           IRStmt_WrTmp(det->tmp+diffenv.t_offset,mkIRConst_zero(Ity_I64)));
         addStmtToIRSB(sb_out, st_orig);
