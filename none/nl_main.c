@@ -930,9 +930,10 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_ZeroHI112ofV128: case Iop_ZeroHI120ofV128:
       case Iop_64UtoV128: case Iop_32UtoV128:
       case Iop_V128to32:
-      //case Iop_128to64:
-      //case Iop_128HIto64:
+      case Iop_128HIto64:
+      case Iop_128to64:
         return IRExpr_Unop(op, d);
+
       default:
         return NULL;
     }

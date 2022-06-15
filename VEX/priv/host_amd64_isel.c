@@ -2650,6 +2650,17 @@ static void iselInt128Expr_wrk ( HReg* rHi, HReg* rLo,
       lookupIRTempPair( rHi, rLo, env, e->Iex.RdTmp.tmp);
       return;
    }
+
+   /* 128-bit constant */
+   if (e->tag == Iex_Const){
+     HReg tLo = newVRegI(env);
+     HReg tHi = newVRegI(env);
+     addInstr(env, AMD64Instr_Imm64(0,tLo));
+     addInstr(env, AMD64Instr_Imm64(0,tHi));
+     *rHi = tHi;
+     *rLo = tLo;
+     return;
+   }
  
    /* --------- BINARY ops --------- */
    if (e->tag == Iex_Binop) {
