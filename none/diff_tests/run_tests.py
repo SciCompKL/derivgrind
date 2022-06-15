@@ -147,6 +147,7 @@ testlist.append(division_const_r)
 abs_plus = ClientRequestTestCase("abs_plus")
 abs_plus.include = "#include <math.h>"
 abs_plus.ldflags = '-lm'
+abs_plus.cflags = '-fno-builtin' # TODO get rid of this
 abs_plus.stmt = "double c = fabs(a);"
 abs_plus.stmtf = "float c = fabsf(a);"
 abs_plus.stmtl = "long double c = fabsl(a);"
@@ -159,6 +160,7 @@ testlist.append(abs_plus)
 abs_minus = ClientRequestTestCase("abs_minus")
 abs_minus.include = "#include <math.h>"
 abs_minus.ldflags = '-lm'
+abs_minus.cflags = '-fno-builtin' # TODO get rid of this
 abs_minus.stmt = "double c = fabs(a);"
 abs_minus.stmtf = "float c = fabsf(a);"
 abs_minus.stmtl = "long double c = fabsl(a);"
@@ -607,9 +609,9 @@ for i in range(ntests_now):
 ### Everything for 64 bit ###
 ntests_now = len(testlist)
 for i in range(ntests_now):
+  test = testlist[i]
   if test.type != TYPE_DOUBLE:
     continue
-  test = testlist[i]
   amd64_test = copy.deepcopy(test)
   amd64_test.name = "amd64_"+test.name
   amd64_test.arch = 64
