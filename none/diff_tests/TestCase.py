@@ -80,7 +80,6 @@ class InteractiveTestCase(TestCase):
       environ["LD_LIBRARY_PATH"]=""
     environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/lib"+str(self.arch)+"/"
     valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=none", "--vgdb-error=0", "./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0,env=environ)
-    time.sleep(1)
     while True:
       line = valgrind.stdout.readline()
       self.valgrind_log += line
@@ -89,7 +88,8 @@ class InteractiveTestCase(TestCase):
         target_remote_command = r.group(1)
         break
     # start GDB and connect to Valgrind
-    gdb = subprocess.Popen(["gdb", "./TestCase_exec"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0,env=environ)
+    # Don't use the above environment, because GDB should see the normal libm.
+    gdb = subprocess.Popen(["gdb", "./TestCase_exec"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     gdb.stdin.write(target_remote_command+"\n")
     # set breakpoints and continue
     gdb.stdin.write("break TestCase_src.c:"+str(self.line_before_stmt)+"\n")
