@@ -85,6 +85,10 @@ static unsigned long stmt_counter = 0; //!< Can be used to tag nl_add_print_stmt
 
 #define DEFAULT_ROUNDING IRExpr_Const(IRConst_U32(Irrm_NEAREST))
 
+/*! Condition for writing out unknown expressions.
+ */
+#define UNWRAPPED_EXPRESSION_OUTPUT_FILTER type==Ity_F64||type==Ity_F32 //||type==Ity_V128
+
 static void nl_post_clo_init(void)
 {
 }
@@ -1068,19 +1072,19 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
     if(st->tag==Ist_WrTmp) {
       IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,type==Ity_F64||type==Ity_F32,"WrTmp");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"WrTmp");
       IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
       addStmtToIRSB(sb_out, sp);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_Put) {
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,type==Ity_F64||type==Ity_F32,"Put");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"Put");
       IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
       addStmtToIRSB(sb_out, sp);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_PutI) {
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,type==Ity_F64||type==Ity_F32,"PutI");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"PutI");
       IRRegArray* descr = st->Ist.PutI.details->descr;
       IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB, descr->elemTy, descr->nElems);
       Int bias = st->Ist.PutI.details->bias;
@@ -1090,13 +1094,13 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_Store){
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Store.data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Store.data, diffenv, type==Ity_F64||type==Ity_F32,"Store");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Store.data, diffenv, UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"Store");
       storeShadowMemory(diffenv.sb_out,st->Ist.Store.addr,differentiated_expr,NULL);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_StoreG){
       IRStoreG* det = st->Ist.StoreG.details;
       IRType type = typeOfIRExpr(sb_in->tyenv,det->data);
-      IRExpr* differentiated_expr = differentiate_or_zero(det->data, diffenv, type==Ity_F64||type==Ity_F32,"StoreG");
+      IRExpr* differentiated_expr = differentiate_or_zero(det->data, diffenv, UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"StoreG");
       storeShadowMemory(diffenv.sb_out,det->addr,differentiated_expr,det->guard);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_LoadG) {
@@ -1105,7 +1109,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // never be interpreted as derivative information
       IRType type = sb_in->tyenv->types[det->dst];
       // differentiate alternative value
-      IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,type==Ity_F64||type==Ity_F32,"alternative-LoadG");
+      IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"alternative-LoadG");
       // depending on the guard, copy either the derivative stored
       // in shadow memory, or the derivative of the alternative value,
       // to the shadow temporary.
