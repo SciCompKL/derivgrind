@@ -856,6 +856,13 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           IRExpr_Binop(Iop_Mul64F0x2,arg1,d2)
         );
       }
+      case Iop_Mul32F0x4: {
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        return IRExpr_Binop(Iop_Add32F0x4,
+          IRExpr_Binop(Iop_Mul32F0x4,d1,arg2), // the order is important here
+          IRExpr_Binop(Iop_Mul32F0x4,arg1,d2)
+        );
+      }
       case Iop_Div64F0x2: {
         IRExpr* d1 = differentiate_expr(arg1,diffenv);
         return IRExpr_Binop(Iop_Div64F0x2,
@@ -864,6 +871,16 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
             IRExpr_Binop(Iop_Mul64F0x2,arg1,d2)
           ),
           IRExpr_Binop(Iop_Mul64F0x2,arg2,arg2)
+        );
+      }
+      case Iop_Div32F0x4: {
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        return IRExpr_Binop(Iop_Div32F0x4,
+          IRExpr_Binop(Iop_Sub32F0x4,
+            IRExpr_Binop(Iop_Mul32F0x4,d1,arg2), // the order is important here
+            IRExpr_Binop(Iop_Mul32F0x4,arg1,d2)
+          ),
+          IRExpr_Binop(Iop_Mul32F0x4,arg2,arg2)
         );
       }
       case Iop_I64StoF64:
@@ -879,6 +896,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_16HLto32: case Iop_8HLto16:
       case Iop_64HLtoV128:
       case Iop_Add64F0x2: case Iop_Sub64F0x2:
+      case Iop_Add32F0x4: case Iop_Sub32F0x4:
       case Iop_SetV128lo32: case Iop_SetV128lo64:
       case Iop_InterleaveHI8x16: case Iop_InterleaveHI16x8:
       case Iop_InterleaveHI32x4: case Iop_InterleaveHI64x2:
