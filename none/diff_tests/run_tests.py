@@ -604,6 +604,17 @@ for i in range(ntests_now):
     long_double_test.type = TYPE_LONG_DOUBLE
     testlist.append(long_double_test)
 
+### Everything for 64 bit ###
+ntests_now = len(testlist)
+for i in range(ntests_now):
+  if test.type != TYPE_DOUBLE:
+    continue
+  test = testlist[i]
+  amd64_test = copy.deepcopy(test)
+  amd64_test.name = "amd64_"+test.name
+  amd64_test.arch = 64
+  testlist.append(amd64_test)
+
 ### Run testcases ###
 there_are_failed_tests = False
 if selected_testcase:
