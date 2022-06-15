@@ -846,6 +846,13 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_I32StoF32:
       case Iop_I32UtoF32:
         return mkIRConst_zero(Ity_F32);
+      /*case Iop_64HLto128:*/ case Iop_32HLto64:
+      case Iop_16HLto32: case Iop_8HLto16:
+      case Iop_64HLtoV128:
+        {
+          IRExpr* d1 = differentiate_expr(arg1,diffenv);
+          return IRExpr_Binop(op, d1,d2);
+        }
       default:
         return NULL;
     }
@@ -874,6 +881,18 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_ReinterpI64asF64: case Iop_ReinterpF64asI64:
       case Iop_ReinterpI32asF32: case Iop_ReinterpF32asI32:
       case Iop_NegF64: case Iop_NegF32:
+      case Iop_64to8: case Iop_32to8: case Iop_64to16:
+      case Iop_16to8: case Iop_16HIto8:
+      case Iop_32to16: case Iop_32HIto16:
+      case Iop_64to32: case Iop_64HIto32:
+      case Iop_V128to64: case Iop_V128HIto64:
+      case Iop_8Uto16: case Iop_8Uto32: case Iop_8Uto64:
+      case Iop_16Uto32: case Iop_16Uto64:
+      case Iop_32Uto64:
+      case Iop_8Sto16: case Iop_8Sto32: case Iop_8Sto64:
+      case Iop_16Sto32: case Iop_16Sto64:
+      case Iop_32Sto64:
+      //case Iop_128to64: case Iop_128HIto64:
         return IRExpr_Unop(op, d);
       default:
         return NULL;
