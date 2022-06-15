@@ -2655,8 +2655,18 @@ static void iselInt128Expr_wrk ( HReg* rHi, HReg* rLo,
    if (e->tag == Iex_Const){
      HReg tLo = newVRegI(env);
      HReg tHi = newVRegI(env);
-     addInstr(env, AMD64Instr_Imm64(0,tLo));
-     addInstr(env, AMD64Instr_Imm64(0,tHi));
+     vassert(e->Iex.Const.con->tag==Ico_U128);
+     union {
+       struct {UShort u16_1, u16_2, u16_3, u16_4;} u16x4;
+       ULong u64;
+     } u;
+     vassert(sizeof(u)==8);
+     vassert(sizeof(u.u64)==8);
+     vassert(sizeof(u.u16x4)==8);
+     u.u16x4.u16_1 = u.u16x4.u16_2 = u.u16x4.u16_3
+         = u.u16x4.u16_4 = e->Iex.Const.con->Ico.U128;
+     addInstr(env, AMD64Instr_Imm64(u.u64,tLo));
+     addInstr(env, AMD64Instr_Imm64(u.u64,tHi));
      *rHi = tHi;
      *rLo = tLo;
      return;
