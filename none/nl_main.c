@@ -837,6 +837,23 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
             IRExpr_Const(IRConst_F64(1.)),
             IRExpr_Binop(Iop_2xm1F64,arg1,arg2)
         ));
+      case Iop_Mul64F0x2: {
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        return IRExpr_Binop(Iop_Add64F0x2,
+          IRExpr_Binop(Iop_Mul64F0x2,d1,arg2), // the order is important here
+          IRExpr_Binop(Iop_Mul64F0x2,arg1,d2)
+        );
+      }
+      case Iop_Div64F0x2: {
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        return IRExpr_Binop(Iop_Div64F0x2,
+          IRExpr_Binop(Iop_Sub64F0x2,
+            IRExpr_Binop(Iop_Mul64F0x2,d1,arg2), // the order is important here
+            IRExpr_Binop(Iop_Mul64F0x2,arg1,d2)
+          ),
+          IRExpr_Binop(Iop_Mul64F0x2,arg2,arg2)
+        );
+      }
       case Iop_I64StoF64:
       case Iop_I64UtoF64:
       case Iop_RoundF64toInt:
