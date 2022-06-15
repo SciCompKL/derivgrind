@@ -849,6 +849,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       /*case Iop_64HLto128:*/ case Iop_32HLto64:
       case Iop_16HLto32: case Iop_8HLto16:
       case Iop_64HLtoV128:
+      case Iop_Add64F0x2: case Iop_Sub64F0x2:
         {
           IRExpr* d1 = differentiate_expr(arg1,diffenv);
           return IRExpr_Binop(op, d1,d2);
@@ -892,7 +893,10 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_8Sto16: case Iop_8Sto32: case Iop_8Sto64:
       case Iop_16Sto32: case Iop_16Sto64:
       case Iop_32Sto64:
-      //case Iop_128to64: case Iop_128HIto64:
+      case Iop_ZeroHI64ofV128: case Iop_ZeroHI96ofV128:
+      case Iop_ZeroHI112ofV128: case Iop_ZeroHI120ofV128:
+      case Iop_64UtoV128:
+        //case Iop_128to64: case Iop_128HIto64:
         return IRExpr_Unop(op, d);
       default:
         return NULL;
