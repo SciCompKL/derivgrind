@@ -1235,6 +1235,11 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
               !VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) ){
         addStmtToIRSB(sb_out, st_orig);
       }
+      // The following calls (re)store a SSE state, this seems to be a completely discrete thing.
+      else if(!VG_(strcmp(name, "amd64g_dirtyhelper_XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS")) ||
+              !VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) ){
+        addStmtToIRSB(sb_out, st_orig);
+      }
       // The RDTSC instruction loads a 64-bit time-stamp counter into
       // the (lower 32 bit of the) guest registers EAX and EDX (and
       // clears the higher 32 bit on amd64). The dirty call just
