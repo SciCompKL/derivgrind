@@ -2,6 +2,7 @@ import numpy as np
 import copy
 from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE
 import sys
+import os
 
 selected_testcase = None
 if len(sys.argv)>2:
@@ -615,6 +616,11 @@ for i in range(ntests_now):
   amd64_test = copy.deepcopy(test)
   amd64_test.name = "amd64_"+test.name
   amd64_test.arch = 64
+  # Disable amd64 testcases if hinted so by the environment variable.
+  # Apparantly the current CI pipeline does not give us the 4 GB 
+  # of RAM that we need to initialize shadow memory on a 64-bit system.
+  if "DG_CONSTRAINED_ENVIRONMENT" in os.environ:
+    amd64_test.disabled = True
   testlist.append(amd64_test)
 
 ### Run testcases ###

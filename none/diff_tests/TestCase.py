@@ -24,6 +24,7 @@ class TestCase:
     self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
     self.type = TYPE_DOUBLE # TYPE_DOUBLE or TYPE_FLOAT
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
+    self.disabled = False # if True, test will not be run
 
 class InteractiveTestCase(TestCase):
   """Methods to run a DerivGrind test case interactively in VGDB."""
@@ -149,6 +150,9 @@ class InteractiveTestCase(TestCase):
 
   def run(self):
     print("##### Running interactive test '"+self.name+"'... #####", flush=True)
+    if self.disabled:
+      print("DISABLED.\n")
+      return True
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_c_code()
@@ -214,6 +218,9 @@ class ClientRequestTestCase(TestCase):
 
   def run(self):
     print("##### Running client request test '"+self.name+"'... #####", flush=True)
+    if self.disabled:
+      print("DISABLED.\n")
+      return True
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_c_code()
