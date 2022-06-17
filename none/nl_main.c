@@ -701,6 +701,55 @@ typedef struct {
   IRSB* sb_out;
 } DiffEnv;
 
+static IRExpr* differentiate_expr(IRExpr const*, DiffEnv);
+
+/*! Differentiate Iop_And64.
+ *
+ *  Iop_And64 maps (I64, I64)->I64, and normally we discard any
+ *  gradient information for integer operations. However, this
+ *  particular integer operation can be used to implement a
+ *  floating-point operation. Namely, in order to compute the
+ *  abs of a IEEE-754 binary32 or binary64 it suffices to set the
+ *  first bit to zero. Thus the need for a special mapping.
+ *  \param[in] arg1 - First argument to Iop_And64.
+ *  \param[in] arg2 - Second argument to Iop_And64.
+ *  \returns - Differentiated expression.
+ */
+static IRExpr* nl_helper_And64(IRExpr* arg1, IRExpr* arg2, DiffEnv diffenv){
+  IRExpr* d1 = differentiate_expr(arg1,diffenv);
+  IRExpr* d2 = differentiate_expr(arg2,diffenv);
+  if(d1==NULL||d2==NULL) return IRExpr_Const(IRConst_U64(0));
+  // if the first argument is const 0b0111...1
+  // and the second argument is an AD-active variable,
+  // flip the sign bit of the derivative if and only if
+  // the variable is negative
+  IRExpr* leading1 = IRExpr_Const(IRConst_U64(0x8000000000000000));
+  IRExpr* arg2_is_negative = IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_64HIto32,arg2));
+  nl_add_print_stmt(33,diffenv.sb_out,IRExpr_ITE(arg2_is_negative, IRExpr_Const(IRConst_U64(1)), IRExpr_Const(IRConst_U64(0))));
+
+  IRExpr* derivative_if_arg2_is_floatingpoint = IRExpr_ITE(arg2_is_negative, IRExpr_Binop(Iop_Xor64, leading1, d2), d2);
+  // if the second argument is const 0b0111...
+  // proceed analogously
+  IRExpr* arg1_is_negative = IRExpr_Binop(Iop_CmpEQ64, IRExpr_Binop(Iop_And64, arg1, leading1), leading1);
+      //IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_64HIto32,arg1));
+  nl_add_print_stmt(50,diffenv.sb_out,IRExpr_Const(IRConst_U64(1)));
+  nl_add_print_stmt(32,diffenv.sb_out,IRExpr_ITE(arg1_is_negative, IRExpr_Const(IRConst_U64(1)), IRExpr_Const(IRConst_U64(0))));
+  nl_add_print_stmt(33,diffenv.sb_out,IRExpr_Binop(Iop_32HLto64, IRExpr_Unop(Iop_64HIto32,arg1),IRExpr_Unop(Iop_64HIto32,arg1)));
+  IRExpr* derivative_if_arg1_is_floatingpoint = IRExpr_ITE(arg1_is_negative, IRExpr_Binop(Iop_Xor64, leading1, d1), d1);
+  // Now select one of these two derivatives.
+  // Note that 0b0111..., as a double, is nan.
+  nl_add_print_stmt(10,diffenv.sb_out,arg1);
+  nl_add_print_stmt(18,diffenv.sb_out, d1);
+  nl_add_print_stmt(19,diffenv.sb_out,derivative_if_arg1_is_floatingpoint);
+  nl_add_print_stmt(11,diffenv.sb_out,arg2);
+  IRExpr* arg2_could_be_floatingpoint = IRExpr_Binop(Iop_CmpEQ64,arg1,IRExpr_Const(IRConst_U64(0x7fffffffffffffff)));
+
+  nl_add_print_stmt(12,diffenv.sb_out,IRExpr_ITE(arg2_could_be_floatingpoint, IRExpr_Const(IRConst_U64(1)), IRExpr_Const(IRConst_U64(0))));
+  IRExpr* deriv = IRExpr_ITE(arg2_could_be_floatingpoint, derivative_if_arg2_is_floatingpoint, derivative_if_arg1_is_floatingpoint);
+  nl_add_print_stmt(60,diffenv.sb_out,deriv);
+  return deriv;
+}
+
 /*! Differentiate an expression.
  *
  *  - For arithmetic expressions involving float or double variables, we
@@ -825,6 +874,20 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     IRExpr* d2 = differentiate_expr(arg2,diffenv);
     if(d2==NULL) return NULL;
     switch(op){
+      // Iop_And32 is missing. It's not really clear how to properly
+      // distinguish with other Iop_AndN's.
+      /*case Iop_And64: {
+        return nl_helper_And64(arg1,arg2,diffenv);
+      }*/
+      case Iop_AndV128: {
+        IRExpr* arg1_lo = IRExpr_Unop(Iop_V128to64, arg1);
+        IRExpr* arg1_hi = IRExpr_Unop(Iop_V128HIto64, arg1);
+        IRExpr* arg2_lo = IRExpr_Unop(Iop_V128to64, arg2);
+        IRExpr* arg2_hi = IRExpr_Unop(Iop_V128HIto64, arg2);
+        IRExpr* diff_lo = nl_helper_And64(arg1_lo,arg2_lo,diffenv);
+        IRExpr* diff_hi = nl_helper_And64(arg1_hi,arg2_hi,diffenv);
+        return IRExpr_Binop(Iop_64HLtoV128, diff_hi, diff_lo);
+      }
       case Iop_SqrtF64: {
         IRExpr* numerator = d2;
         IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
