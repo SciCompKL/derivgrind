@@ -703,51 +703,39 @@ typedef struct {
 
 static IRExpr* differentiate_expr(IRExpr const*, DiffEnv);
 
-/*! Differentiate Iop_And64.
+/*! Helper to differentiate "abs" when implemented via logical "and".
  *
- *  Iop_And64 maps (I64, I64)->I64, and normally we discard any
- *  gradient information for integer operations. However, this
- *  particular integer operation can be used to implement a
- *  floating-point operation. Namely, in order to compute the
- *  abs of a IEEE-754 binary32 or binary64 it suffices to set the
- *  first bit to zero. Thus the need for a special mapping.
- *  \param[in] arg1 - First argument to Iop_And64.
- *  \param[in] arg2 - Second argument to Iop_And64.
+ *  Iop_AndF128 performs a bitwise logical "and", and normally we discard
+ *  the gradient information for integer and logical operations. However,
+ *  this particular logical operation can be used to implement a
+ *  floating-point operation. Namely, in order to compute the absolute
+ *  value of a IEEE-754 binary32 or binary64, it suffices to set the
+ *  first bit to zero. We observed GCC using this trick.
+ *  Thus the need for a special mapping. Flip the sign bit of the derivative
+ *  if and only if the value is negative.
+ *  \param[in] arg - Argument to "abs".
  *  \returns - Differentiated expression.
  */
-static IRExpr* nl_helper_And64(IRExpr* arg1, IRExpr* arg2, DiffEnv diffenv){
-  IRExpr* d1 = differentiate_expr(arg1,diffenv);
-  IRExpr* d2 = differentiate_expr(arg2,diffenv);
-  if(d1==NULL||d2==NULL) return IRExpr_Const(IRConst_U64(0));
-  // if the first argument is const 0b0111...1
-  // and the second argument is an AD-active variable,
-  // flip the sign bit of the derivative if and only if
-  // the variable is negative
+static IRExpr* nl_helper_LogicalAbs64(IRExpr* arg, DiffEnv diffenv){
+  IRExpr* d = differentiate_expr(arg, diffenv);
+  if(!d) return IRExpr_Const(IRConst_U64(0));
   IRExpr* leading1 = IRExpr_Const(IRConst_U64(0x8000000000000000));
-  IRExpr* arg2_is_negative = IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_64HIto32,arg2));
-  nl_add_print_stmt(33,diffenv.sb_out,IRExpr_ITE(arg2_is_negative, IRExpr_Const(IRConst_U64(1)), IRExpr_Const(IRConst_U64(0))));
-
-  IRExpr* derivative_if_arg2_is_floatingpoint = IRExpr_ITE(arg2_is_negative, IRExpr_Binop(Iop_Xor64, leading1, d2), d2);
-  // if the second argument is const 0b0111...
-  // proceed analogously
-  IRExpr* arg1_is_negative = IRExpr_Binop(Iop_CmpEQ64, IRExpr_Binop(Iop_And64, arg1, leading1), leading1);
-      //IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_64HIto32,arg1));
-  nl_add_print_stmt(50,diffenv.sb_out,IRExpr_Const(IRConst_U64(1)));
-  nl_add_print_stmt(32,diffenv.sb_out,IRExpr_ITE(arg1_is_negative, IRExpr_Const(IRConst_U64(1)), IRExpr_Const(IRConst_U64(0))));
-  nl_add_print_stmt(33,diffenv.sb_out,IRExpr_Binop(Iop_32HLto64, IRExpr_Unop(Iop_64HIto32,arg1),IRExpr_Unop(Iop_64HIto32,arg1)));
-  IRExpr* derivative_if_arg1_is_floatingpoint = IRExpr_ITE(arg1_is_negative, IRExpr_Binop(Iop_Xor64, leading1, d1), d1);
-  // Now select one of these two derivatives.
-  // Note that 0b0111..., as a double, is nan.
-  nl_add_print_stmt(10,diffenv.sb_out,arg1);
-  nl_add_print_stmt(18,diffenv.sb_out, d1);
-  nl_add_print_stmt(19,diffenv.sb_out,derivative_if_arg1_is_floatingpoint);
-  nl_add_print_stmt(11,diffenv.sb_out,arg2);
-  IRExpr* arg2_could_be_floatingpoint = IRExpr_Binop(Iop_CmpEQ64,arg1,IRExpr_Const(IRConst_U64(0x7fffffffffffffff)));
-
-  nl_add_print_stmt(12,diffenv.sb_out,IRExpr_ITE(arg2_could_be_floatingpoint, IRExpr_Const(IRConst_U64(1)), IRExpr_Const(IRConst_U64(0))));
-  IRExpr* deriv = IRExpr_ITE(arg2_could_be_floatingpoint, derivative_if_arg2_is_floatingpoint, derivative_if_arg1_is_floatingpoint);
-  nl_add_print_stmt(60,diffenv.sb_out,deriv);
-  return deriv;
+  IRExpr* arg_is_negative = IRExpr_Binop(Iop_CmpEQ64, IRExpr_Binop(Iop_And64, arg, leading1), leading1);
+  IRExpr* derivative = IRExpr_ITE(arg_is_negative, IRExpr_Binop(Iop_Xor64, leading1, d), d);
+  return derivative;
+}
+/*! Helper to differentiate "abs" when implemented via logical "and".
+ *
+ *  See nl_helper_LogicalAbs64.
+ *  \param[in] arg - Argument to "abs".
+ *  \returns - Differentiated expression.
+ */
+static IRExpr* nl_helper_LogicalAbs32(IRExpr* arg, IRExpr* d){
+  if(!d) return IRExpr_Const(IRConst_U32(0));
+  IRExpr* leading1 = IRExpr_Const(IRConst_U32(0x80000000));
+  IRExpr* arg_is_negative = IRExpr_Binop(Iop_CmpEQ32, IRExpr_Binop(Iop_And32, arg, leading1), leading1);
+  IRExpr* derivative = IRExpr_ITE(arg_is_negative, IRExpr_Binop(Iop_Xor32, leading1, d), d);
+  return derivative;
 }
 
 /*! Differentiate an expression.
@@ -880,13 +868,29 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         return nl_helper_And64(arg1,arg2,diffenv);
       }*/
       case Iop_AndV128: {
+        // The V128 might be composed of 64-bit or 32-bit numbers.
+        // First see if one argument is the 64-bit 0b011..1, in this
+        // case we might be computing the absolute value of a binary64.
+        // If not, see if one argument is the 32-bit 0b011..1, in this
+        // case we might be computing the absolute value of a binary32.
+        // If not, it's something else and we calculate a zero derivative.
+        IRExpr* leading0_64 = IRExpr_Const(IRConst_U64(0x7fffffffffffffff));
         IRExpr* arg1_lo = IRExpr_Unop(Iop_V128to64, arg1);
         IRExpr* arg1_hi = IRExpr_Unop(Iop_V128HIto64, arg1);
         IRExpr* arg2_lo = IRExpr_Unop(Iop_V128to64, arg2);
         IRExpr* arg2_hi = IRExpr_Unop(Iop_V128HIto64, arg2);
-        IRExpr* diff_lo = nl_helper_And64(arg1_lo,arg2_lo,diffenv);
-        IRExpr* diff_hi = nl_helper_And64(arg1_hi,arg2_hi,diffenv);
-        return IRExpr_Binop(Iop_64HLtoV128, diff_hi, diff_lo);
+        IRExpr* arg1_lo_is_0b01 = IRExpr_Binop(Iop_CmpEQ64,arg1_lo,leading0_64);
+        IRExpr* arg1_hi_is_0b01 = IRExpr_Binop(Iop_CmpEQ64,arg1_hi,leading0_64);
+        IRExpr* arg2_lo_is_0b01 = IRExpr_Binop(Iop_CmpEQ64,arg2_lo,leading0_64);
+        IRExpr* arg2_hi_is_0b01 = IRExpr_Binop(Iop_CmpEQ64,arg2_hi,leading0_64);
+        IRExpr* is_64_split = IRExpr_Binop(Iop_Or1,
+          IRExpr_Binop(Iop_Or1, arg1_lo_is_0b01, arg1_hi_is_0b01),
+          IRExpr_Binop(Iop_Or1, arg2_lo_is_0b01, arg2_hi_is_0b01) );
+        IRExpr* derivative_lo_if_64 = IRExpr_ITE(arg1_lo_is_0b01, nl_helper_LogicalAbs64(arg2_lo,diffenv), nl_helper_LogicalAbs64(arg1_lo,diffenv));
+        IRExpr* derivative_hi_if_64 = IRExpr_ITE(arg1_hi_is_0b01, nl_helper_LogicalAbs64(arg2_hi,diffenv), nl_helper_LogicalAbs64(arg1_hi,diffenv));
+        IRExpr* derivative_if_64 = IRExpr_Binop(Iop_64HLtoV128, derivative_hi_if_64, derivative_lo_if_64);
+
+        return derivative_if_64;
       }
       case Iop_SqrtF64: {
         IRExpr* numerator = d2;
