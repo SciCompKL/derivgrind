@@ -1022,7 +1022,7 @@ IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const ch
 }
 
 /*! Dirtyhelper for the extra AD logic to dirty calls to
- *  x86g_dirtyhelper_loadF80le.
+ *  x86g_dirtyhelper_loadF80le / amd64g_dirtyhelper_loadF80le.
  *
  *  It's very similar, but reads from shadow memory
  *  instead of guest memory:
@@ -1032,7 +1032,7 @@ IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const ch
  *  - reinterpret it as an unsigned long.
  *  - return this.
  */
-ULong x86g_diff_dirtyhelper_loadF80le ( Addr addrU )
+ULong x86g_amd64g_diff_dirtyhelper_loadF80le ( Addr addrU )
 {
    ULong f64, f128[2];
    f128[0] = nl_Load_diff8(addrU);
@@ -1041,12 +1041,12 @@ ULong x86g_diff_dirtyhelper_loadF80le ( Addr addrU )
    return f64;
 }
 /*! Dirtyhelper for the extra AD logic to dirty calls to
- *  x86g_dirtyhelper_storeF80le.
+ *  x86g_dirtyhelper_storeF80le / amd64g_dirtyhelper_storeF80le.
  *
  *  It's very similar, but writes to shadow memory instead
  *  of guest memory.
  */
-void x86g_diff_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
+void x86g_amd64g_diff_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
 {
    ULong f128[2];
    convert_f64le_to_f80le( (UChar*)&f64, (UChar*)f128 );
@@ -1236,15 +1236,17 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // stores it in 10 bytes of guest memory.
       // We have to convert the 64-bit derivative information to 80 bit
       // and store them in 10 bytes of shadow memory.
-      if(!VG_(strcmp)(name, "x86g_dirtyhelper_storeF80le")){
+      // The same applies on amd64.
+      if(!VG_(strcmp)(name, "x86g_dirtyhelper_storeF80le") ||
+         !VG_(strcmp)(name, "amd64g_dirtyhelper_storeF80le") ){
         IRExpr** args = det->args;
         IRExpr* addr = args[0];
         IRExpr* expr = args[1];
         IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,False,"");
         IRDirty* dd = unsafeIRDirty_0_N(
               0,
-              "x86g_diff_dirtyhelper_storeF80le",
-              &x86g_diff_dirtyhelper_storeF80le,
+              "x86g_amd64g_diff_dirtyhelper_storeF80le",
+              &x86g_amd64g_diff_dirtyhelper_storeF80le,
               mkIRExprVec_2(addr, differentiated_expr));
         addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         addStmtToIRSB(sb_out, st_orig);
@@ -1256,15 +1258,17 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // The temporary will later be reinterpreted as float and likely
       // stored in a register, but the AD logic for this part is
       // as usual.
-      else if(!VG_(strcmp)(name, "x86g_dirtyhelper_loadF80le")){
+      // The same applies on amd64.
+      else if(!VG_(strcmp)(name, "x86g_dirtyhelper_loadF80le") ||
+              !VG_(strcmp)(name, "amd64g_dirtyhelper_loadF80le") ){
         IRExpr** args = det->args;
         IRExpr* addr = args[0];
         IRTemp t = det->tmp;
         IRDirty* dd = unsafeIRDirty_1_N(
               t + diffenv.t_offset,
               0,
-              "x86g_diff_dirtyhelper_loadF80le",
-              &x86g_diff_dirtyhelper_loadF80le,
+              "x86g_amd64g_diff_dirtyhelper_loadF80le",
+              &x86g_amd64g_diff_dirtyhelper_loadF80le,
               mkIRExprVec_1(addr));
         addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         addStmtToIRSB(sb_out, st_orig);

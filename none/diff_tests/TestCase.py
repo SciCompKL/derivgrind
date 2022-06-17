@@ -5,7 +5,7 @@ import os
 
 TYPE_DOUBLE = {"ctype":"double", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.16lf"}
 TYPE_FLOAT = {"ctype":"float", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
-TYPE_LONG_DOUBLE = {"ctype":"long double", "size":"10", "tol":1e-8, "get":"lget", "set":"lset","format":"%.16Lf"}
+TYPE_LONG_DOUBLE = {"ctype":"long double", "size":"sizeof(long double)", "tol":1e-8, "get":"lget", "set":"lset","format":"%.16Lf"}
 
 class TestCase:
   """Basic data for a DerivGrind test case."""

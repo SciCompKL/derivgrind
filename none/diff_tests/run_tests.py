@@ -611,8 +611,6 @@ for i in range(ntests_now):
 ntests_now = len(testlist)
 for i in range(ntests_now):
   test = testlist[i]
-  if test.type != TYPE_DOUBLE and test.type!=TYPE_FLOAT:
-    continue
   amd64_test = copy.deepcopy(test)
   amd64_test.name = "amd64_"+test.name
   amd64_test.arch = 64
