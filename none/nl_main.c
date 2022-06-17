@@ -730,7 +730,8 @@ static IRExpr* nl_helper_LogicalAbs64(IRExpr* arg, DiffEnv diffenv){
  *  \param[in] arg - Argument to "abs".
  *  \returns - Differentiated expression.
  */
-static IRExpr* nl_helper_LogicalAbs32(IRExpr* arg, IRExpr* d){
+static IRExpr* nl_helper_LogicalAbs32(IRExpr* arg, DiffEnv diffenv){
+  IRExpr* d = differentiate_expr(arg, diffenv);
   if(!d) return IRExpr_Const(IRConst_U32(0));
   IRExpr* leading1 = IRExpr_Const(IRConst_U32(0x80000000));
   IRExpr* arg_is_negative = IRExpr_Binop(Iop_CmpEQ32, IRExpr_Binop(Iop_And32, arg, leading1), leading1);
@@ -874,23 +875,50 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         // If not, see if one argument is the 32-bit 0b011..1, in this
         // case we might be computing the absolute value of a binary32.
         // If not, it's something else and we calculate a zero derivative.
-        IRExpr* leading0_64 = IRExpr_Const(IRConst_U64(0x7fffffffffffffff));
-        IRExpr* arg1_lo = IRExpr_Unop(Iop_V128to64, arg1);
-        IRExpr* arg1_hi = IRExpr_Unop(Iop_V128HIto64, arg1);
-        IRExpr* arg2_lo = IRExpr_Unop(Iop_V128to64, arg2);
-        IRExpr* arg2_hi = IRExpr_Unop(Iop_V128HIto64, arg2);
-        IRExpr* arg1_lo_is_0b01 = IRExpr_Binop(Iop_CmpEQ64,arg1_lo,leading0_64);
-        IRExpr* arg1_hi_is_0b01 = IRExpr_Binop(Iop_CmpEQ64,arg1_hi,leading0_64);
-        IRExpr* arg2_lo_is_0b01 = IRExpr_Binop(Iop_CmpEQ64,arg2_lo,leading0_64);
-        IRExpr* arg2_hi_is_0b01 = IRExpr_Binop(Iop_CmpEQ64,arg2_hi,leading0_64);
-        IRExpr* is_64_split = IRExpr_Binop(Iop_Or1,
-          IRExpr_Binop(Iop_Or1, arg1_lo_is_0b01, arg1_hi_is_0b01),
-          IRExpr_Binop(Iop_Or1, arg2_lo_is_0b01, arg2_hi_is_0b01) );
-        IRExpr* derivative_lo_if_64 = IRExpr_ITE(arg1_lo_is_0b01, nl_helper_LogicalAbs64(arg2_lo,diffenv), nl_helper_LogicalAbs64(arg1_lo,diffenv));
-        IRExpr* derivative_hi_if_64 = IRExpr_ITE(arg1_hi_is_0b01, nl_helper_LogicalAbs64(arg2_hi,diffenv), nl_helper_LogicalAbs64(arg1_hi,diffenv));
-        IRExpr* derivative_if_64 = IRExpr_Binop(Iop_64HLtoV128, derivative_hi_if_64, derivative_lo_if_64);
 
-        return derivative_if_64;
+        // binary64 parts
+        IRExpr* leading0_64 = IRExpr_Const(IRConst_U64(0x7fffffffffffffff));
+        IRExpr* derivative_parts_64[2];
+        IRExpr* is_0b01_parts_64[2][2];
+        for(int i=0; i<2; i++){ // 0=low, 1=high
+          IRExpr* arg1_part = IRExpr_Unop( i==0? Iop_V128to64 : Iop_V128HIto64 , arg1);
+          IRExpr* arg2_part = IRExpr_Unop( i==0? Iop_V128to64 : Iop_V128HIto64 , arg2);
+          is_0b01_parts_64[i][0] = IRExpr_Binop(Iop_CmpEQ64,arg1_part,leading0_64);
+          is_0b01_parts_64[i][1] = IRExpr_Binop(Iop_CmpEQ64,arg2_part,leading0_64);
+          derivative_parts_64[i] = IRExpr_ITE(is_0b01_parts_64[i][0], nl_helper_LogicalAbs64(arg2_part,diffenv), nl_helper_LogicalAbs64(arg1_part,diffenv));
+        }
+        IRExpr* is_64_split = IRExpr_Binop(Iop_Or1,
+          IRExpr_Binop(Iop_Or1, is_0b01_parts_64[0][0], is_0b01_parts_64[0][1]),
+          IRExpr_Binop(Iop_Or1, is_0b01_parts_64[1][0], is_0b01_parts_64[1][1]) );
+        IRExpr* derivative_if_64 = IRExpr_Binop(Iop_64HLtoV128, derivative_parts_64[1], derivative_parts_64[0]);
+
+        // binary32 parts
+        IRExpr* leading0_32 = IRExpr_Const(IRConst_U32(0x7fffffff));
+        IRExpr* derivative_parts_32[4];
+        IRExpr* is_0b01_parts_32[4][2];
+        for(int i=0; i<4; i++){ // 0=low, ..., 3=high
+          IRExpr* arg1_part = IRExpr_Unop( (i==0||i==2)? Iop_64to32 : Iop_64HIto32,
+            IRExpr_Unop( i<=1? Iop_V128to64 : Iop_V128HIto64 , arg1) );
+          IRExpr* arg2_part = IRExpr_Unop( (i==0||i==2)? Iop_64to32 : Iop_64HIto32,
+            IRExpr_Unop( i<=1? Iop_V128to64 : Iop_V128HIto64 , arg2) );
+          is_0b01_parts_32[i][0] = IRExpr_Binop(Iop_CmpEQ32,arg1_part,leading0_32);
+          is_0b01_parts_32[i][1] = IRExpr_Binop(Iop_CmpEQ32,arg2_part,leading0_32);
+          derivative_parts_32[i] = IRExpr_ITE(is_0b01_parts_32[i][0], nl_helper_LogicalAbs32(arg2_part,diffenv), nl_helper_LogicalAbs32(arg1_part,diffenv));
+        }
+        IRExpr* is_32_split = IRExpr_Binop(Iop_Or1,
+          IRExpr_Binop(Iop_Or1,
+            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[0][0], is_0b01_parts_32[0][1]),
+            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[1][0], is_0b01_parts_32[1][1]) ),
+          IRExpr_Binop(Iop_Or1,
+            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[2][0], is_0b01_parts_32[2][1]),
+            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[3][0], is_0b01_parts_32[3][1]) ) );
+        IRExpr* derivative_if_32 = IRExpr_Binop(Iop_64HLtoV128,
+          IRExpr_Binop(Iop_32HLto64, derivative_parts_32[3], derivative_parts_32[2]),
+          IRExpr_Binop(Iop_32HLto64, derivative_parts_32[1], derivative_parts_32[0]) );
+
+        IRExpr* derivative = IRExpr_ITE( is_64_split, derivative_if_64,
+          IRExpr_ITE( is_32_split, derivative_if_32, mkIRConst_zero(Ity_V128)));
+        return derivative;
       }
       case Iop_SqrtF64: {
         IRExpr* numerator = d2;
