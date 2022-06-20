@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE
+from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8
 import sys
 import os
 
@@ -31,6 +31,8 @@ addition = ClientRequestTestCase("addition")
 addition.stmtd = "double c = a+b;"
 addition.stmtf = "float c = a+b;"
 addition.stmtl = "long double c = a+b;"
+#addition.stmtr4 = "real*4 :: c; c= a+b"
+#addition.stmtr8 = "real*8 :: c; c= a+b"
 addition.vals = {'a':1.0,'b':2.0}
 addition.grads = {'a':3.0,'b':4.0}
 addition.test_vals = {'c':3.0}
@@ -603,6 +605,8 @@ addition_interactive = InteractiveTestCase("addition_interactive")
 addition_interactive.stmtd = "double c = a+b;"
 addition_interactive.stmtf = "float c = a+b;"
 addition_interactive.stmtl = "long double c = a+b;"
+addition_interactive.stmtr4 = "real :: c; c= a+b"
+addition_interactive.stmtr8 = "double precision :: c; c= a+b"
 addition_interactive.vals = {'a':1.0,'b':2.0}
 addition_interactive.grads = {'a':3.0,'b':4.0}
 addition_interactive.test_vals = {'c':3.0}
@@ -635,8 +639,12 @@ basiclist.append(sin_100_interactive)
 ### Take "cross product" with other configuation options ###
 testlist = []
 for test_arch in ["x86", "amd64"]:
-  for test_compiler in ["gcc", "gxx"]:
-    for test_type in ["double", "float", "longdouble"]:
+  for test_compiler in ["gcc", "gxx", "gfortran"]:
+    if test_compiler=="gcc" or test_compiler=="g++":
+      test_type_list = ["double", "float", "longdouble"]
+    elif test_compiler=="gfortran":
+      test_type_list = ["real4", "real8"]
+    for test_type in test_type_list:
       for basictest in basiclist:
         test = copy.deepcopy(basictest)
         test.name = test_arch+"_"+test_compiler+"_"+test_type+"_"+basictest.name
@@ -654,7 +662,9 @@ for test_arch in ["x86", "amd64"]:
         if test_compiler == "gcc":
           test.compiler = "gcc"
         elif test_compiler == "gxx":
-          test.compiler = "gxx"
+          test.compiler = "g++"
+        elif test_compiler == "gfortran":
+          test.compiler = "gfortran"
 
         if test_type == "double":
           test.stmt = test.stmtd
@@ -665,6 +675,12 @@ for test_arch in ["x86", "amd64"]:
         elif test_type == "longdouble":
           test.stmt = test.stmtl
           test.type = TYPE_LONG_DOUBLE
+        elif test_type == "real4":
+          test.stmt = test.stmtr4
+          test.type = TYPE_REAL4
+        elif test_type == "real8":
+          test.stmt = test.stmtr8
+          test.type = TYPE_REAL8
         if test.stmt!=None:
           testlist.append(test)
 
@@ -673,7 +689,7 @@ there_are_failed_tests = False
 if selected_testcase:
   for test in testlist:
     if test.name==selected_testcase:
-      there_are_failed_tests = test.run()
+      there_are_failed_tests = not test.run()
 else: 
   outcomes = []
   for test in testlist:

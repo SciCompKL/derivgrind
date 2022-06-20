@@ -3,17 +3,31 @@ import re
 import time
 import os
 
-TYPE_DOUBLE = {"ctype":"double", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.16lf"}
-TYPE_FLOAT = {"ctype":"float", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
-TYPE_LONG_DOUBLE = {"ctype":"long double", "size":"sizeof(long double)", "tol":1e-8, "get":"lget", "set":"lset","format":"%.16Lf"}
+# Type information: 
+# ctype / ftype: Keyword in the C/C++/Fortran source
+# gdbptype: Regex to recognize pointer to variable in GDB output
+# size: size in bytes
+# tol: tolerance of the tests
+# get / set: DerivGrind monitor commands
+# format: C printf format specifier
+
+# C/C++ types
+TYPE_DOUBLE = {"ctype":"double", "gdbptype":"double \*", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.16lf"}
+TYPE_FLOAT = {"ctype":"float", "gdbptype":"float \*", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
+TYPE_LONG_DOUBLE = {"ctype":"long double", "gdbptype":"long double \*", "size":"sizeof(long double)", "tol":1e-8, "get":"lget", "set":"lset","format":"%.16Lf"}
+# Fortran types
+TYPE_REAL4 = {"ftype":"real", "gdbptype":"PTR TO -> \( real\(kind=4\) \)", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
+TYPE_REAL8 = {"ftype":"double precision", "gdbptype":"PTR TO -> \( real\(kind=8\) \)", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.9f"}
 
 class TestCase:
   """Basic data for a DerivGrind test case."""
   def __init__(self, name):
     self.name = name # Name of TestCase
-    self.stmtd = None # Code to be run in main function for double test
-    self.stmtf = None # Code to be run in main function for float test
-    self.stmtl = None # Code to be run in main function for long double test
+    self.stmtd = None # Code to be run in C/C++ main function for double test
+    self.stmtf = None # Code to be run in C/C++ main function for float test
+    self.stmtl = None # Code to be run in C/C++ main function for long double test
+    self.stmtr4 = None # Code to be run in Fortran program for real*4 test
+    self.stmtr8 = None # Code to be run in Fortran program for real*8 test
     self.stmt = None # One out of stmtd, stmtf, stmtl will be copied here
     # if a testcase is meant only for a subset of the three datatypes only,
     # set the others stmtX to None
@@ -26,10 +40,10 @@ class TestCase:
     self.cflags = "" # Additional flags for the C compiler
     self.fflags = "" # Additional flags for the Fortran compiler
     self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
-    self.type = TYPE_DOUBLE # TYPE_DOUBLE or TYPE_FLOAT
+    self.type = TYPE_DOUBLE # TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE (for C/C++), TYPE_REAL4, TYPE_REAL8 (for Fortran)
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
     self.disabled = False # if True, test will not be run
-    self.compiler = "gcc" # gcc or g++
+    self.compiler = "gcc" # gcc, g++ or gfortran
 
 class InteractiveTestCase(TestCase):
   """Methods to run a DerivGrind test case interactively in VGDB."""
@@ -42,7 +56,7 @@ class InteractiveTestCase(TestCase):
     # to find the lines where breakpoints should be added.
     self.line_before_stmt = 0
     self.line_after_stmt = 0
-    if self.compiler=='gcc' or self.compiler=='gxx':
+    if self.compiler=='gcc' or self.compiler=='g++':
       self.code = f"""
         {self.include}
         int main(){{
@@ -63,8 +77,13 @@ class InteractiveTestCase(TestCase):
         implicit none
         { " ".join([self.type["ftype"]+" :: "+var+" = "+str(self.vals[var])+";" for var in self.vals]) }
         ! _testcase_before_stmt
+        do while(0==1) ; end do
+        block
         { self.stmt }
         ! _testcase_after_stmt
+        do while(0==1) ; end do
+        end block
+        end program main
         """
       for i, line in enumerate(self.code.split("\n")):
         if line.strip().startswith("! _testcase_before_stmt"):
@@ -78,29 +97,33 @@ class InteractiveTestCase(TestCase):
   def compile_code(self):
     # write C or Fortran code into file
     if self.compiler=='gcc':
-      with open("TestCase_src.c", "w") as f:
+      self.source_filename = "TestCase_src.c"
+      with open(self.source_filename, "w") as f:
         f.write(self.code)
-      compile_process = subprocess.run(['gcc', "-g", "-O0", "TestCase_src.c", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
-    elif self.compiler=='gxx':
-      with open("TestCase_src.cpp", "w") as f:
+      compile_process = subprocess.run(['gcc', "-g", "-O0", self.source_filename, "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    elif self.compiler=='g++':
+      self.source_filename = "TestCase_src.cpp"
+      with open(self.source_filename, "w") as f:
         f.write(self.code)
-      compile_process = subprocess.run(['g++', "-g", "-O0", "TestCase_src.cpp", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+      compile_process = subprocess.run(['g++', "-g", "-O0", self.source_filename, "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     elif self.compiler=='gfortran':
-      with open("TestCase_src.f90", "w") as f:
+      self.source_filename = "TestCase_src.f90"
+      with open(self.source_filename, "w") as f:
         f.write(self.code)
-      compile_process = subprocess.run(['gfortran', "-g", "-O0", "TestCase_src.f90", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() + self.ldflags.split(),universal_newlines=True)
+      compile_process = subprocess.run(['gfortran', "-g", "-O0", self.source_filename, "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() + self.ldflags.split(),universal_newlines=True)
 
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
-  def run_c_code_in_vgdb(self):
+  def run_code_in_vgdb(self):
     self.valgrind_log = ""
     self.gdb_log = ""
     # start Valgrind and extract "target remote" line
     environ = os.environ.copy()
     if "LD_LIBRARY_PATH" not in environ:
       environ["LD_LIBRARY_PATH"]=""
-    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/lib"+str(self.arch)+"/"
+    if self.compiler!="gfortran":
+      environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/lib"+str(self.arch)+"/"
     valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=none", "--vgdb-error=0", "./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0,env=environ)
     while True:
       line = valgrind.stdout.readline()
@@ -114,8 +137,8 @@ class InteractiveTestCase(TestCase):
     gdb = subprocess.Popen(["gdb", "./TestCase_exec"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     gdb.stdin.write(target_remote_command+"\n")
     # set breakpoints and continue
-    gdb.stdin.write("break TestCase_src.c:"+str(self.line_before_stmt)+"\n")
-    gdb.stdin.write("break TestCase_src.c:"+str(self.line_after_stmt)+"\n")
+    gdb.stdin.write("break "+self.source_filename+":"+str(self.line_before_stmt)+"\n")
+    gdb.stdin.write("break "+self.source_filename+":"+str(self.line_after_stmt)+"\n")
     gdb.stdin.write("continue\n")
     # set gradients and continue
     for var in self.grads:
@@ -123,7 +146,7 @@ class InteractiveTestCase(TestCase):
       while True:
         line = gdb.stdout.readline()
         self.gdb_log += line
-        r = re.search(r"\$\d+ = \("+self.type["ctype"]+" \*\) (0x[0-9a-f]+)$", line.strip())
+        r = re.search(r"\$\d+ = \("+self.type["gdbptype"]+"\) (0x[0-9a-f]+)\s?", line.strip())
         if r:
           pointer = r.group(1)
           gdb.stdin.write("monitor "+self.type["set"]+" "+pointer+" "+str(self.grads[var])+"\n")
@@ -147,7 +170,7 @@ class InteractiveTestCase(TestCase):
       while True:
         line = gdb.stdout.readline()
         self.gdb_log += line
-        r = re.search(r"\$\d+ = \("+self.type["ctype"]+" \*\) (0x[0-9a-f]+)$", line.strip())
+        r = re.search(r"\$\d+ = \("+self.type["gdbptype"]+"\) (0x[0-9a-f]+)\s?", line.strip())
         if r:
           pointer = r.group(1)
           gdb.stdin.write("monitor "+self.type["get"]+" "+pointer+"\n")
@@ -180,7 +203,7 @@ class InteractiveTestCase(TestCase):
     if self.errmsg=="":
       self.compile_code()
     if self.errmsg=="":
-      self.run_c_code_in_vgdb()
+      self.run_code_in_vgdb()
     if self.errmsg=="":
       print("OK.\n")
       return True
