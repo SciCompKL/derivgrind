@@ -1024,6 +1024,15 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         IRExpr* minus_d = IRExpr_Unop(Iop_NegF32, d);
         return IRExpr_ITE(IRExpr_Unop(Iop_32to1,cond), minus_d, d);
       }
+      case Iop_Sqrt64F0x2: {
+        IRExpr* numerator = d;
+        IRExpr* consttwo_f64 = IRExpr_Const(IRConst_F64(2.0));
+        IRExpr* consttwo_i64 = IRExpr_Unop(Iop_ReinterpF64asI64, consttwo_f64);
+        IRExpr* consttwo_f128 = IRExpr_Binop(Iop_64HLtoV128, consttwo_i64, consttwo_i64);
+        IRExpr* denominator =  IRExpr_Binop(Iop_Mul64F0x2, consttwo_f128, IRExpr_Unop(Iop_Sqrt64F0x2, arg) );
+        return IRExpr_Binop(Iop_Div64F0x2, numerator, denominator);
+        // fortunately, this is also right on the upper half of the V128
+      }
       case Iop_I32StoF64:
       case Iop_I32UtoF64:
         return IRExpr_Const(IRConst_F64(0.));
