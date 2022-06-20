@@ -58,17 +58,8 @@ class InteractiveTestCase(TestCase):
     # write C code into file
     with open("TestCase_src.c", "w") as f:
       f.write(self.code)
-    # query GCC for all optimization options, and find flags to disable the enabled ones
-    blacklist = ["stack-protector-strong","no-threadsafe-statics"] # these should not be disabled (as this would cause errors)
-    options = []
-    compile_flags_process = subprocess.run(["gcc", "-Q", "--help=optimizers", "-g", "-O0",  "TestCase_src.c", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True)
-    for line in compile_flags_process.stdout.split("\n"):
-      r = re.search(r"^\s*-f(\S+)\s*\[enabled\]", line)
-      if r:
-        if r.group(1) not in blacklist:
-          options.append("-fno-"+r.group(1))
     # compile with disabled options
-    compile_process = subprocess.run(["gcc", "-g", "-O0", "TestCase_src.c", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + options + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    compile_process = subprocess.run(["gcc", "-g", "-O0", "TestCase_src.c", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
