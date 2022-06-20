@@ -11,9 +11,12 @@ class TestCase:
   """Basic data for a DerivGrind test case."""
   def __init__(self, name):
     self.name = name # Name of TestCase
-    self.stmt = "" # Code to be run in main function for double test
+    self.stmtd = None # Code to be run in main function for double test
     self.stmtf = None # Code to be run in main function for float test
     self.stmtl = None # Code to be run in main function for long double test
+    self.stmt = None # One out of stmtd, stmtf, stmtl will be copied here
+    # if a testcase is meant only for a subset of the three datatypes only,
+    # set the others stmtX to None
     self.include = "" # Code pasted above main function
     self.vals = {} # Assigns values to input variables used by stmt
     self.grads = {} # Assigns gradients to input variables used by stmt
@@ -25,6 +28,7 @@ class TestCase:
     self.type = TYPE_DOUBLE # TYPE_DOUBLE or TYPE_FLOAT
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
     self.disabled = False # if True, test will not be run
+    self.compiler = "gcc" # gcc or g++
 
 class InteractiveTestCase(TestCase):
   """Methods to run a DerivGrind test case interactively in VGDB."""
@@ -59,7 +63,7 @@ class InteractiveTestCase(TestCase):
     with open("TestCase_src.c", "w") as f:
       f.write(self.code)
     # compile with disabled options
-    compile_process = subprocess.run(["gcc", "-g", "-O0", "TestCase_src.c", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    compile_process = subprocess.run([self.compiler, "-g", "-O0", "TestCase_src.c", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
@@ -192,7 +196,7 @@ class ClientRequestTestCase(TestCase):
     with open("TestCase_src.c", "w") as f:
       f.write(self.code)
     # compile 
-    compile_process = subprocess.run(["gcc", "-O3", "TestCase_src.c", "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    compile_process = subprocess.run([self.compiler, "-O3", "TestCase_src.c", "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
