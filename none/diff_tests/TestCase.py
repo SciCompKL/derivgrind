@@ -192,7 +192,7 @@ class ClientRequestTestCase(TestCase):
     with open("TestCase_src.c", "w") as f:
       f.write(self.code)
     # compile 
-    compile_process = subprocess.run(["gcc", "-g", "-O0", "TestCase_src.c", "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    compile_process = subprocess.run(["gcc", "-O3", "TestCase_src.c", "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
