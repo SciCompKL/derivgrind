@@ -24,6 +24,7 @@ class TestCase:
     self.test_grads = {} # Expected gradients of output variables computed by stmt
     self.timeout = 10 # Timeout for execution in Valgrind, in seconds
     self.cflags = "" # Additional flags for the C compiler
+    self.fflags = "" # Additional flags for the Fortran compiler
     self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
     self.type = TYPE_DOUBLE # TYPE_DOUBLE or TYPE_FLOAT
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
@@ -35,35 +36,60 @@ class InteractiveTestCase(TestCase):
   def __init__(self,name):
     super().__init__(name)
 
-  def produce_c_code(self):
-    # Insert testcase data into C code template. 
+  def produce_code(self):
+    # Insert testcase data into C or Fortran code template. 
     # The template has two labels around the statement, in order 
     # to find the lines where breakpoints should be added.
-    self.code = f"""
-      {self.include}
-      int main(){{
-        { " ".join([self.type["ctype"]+" "+var+" = "+str(self.vals[var])+";" for var in self.vals]) }
-        /*_testcase_before_stmt*/ __asm__("nop");
-        {self.stmt};
-        /*_testcase_after_stmt*/ __asm__("nop");
-      }}
-    """
     self.line_before_stmt = 0
     self.line_after_stmt = 0
-    for i, line in enumerate(self.code.split("\n")):
-      if line.strip().startswith("/*_testcase_before_stmt*/"):
-        self.line_before_stmt = i+1
-      if line.strip().startswith("/*_testcase_after_stmt*/"):
-        self.line_after_stmt = i+1
+    if self.compiler=='gcc' or self.compiler=='gxx':
+      self.code = f"""
+        {self.include}
+        int main(){{
+          { " ".join([self.type["ctype"]+" "+var+" = "+str(self.vals[var])+";" for var in self.vals]) }
+          /*_testcase_before_stmt*/ __asm__("nop");
+          {self.stmt};
+          /*_testcase_after_stmt*/ __asm__("nop");
+        }}
+      """
+      for i, line in enumerate(self.code.split("\n")):
+        if line.strip().startswith("/*_testcase_before_stmt*/"):
+          self.line_before_stmt = i+1
+        if line.strip().startswith("/*_testcase_after_stmt*/"):
+          self.line_after_stmt = i+1
+    elif self.compiler=='gfortran':
+      self.code = f"""
+        program main
+        implicit none
+        { " ".join([self.type["ftype"]+" :: "+var+" = "+str(self.vals[var])+";" for var in self.vals]) }
+        ! _testcase_before_stmt
+        { self.stmt }
+        ! _testcase_after_stmt
+        """
+      for i, line in enumerate(self.code.split("\n")):
+        if line.strip().startswith("! _testcase_before_stmt"):
+          self.line_before_stmt = i+2
+        if line.strip().startswith("! _testcase_after_stmt"):
+          self.line_after_stmt = i+2
+
     assert self.line_before_stmt != 0
     assert self.line_after_stmt != 0
 
-  def compile_c_code(self):
-    # write C code into file
-    with open("TestCase_src.c", "w") as f:
-      f.write(self.code)
-    # compile with disabled options
-    compile_process = subprocess.run([self.compiler, "-g", "-O0", "TestCase_src.c", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+  def compile_code(self):
+    # write C or Fortran code into file
+    if self.compiler=='gcc':
+      with open("TestCase_src.c", "w") as f:
+        f.write(self.code)
+      compile_process = subprocess.run(['gcc', "-g", "-O0", "TestCase_src.c", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    elif self.compiler=='gxx':
+      with open("TestCase_src.cpp", "w") as f:
+        f.write(self.code)
+      compile_process = subprocess.run(['g++', "-g", "-O0", "TestCase_src.cpp", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    elif self.compiler=='gfortran':
+      with open("TestCase_src.f90", "w") as f:
+        f.write(self.code)
+      compile_process = subprocess.run(['gfortran', "-g", "-O0", "TestCase_src.f90", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() + self.ldflags.split(),universal_newlines=True)
+
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
@@ -150,9 +176,9 @@ class InteractiveTestCase(TestCase):
       return True
     self.errmsg = ""
     if self.errmsg=="":
-      self.produce_c_code()
+      self.produce_code()
     if self.errmsg=="":
-      self.compile_c_code()
+      self.compile_code()
     if self.errmsg=="":
       self.run_c_code_in_vgdb()
     if self.errmsg=="":
