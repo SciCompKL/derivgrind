@@ -396,6 +396,8 @@ testlist.append(ceil)
 memcpy = ClientRequestTestCase("memcpy")
 memcpy.include = "#include <string.h>"
 memcpy.stmt = "double aa[3],ac[3],c; aa[1] = a; memcpy(ac,aa,3*sizeof(double)); c=ac[1];"
+memcpy.stmtf = "float aa[3],ac[3],c; aa[1] = a; memcpy(ac,aa,3*sizeof(float)); c=ac[1];"
+memcpy.stmtl = "long double aa[3],ac[3],c; aa[1] = a; memcpy(ac,aa,3*sizeof(long double)); c=ac[1];"
 memcpy.vals = {'a':-12.34}
 memcpy.grads = {'a':-56.78}
 memcpy.test_vals = {'c':-12.34}
@@ -405,6 +407,8 @@ testlist.append(memcpy)
 memmove = ClientRequestTestCase("memmove")
 memmove.include = "#include <string.h>"
 memmove.stmt = "double aa[3],c; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(double)); c=aa[1];"
+memmove.stmtf = "float aa[3],c; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(float)); c=aa[1];"
+memmove.stmtl = "long double aa[3],c; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(long double)); c=aa[1];"
 memmove.vals = {'a':-12.34}
 memmove.grads = {'a':-56.78}
 memmove.test_vals = {'c':-12.34*3.14}
@@ -414,6 +418,8 @@ testlist.append(memmove)
 memset = ClientRequestTestCase("memset")
 memset.include = "#include <string.h>"
 memset.stmt = "memset(&a,0,sizeof(double));"
+memset.stmtf = "memset(&a,0,sizeof(float));"
+memset.stmtl = "memset(&a,0,sizeof(long double));"
 memset.vals = {'a':-12.34}
 memset.grads = {'a':-56.78}
 memset.test_vals = {'a':0.0}
@@ -425,6 +431,8 @@ testlist.append(memset)
 
 ifbranch = ClientRequestTestCase("ifbranch")
 ifbranch.stmt = "double c; if(a<1) c = 2+a; else c = 2*a; "
+ifbranch.stmtf = "float c; if(a<1) c = 2+a; else c = 2*a; "
+ifbranch.stmtl = "long double c; if(a<1) c = 2+a; else c = 2*a; "
 ifbranch.vals = {'a':0.0}
 ifbranch.grads = {'a':1.0}
 ifbranch.test_vals = {'c':2.0}
@@ -433,6 +441,8 @@ testlist.append(ifbranch)
 
 elsebranch = ClientRequestTestCase("elsebranch")
 elsebranch.stmt = "double c; if(a<-1) c = 2+a; else c = 2*a; "
+elsebranch.stmtf = "float c; if(a<-1) c = 2+a; else c = 2*a; "
+elsebranch.stmtl = "long double c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.vals = {'a':0.0}
 elsebranch.grads = {'a':1.0}
 elsebranch.test_vals = {'c':0.0}
@@ -441,6 +451,8 @@ testlist.append(elsebranch)
 
 ternary_true = ClientRequestTestCase("ternary_true")
 ternary_true.stmt = "double c = (a>-1) ? (3*a) : (a*a);"
+ternary_true.stmtf = "float c = (a>-1) ? (3*a) : (a*a);"
+ternary_true.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_true.vals = {'a':10.0}
 ternary_true.grads = {'a':1.0}
 ternary_true.test_vals = {'c':30.0}
@@ -449,6 +461,8 @@ testlist.append(ternary_true)
 
 ternary_false = ClientRequestTestCase("ternary_false")
 ternary_false.stmt = "double c = (a>-1) ? (3*a) : (a*a);"
+ternary_false.stmtf = "float c = (a>-1) ? (3*a) : (a*a);"
+ternary_false.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_false.vals = {'a':-10.0}
 ternary_false.grads = {'a':1.0}
 ternary_false.test_vals = {'c':100.0}
@@ -458,6 +472,8 @@ testlist.append(ternary_false)
 
 addition_forloop = ClientRequestTestCase("addition_forloop")
 addition_forloop.stmt = "double c = 0; for(int i=0; i<10; i++) c+=a;"
+addition_forloop.stmtf = "float c = 0; for(int i=0; i<10; i++) c+=a;"
+addition_forloop.stmtl = "long double c = 0; for(int i=0; i<10; i++) c+=a;"
 addition_forloop.vals = {'a':2.0}
 addition_forloop.grads = {'a':1.0}
 addition_forloop.test_vals = {'c':20.0}
@@ -466,6 +482,8 @@ testlist.append(addition_forloop)
 
 multiplication_forloop = ClientRequestTestCase("multiplication_forloop")
 multiplication_forloop.stmt = "double c = 1; for(int i=0; i<10; i++) c*=a;"
+multiplication_forloop.stmtf = "float c = 1; for(int i=0; i<10; i++) c*=a;"
+multiplication_forloop.stmtl = "long double c = 1; for(int i=0; i<10; i++) c*=a;"
 multiplication_forloop.vals = {'a':2.0}
 multiplication_forloop.grads = {'a':1.0}
 multiplication_forloop.test_vals = {'c':1024.0}
@@ -474,6 +492,8 @@ testlist.append(multiplication_forloop)
 
 addition_whileloop = ClientRequestTestCase("addition_whileloop")
 addition_whileloop.stmt = "double c = 0; while(c<19) c+=a;"
+addition_whileloop.stmtf = "float c = 0; while(c<19) c+=a;"
+addition_whileloop.stmtl = "long double c = 0; while(c<19) c+=a;"
 addition_whileloop.vals = {'a':2.0}
 addition_whileloop.grads = {'a':1.0}
 addition_whileloop.test_vals = {'c':20.0}
@@ -482,6 +502,8 @@ testlist.append(addition_whileloop)
 
 multiplication_whileloop = ClientRequestTestCase("multiplication_whileloop")
 multiplication_whileloop.stmt = "double c = 1; while(c<1023) c*=a;"
+multiplication_whileloop.stmtf = "float c = 1; while(c<1023) c*=a;"
+multiplication_whileloop.stmtl = "long double c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.vals = {'a':2.0}
 multiplication_whileloop.grads = {'a':1.0}
 multiplication_whileloop.test_vals = {'c':1024.0}
@@ -490,6 +512,8 @@ testlist.append(multiplication_whileloop)
 
 addition_dowhileloop = ClientRequestTestCase("addition_dowhileloop")
 addition_dowhileloop.stmt = "double c = 0; do c+=a; while(c<19);"
+addition_dowhileloop.stmtf = "float c = 0; do c+=a; while(c<19);"
+addition_dowhileloop.stmtl = "long double c = 0; do c+=a; while(c<19);"
 addition_dowhileloop.vals = {'a':2.0}
 addition_dowhileloop.grads = {'a':1.0}
 addition_dowhileloop.test_vals = {'c':20.0}
@@ -498,6 +522,8 @@ testlist.append(addition_dowhileloop)
 
 multiplication_dowhileloop = ClientRequestTestCase("multiplication_dowhileloop")
 multiplication_dowhileloop.stmt = "double c = 1; do c*=a; while(c<1023);"
+multiplication_dowhileloop.stmtf = "float c = 1; do c*=a; while(c<1023);"
+multiplication_dowhileloop.stmtl = "long double c = 1; do c*=a; while(c<1023);"
 multiplication_dowhileloop.vals = {'a':2.0}
 multiplication_dowhileloop.grads = {'a':1.0}
 multiplication_dowhileloop.test_vals = {'c':1024.0}
@@ -505,8 +531,14 @@ multiplication_dowhileloop.test_grads = {'c':5120.0}
 testlist.append(multiplication_dowhileloop)
 
 addition_recursion = ClientRequestTestCase("addition_recursion")
-addition_recursion.include = "double f(int n, double x){ if(n==0) return 0.; else return x+f(n-1,x); }"
+addition_recursion.include = """
+  double f(int n, double x){ if(n==0) return 0.; else return x+f(n-1,x); }
+  float ff(int n, float x){ if(n==0) return 0.f; else return x+ff(n-1,x); }
+  long double fl(int n, long double x){ if(n==0) return 0.l; else return x+fl(n-1,x); }
+"""
 addition_recursion.stmt = "double c = f(10,a);"
+addition_recursion.stmtf = "float c = ff(10,a);"
+addition_recursion.stmtl = "long double c = fl(10,a);"
 addition_recursion.vals = {'a':2.0}
 addition_recursion.grads = {'a':1.0}
 addition_recursion.test_vals = {'c':20.0}
@@ -514,8 +546,14 @@ addition_recursion.test_grads = {'c':10.0}
 testlist.append(addition_recursion)
 
 multiplication_recursion = ClientRequestTestCase("multiplication_recursion")
-multiplication_recursion.include = "double f(int n, double x){ if(n==0) return 1.; else return x*f(n-1,x); }"
+multiplication_recursion.include = """
+  double f(int n, double x){ if(n==0) return 1.; else return x*f(n-1,x); }
+  float ff(int n, float x){ if(n==0) return 1.f; else return x*ff(n-1,x); }
+  long double fl(int n, long double x){ if(n==0) return 1.l; else return x*fl(n-1,x); }
+"""
 multiplication_recursion.stmt = "double c = f(10,a);"
+multiplication_recursion.stmtf = "float c = ff(10,a);"
+multiplication_recursion.stmtl = "long double c = fl(10,a);"
 multiplication_recursion.vals = {'a':2.0}
 multiplication_recursion.grads = {'a':1.0}
 multiplication_recursion.test_vals = {'c':1024.0}
