@@ -44,6 +44,7 @@ class TestCase:
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
     self.disabled = False # if True, test will not be run
     self.compiler = "gcc" # gcc, g++ or gfortran
+    self.only_language = None # define if test works for one particular language only
 
 class InteractiveTestCase(TestCase):
   """Methods to run a DerivGrind test case interactively in VGDB."""

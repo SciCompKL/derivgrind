@@ -599,6 +599,51 @@ omp.test_vals = {'sum':omp_test_sum_val}
 omp.test_grads = {'sum':omp_test_sum_grad}
 basiclist.append(omp)
 
+### C++ tests ###
+constructornew = ClientRequestTestCase("constructornew")
+constructornew.only_language = "cpp"
+constructornew.include = "template<typename T> struct A { T t; A(T t): t(t*t) {} };" 
+constructornew.stmtd = "A<double>* a = new A<double>(x); double y=a->t; "
+constructornew.stmtf = "A<float>* a = new A<float>(x); float y=a->t; "
+constructornew.stmtl = "A<long double>* a = new A<long double>(x); long double y=a->t; "
+constructornew.vals = {'x': 2.0}
+constructornew.grads = {'x': 3.0}
+constructornew.test_vals = {'y': 4.0}
+constructornew.test_grads = {'y': 12.0}
+basiclist.append(constructornew)
+
+virtualdispatch = ClientRequestTestCase("virtualdispatch")
+virtualdispatch.only_language = "cpp"
+virtualdispatch.include = """
+template<typename T>
+class A { 
+  public:
+  T t1, t2; 
+  A(T t1, T t2): t1(t1), t2(t2) {}
+    virtual void operator=(A<T> const& other){
+    t1 = other.t1; t2 = other.t2;
+  }
+};
+template<typename T>
+class B : public A<T> {
+  public:
+  using A<T>::t1, A<T>::t2;
+  B(T t1, T t2): A<T>(t1,t2) {}
+  void operator=(A<T> const& other) override {
+    t2 = other.t1; t1 = other.t2;
+  }
+};
+"""
+virtualdispatch.stmtd = "B<double> b1(1,x), b2(3,4); b2 = static_cast<A<double> >(b1); double y = b2.t1;"
+virtualdispatch.stmtf = "B<float> b1(1,x), b2(3,4); b2 = static_cast<A<float> >(b1); float y = b2.t1;"
+virtualdispatch.stmtl = "B<long double> b1(1,x), b2(3,4); b2 = static_cast<A<long double> >(b1); long double y = b2.t1;"
+virtualdispatch.vals = {'x': 2.}
+virtualdispatch.grads = {'x': 2.1}
+virtualdispatch.test_vals = {'y': 2.}
+virtualdispatch.test_grads = {'y': 2.1}
+basiclist.append(virtualdispatch)
+
+
 
 ### Interactive tests ###
 addition_interactive = InteractiveTestCase("addition_interactive")
@@ -639,15 +684,15 @@ basiclist.append(sin_100_interactive)
 ### Take "cross product" with other configuation options ###
 testlist = []
 for test_arch in ["x86", "amd64"]:
-  for test_compiler in ["gcc", "gxx", "gfortran"]:
-    if test_compiler=="gcc" or test_compiler=="g++":
+  for test_language in ["c", "cpp", "fortran"]:
+    if test_language=="c" or test_language=="cpp":
       test_type_list = ["double", "float", "longdouble"]
-    elif test_compiler=="gfortran":
+    elif test_language=="fortran":
       test_type_list = ["real4", "real8"]
     for test_type in test_type_list:
       for basictest in basiclist:
         test = copy.deepcopy(basictest)
-        test.name = test_arch+"_"+test_compiler+"_"+test_type+"_"+basictest.name
+        test.name = test_arch+"_"+test_language+"_"+test_type+"_"+basictest.name
 
         if test_arch == "x86":
           test.arch = 32
@@ -659,11 +704,13 @@ for test_arch in ["x86", "amd64"]:
           if "DG_CONSTRAINED_ENVIRONMENT" in os.environ:
             test.disabled = True
 
-        if test_compiler == "gcc":
+        if test.only_language!=None and test.only_language!=test_language:
+          continue
+        if test_language == "c":
           test.compiler = "gcc"
-        elif test_compiler == "gxx":
+        elif test_language == "cpp":
           test.compiler = "g++"
-        elif test_compiler == "gfortran":
+        elif test_language == "fortran":
           test.compiler = "gfortran"
 
         if test_type == "double":
