@@ -96,7 +96,7 @@ f"""
 
 functions = [
 
-  # missing: modf,fmod
+  # missing: modf
   DERIVGRIND_MATH_FUNCTION("acos","-1/LIBM(sqrt)(1-x*x)","double"),
   DERIVGRIND_MATH_FUNCTION("asin","1/LIBM(sqrt)(1-x*x)","double"),
   DERIVGRIND_MATH_FUNCTION("atan","1/(1+x*x)","double"),
@@ -107,6 +107,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("exp", "LIBM(exp)(x)","double"),
   DERIVGRIND_MATH_FUNCTION("fabs", "(x>0?1:-1)","double"),
   DERIVGRIND_MATH_FUNCTION("floor", "0","double"),
+  DERIVGRIND_MATH_FUNCTION2("fmod", "1", "- LIBM(floor)(LIBM(fabs)(x/y)) * (x>0?1.:-1.) * (y>0?1.:-1.)","double"),
   DERIVGRIND_MATH_FUNCTION2e("frexp","LIBM(ldexp)(1,-*e)","double","int*"),
   DERIVGRIND_MATH_FUNCTION2e("ldexp","LIBM(ldexp)(1,e)","double","int"),
   DERIVGRIND_MATH_FUNCTION("log","1/x","double"),
@@ -129,6 +130,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("expf", "LIBM(expf)(x)","float"),
   DERIVGRIND_MATH_FUNCTION("fabsf", "(x>0?1:-1)","float"),
   DERIVGRIND_MATH_FUNCTION("floorf", "0","float"),
+  DERIVGRIND_MATH_FUNCTION2("fmodf", "1", "- LIBM(floorf)(LIBM(fabsf)(x/y)) * (x>0?1.f:-1.f) * (y>0?1.f:-1.f)","float"),
   DERIVGRIND_MATH_FUNCTION2e("frexpf","LIBM(ldexpf)(1,-*e)","float","int*"),
   DERIVGRIND_MATH_FUNCTION2e("ldexpf","LIBM(ldexpf)(1,e)","float","int"),
   DERIVGRIND_MATH_FUNCTION("logf","1/x","float"),
@@ -151,6 +153,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("expl", "LIBM(expl)(x)","long double"),
   DERIVGRIND_MATH_FUNCTION("fabsl", "(x>0?1:-1)","long double"),
   DERIVGRIND_MATH_FUNCTION("floorl", "0","long double"),
+  DERIVGRIND_MATH_FUNCTION2("fmodl", "1", "- LIBM(floorl)(LIBM(fabsl)(x/y)) * (x>0?1.l:-1.l) * (y>0?1.l:-1.l)","long double"),
   DERIVGRIND_MATH_FUNCTION2e("frexpl","LIBM(ldexpl)(1,-*e)","long double","int*"),
   DERIVGRIND_MATH_FUNCTION2e("ldexpl","LIBM(ldexpl)(1,e)","long double","int"),
   DERIVGRIND_MATH_FUNCTION("logl","1/x","long double"),

@@ -35,8 +35,20 @@
 #include "valgrind.h"
 #include "derivgrind.h"
 
+#ifndef __GNUC__
+  #error "Only tested with GCC."
+#endif
 
+#if __x86_64__
+#else
+#define BUILD_32BIT
+#endif
+
+#ifdef BUILD_32BIT
 #include "shadow-memory/src/shadow.h"
+#else
+#include "shadow-memory/src/shadow-64.h"
+#endif
 
 inline void  shadow_free(void* addr) { VG_(free)(addr); }
 inline void *shadow_malloc(size_t size) { return VG_(malloc)("Test",size); }
@@ -72,6 +84,10 @@ ShadowMap* my_sm = NULL; //!< Gives access to the shadow memory for the tangent 
 static unsigned long stmt_counter = 0; //!< Can be used to tag nl_add_print_stmt outputs.
 
 #define DEFAULT_ROUNDING IRExpr_Const(IRConst_U32(Irrm_NEAREST))
+
+/*! Condition for writing out unknown expressions.
+ */
+#define UNWRAPPED_EXPRESSION_OUTPUT_FILTER type==Ity_F64||type==Ity_F32 //||type==Ity_V128
 
 static void nl_post_clo_init(void)
 {
@@ -685,6 +701,44 @@ typedef struct {
   IRSB* sb_out;
 } DiffEnv;
 
+static IRExpr* differentiate_expr(IRExpr const*, DiffEnv);
+
+/*! Helper to differentiate "abs" when implemented via logical "and".
+ *
+ *  Iop_AndF128 performs a bitwise logical "and", and normally we discard
+ *  the gradient information for integer and logical operations. However,
+ *  this particular logical operation can be used to implement a
+ *  floating-point operation. Namely, in order to compute the absolute
+ *  value of a IEEE-754 binary32 or binary64, it suffices to set the
+ *  first bit to zero. We observed GCC using this trick.
+ *  Thus the need for a special mapping. Flip the sign bit of the derivative
+ *  if and only if the value is negative.
+ *  \param[in] arg - Argument to "abs".
+ *  \returns - Differentiated expression.
+ */
+static IRExpr* nl_helper_LogicalAbs64(IRExpr* arg, DiffEnv diffenv){
+  IRExpr* d = differentiate_expr(arg, diffenv);
+  if(!d) return IRExpr_Const(IRConst_U64(0));
+  IRExpr* leading1 = IRExpr_Const(IRConst_U64(0x8000000000000000));
+  IRExpr* arg_is_negative = IRExpr_Binop(Iop_CmpEQ64, IRExpr_Binop(Iop_And64, arg, leading1), leading1);
+  IRExpr* derivative = IRExpr_ITE(arg_is_negative, IRExpr_Binop(Iop_Xor64, leading1, d), d);
+  return derivative;
+}
+/*! Helper to differentiate "abs" when implemented via logical "and".
+ *
+ *  See nl_helper_LogicalAbs64.
+ *  \param[in] arg - Argument to "abs".
+ *  \returns - Differentiated expression.
+ */
+static IRExpr* nl_helper_LogicalAbs32(IRExpr* arg, DiffEnv diffenv){
+  IRExpr* d = differentiate_expr(arg, diffenv);
+  if(!d) return IRExpr_Const(IRConst_U32(0));
+  IRExpr* leading1 = IRExpr_Const(IRConst_U32(0x80000000));
+  IRExpr* arg_is_negative = IRExpr_Binop(Iop_CmpEQ32, IRExpr_Binop(Iop_And32, arg, leading1), leading1);
+  IRExpr* derivative = IRExpr_ITE(arg_is_negative, IRExpr_Binop(Iop_Xor32, leading1, d), d);
+  return derivative;
+}
+
 /*! Differentiate an expression.
  *
  *  - For arithmetic expressions involving float or double variables, we
@@ -703,7 +757,34 @@ typedef struct {
  */
 static
 IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
-  if(ex->tag==Iex_Triop){
+  if(ex->tag==Iex_Qop){
+    IRQop* rex = ex->Iex.Qop.details;
+    IRExpr* arg1 = rex->arg1;
+    IRExpr* arg2 = rex->arg2;
+    IRExpr* arg3 = rex->arg3;
+    IRExpr* arg4 = rex->arg4;
+    IRExpr* d2 = differentiate_expr(arg2,diffenv);
+    IRExpr* d3 = differentiate_expr(arg3,diffenv);
+    IRExpr* d4 = differentiate_expr(arg4,diffenv);
+    if(d2==NULL || d3==NULL || d4==NULL) return NULL;
+    switch(rex->op){
+      case Iop_MAddF64:
+            return IRExpr_Triop(Iop_AddF64,arg1,
+              IRExpr_Triop(Iop_MulF64,arg1,d2,arg3),
+              IRExpr_Qop(Iop_MAddF64,arg1,arg2,d3,d4)
+             );
+      case Iop_64x4toV256: {
+        IRExpr* d1 = differentiate_expr(arg2,diffenv);
+        if(d1)
+          return IRExpr_Qop(rex->op, d1,d2,d3,d4);
+        else
+          return NULL;
+      }
+
+      default:
+        return NULL;
+    }
+  } else if(ex->tag==Iex_Triop){
     IRTriop* rex = ex->Iex.Triop.details;
     IRExpr* arg1 = rex->arg1;
     IRExpr* arg2 = rex->arg2;
@@ -782,6 +863,63 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     IRExpr* d2 = differentiate_expr(arg2,diffenv);
     if(d2==NULL) return NULL;
     switch(op){
+      // Iop_And32 is missing. It's not really clear how to properly
+      // distinguish with other Iop_AndN's.
+      /*case Iop_And64: {
+        return nl_helper_And64(arg1,arg2,diffenv);
+      }*/
+      case Iop_AndV128: {
+        // The V128 might be composed of 64-bit or 32-bit numbers.
+        // First see if one argument is the 64-bit 0b011..1, in this
+        // case we might be computing the absolute value of a binary64.
+        // If not, see if one argument is the 32-bit 0b011..1, in this
+        // case we might be computing the absolute value of a binary32.
+        // If not, it's something else and we calculate a zero derivative.
+
+        // binary64 parts
+        IRExpr* leading0_64 = IRExpr_Const(IRConst_U64(0x7fffffffffffffff));
+        IRExpr* derivative_parts_64[2];
+        IRExpr* is_0b01_parts_64[2][2];
+        for(int i=0; i<2; i++){ // 0=low, 1=high
+          IRExpr* arg1_part = IRExpr_Unop( i==0? Iop_V128to64 : Iop_V128HIto64 , arg1);
+          IRExpr* arg2_part = IRExpr_Unop( i==0? Iop_V128to64 : Iop_V128HIto64 , arg2);
+          is_0b01_parts_64[i][0] = IRExpr_Binop(Iop_CmpEQ64,arg1_part,leading0_64);
+          is_0b01_parts_64[i][1] = IRExpr_Binop(Iop_CmpEQ64,arg2_part,leading0_64);
+          derivative_parts_64[i] = IRExpr_ITE(is_0b01_parts_64[i][0], nl_helper_LogicalAbs64(arg2_part,diffenv), nl_helper_LogicalAbs64(arg1_part,diffenv));
+        }
+        IRExpr* is_64_split = IRExpr_Binop(Iop_Or1,
+          IRExpr_Binop(Iop_Or1, is_0b01_parts_64[0][0], is_0b01_parts_64[0][1]),
+          IRExpr_Binop(Iop_Or1, is_0b01_parts_64[1][0], is_0b01_parts_64[1][1]) );
+        IRExpr* derivative_if_64 = IRExpr_Binop(Iop_64HLtoV128, derivative_parts_64[1], derivative_parts_64[0]);
+
+        // binary32 parts
+        IRExpr* leading0_32 = IRExpr_Const(IRConst_U32(0x7fffffff));
+        IRExpr* derivative_parts_32[4];
+        IRExpr* is_0b01_parts_32[4][2];
+        for(int i=0; i<4; i++){ // 0=low, ..., 3=high
+          IRExpr* arg1_part = IRExpr_Unop( (i==0||i==2)? Iop_64to32 : Iop_64HIto32,
+            IRExpr_Unop( i<=1? Iop_V128to64 : Iop_V128HIto64 , arg1) );
+          IRExpr* arg2_part = IRExpr_Unop( (i==0||i==2)? Iop_64to32 : Iop_64HIto32,
+            IRExpr_Unop( i<=1? Iop_V128to64 : Iop_V128HIto64 , arg2) );
+          is_0b01_parts_32[i][0] = IRExpr_Binop(Iop_CmpEQ32,arg1_part,leading0_32);
+          is_0b01_parts_32[i][1] = IRExpr_Binop(Iop_CmpEQ32,arg2_part,leading0_32);
+          derivative_parts_32[i] = IRExpr_ITE(is_0b01_parts_32[i][0], nl_helper_LogicalAbs32(arg2_part,diffenv), nl_helper_LogicalAbs32(arg1_part,diffenv));
+        }
+        IRExpr* is_32_split = IRExpr_Binop(Iop_Or1,
+          IRExpr_Binop(Iop_Or1,
+            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[0][0], is_0b01_parts_32[0][1]),
+            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[1][0], is_0b01_parts_32[1][1]) ),
+          IRExpr_Binop(Iop_Or1,
+            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[2][0], is_0b01_parts_32[2][1]),
+            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[3][0], is_0b01_parts_32[3][1]) ) );
+        IRExpr* derivative_if_32 = IRExpr_Binop(Iop_64HLtoV128,
+          IRExpr_Binop(Iop_32HLto64, derivative_parts_32[3], derivative_parts_32[2]),
+          IRExpr_Binop(Iop_32HLto64, derivative_parts_32[1], derivative_parts_32[0]) );
+
+        IRExpr* derivative = IRExpr_ITE( is_64_split, derivative_if_64,
+          IRExpr_ITE( is_32_split, derivative_if_32, mkIRConst_zero(Ity_V128)));
+        return derivative;
+      }
       case Iop_SqrtF64: {
         IRExpr* numerator = d2;
         IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
@@ -806,6 +944,40 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
             IRExpr_Const(IRConst_F64(1.)),
             IRExpr_Binop(Iop_2xm1F64,arg1,arg2)
         ));
+      case Iop_Mul64F0x2: {
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        return IRExpr_Binop(Iop_Add64F0x2,
+          IRExpr_Binop(Iop_Mul64F0x2,d1,arg2), // the order is important here
+          IRExpr_Binop(Iop_Mul64F0x2,arg1,d2)
+        );
+      }
+      case Iop_Mul32F0x4: {
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        return IRExpr_Binop(Iop_Add32F0x4,
+          IRExpr_Binop(Iop_Mul32F0x4,d1,arg2), // the order is important here
+          IRExpr_Binop(Iop_Mul32F0x4,arg1,d2)
+        );
+      }
+      case Iop_Div64F0x2: {
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        return IRExpr_Binop(Iop_Div64F0x2,
+          IRExpr_Binop(Iop_Sub64F0x2,
+            IRExpr_Binop(Iop_Mul64F0x2,d1,arg2), // the order is important here
+            IRExpr_Binop(Iop_Mul64F0x2,arg1,d2)
+          ),
+          IRExpr_Binop(Iop_Mul64F0x2,arg2,arg2)
+        );
+      }
+      case Iop_Div32F0x4: {
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        return IRExpr_Binop(Iop_Div32F0x4,
+          IRExpr_Binop(Iop_Sub32F0x4,
+            IRExpr_Binop(Iop_Mul32F0x4,d1,arg2), // the order is important here
+            IRExpr_Binop(Iop_Mul32F0x4,arg1,d2)
+          ),
+          IRExpr_Binop(Iop_Mul32F0x4,arg2,arg2)
+        );
+      }
       case Iop_I64StoF64:
       case Iop_I64UtoF64:
       case Iop_RoundF64toInt:
@@ -815,6 +987,23 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_I32StoF32:
       case Iop_I32UtoF32:
         return mkIRConst_zero(Ity_F32);
+      case Iop_64HLto128: case Iop_32HLto64:
+      case Iop_16HLto32: case Iop_8HLto16:
+      case Iop_64HLtoV128:
+      case Iop_Add64F0x2: case Iop_Sub64F0x2:
+      case Iop_Add32F0x4: case Iop_Sub32F0x4:
+      case Iop_SetV128lo32: case Iop_SetV128lo64:
+      case Iop_InterleaveHI8x16: case Iop_InterleaveHI16x8:
+      case Iop_InterleaveHI32x4: case Iop_InterleaveHI64x2:
+      case Iop_InterleaveLO8x16: case Iop_InterleaveLO16x8:
+      case Iop_InterleaveLO32x4: case Iop_InterleaveLO64x2:
+        {
+          IRExpr* d1 = differentiate_expr(arg1,diffenv);
+          if(d1)
+            return IRExpr_Binop(op, d1,d2);
+          else
+            return NULL;
+        }
       default:
         return NULL;
     }
@@ -843,7 +1032,25 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_ReinterpI64asF64: case Iop_ReinterpF64asI64:
       case Iop_ReinterpI32asF32: case Iop_ReinterpF32asI32:
       case Iop_NegF64: case Iop_NegF32:
+      case Iop_64to8: case Iop_32to8: case Iop_64to16:
+      case Iop_16to8: case Iop_16HIto8:
+      case Iop_32to16: case Iop_32HIto16:
+      case Iop_64to32: case Iop_64HIto32:
+      case Iop_V128to64: case Iop_V128HIto64:
+      case Iop_8Uto16: case Iop_8Uto32: case Iop_8Uto64:
+      case Iop_16Uto32: case Iop_16Uto64:
+      case Iop_32Uto64:
+      case Iop_8Sto16: case Iop_8Sto32: case Iop_8Sto64:
+      case Iop_16Sto32: case Iop_16Sto64:
+      case Iop_32Sto64:
+      case Iop_ZeroHI64ofV128: case Iop_ZeroHI96ofV128:
+      case Iop_ZeroHI112ofV128: case Iop_ZeroHI120ofV128:
+      case Iop_64UtoV128: case Iop_32UtoV128:
+      case Iop_V128to32:
+      case Iop_128HIto64:
+      case Iop_128to64:
         return IRExpr_Unop(op, d);
+
       default:
         return NULL;
     }
@@ -910,7 +1117,7 @@ IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const ch
 }
 
 /*! Dirtyhelper for the extra AD logic to dirty calls to
- *  x86g_dirtyhelper_loadF80le.
+ *  x86g_dirtyhelper_loadF80le / amd64g_dirtyhelper_loadF80le.
  *
  *  It's very similar, but reads from shadow memory
  *  instead of guest memory:
@@ -920,7 +1127,7 @@ IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const ch
  *  - reinterpret it as an unsigned long.
  *  - return this.
  */
-ULong x86g_diff_dirtyhelper_loadF80le ( Addr addrU )
+ULong x86g_amd64g_diff_dirtyhelper_loadF80le ( Addr addrU )
 {
    ULong f64, f128[2];
    f128[0] = nl_Load_diff8(addrU);
@@ -929,12 +1136,12 @@ ULong x86g_diff_dirtyhelper_loadF80le ( Addr addrU )
    return f64;
 }
 /*! Dirtyhelper for the extra AD logic to dirty calls to
- *  x86g_dirtyhelper_storeF80le.
+ *  x86g_dirtyhelper_storeF80le / amd64g_dirtyhelper_storeF80le.
  *
  *  It's very similar, but writes to shadow memory instead
  *  of guest memory.
  */
-void x86g_diff_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
+void x86g_amd64g_diff_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
 {
    ULong f128[2];
    convert_f64le_to_f80le( (UChar*)&f64, (UChar*)f128 );
@@ -978,19 +1185,19 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
     if(st->tag==Ist_WrTmp) {
       IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,type==Ity_F64||type==Ity_F32,"WrTmp");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"WrTmp");
       IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
       addStmtToIRSB(sb_out, sp);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_Put) {
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,type==Ity_F64||type==Ity_F32,"Put");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"Put");
       IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
       addStmtToIRSB(sb_out, sp);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_PutI) {
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,type==Ity_F64||type==Ity_F32,"PutI");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"PutI");
       IRRegArray* descr = st->Ist.PutI.details->descr;
       IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB, descr->elemTy, descr->nElems);
       Int bias = st->Ist.PutI.details->bias;
@@ -1000,13 +1207,13 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_Store){
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Store.data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Store.data, diffenv, type==Ity_F64||type==Ity_F32,"Store");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Store.data, diffenv, UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"Store");
       storeShadowMemory(diffenv.sb_out,st->Ist.Store.addr,differentiated_expr,NULL);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_StoreG){
       IRStoreG* det = st->Ist.StoreG.details;
       IRType type = typeOfIRExpr(sb_in->tyenv,det->data);
-      IRExpr* differentiated_expr = differentiate_or_zero(det->data, diffenv, type==Ity_F64||type==Ity_F32,"StoreG");
+      IRExpr* differentiated_expr = differentiate_or_zero(det->data, diffenv, UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"StoreG");
       storeShadowMemory(diffenv.sb_out,det->addr,differentiated_expr,det->guard);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_LoadG) {
@@ -1015,7 +1222,7 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // never be interpreted as derivative information
       IRType type = sb_in->tyenv->types[det->dst];
       // differentiate alternative value
-      IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,type==Ity_F64||type==Ity_F32,"alternative-LoadG");
+      IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"alternative-LoadG");
       // depending on the guard, copy either the derivative stored
       // in shadow memory, or the derivative of the alternative value,
       // to the shadow temporary.
@@ -1124,15 +1331,17 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // stores it in 10 bytes of guest memory.
       // We have to convert the 64-bit derivative information to 80 bit
       // and store them in 10 bytes of shadow memory.
-      if(!VG_(strcmp)(name, "x86g_dirtyhelper_storeF80le")){
+      // The same applies on amd64.
+      if(!VG_(strcmp)(name, "x86g_dirtyhelper_storeF80le") ||
+         !VG_(strcmp)(name, "amd64g_dirtyhelper_storeF80le") ){
         IRExpr** args = det->args;
         IRExpr* addr = args[0];
         IRExpr* expr = args[1];
         IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,False,"");
         IRDirty* dd = unsafeIRDirty_0_N(
               0,
-              "x86g_diff_dirtyhelper_storeF80le",
-              &x86g_diff_dirtyhelper_storeF80le,
+              "x86g_amd64g_diff_dirtyhelper_storeF80le",
+              &x86g_amd64g_diff_dirtyhelper_storeF80le,
               mkIRExprVec_2(addr, differentiated_expr));
         addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         addStmtToIRSB(sb_out, st_orig);
@@ -1144,15 +1353,17 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // The temporary will later be reinterpreted as float and likely
       // stored in a register, but the AD logic for this part is
       // as usual.
-      else if(!VG_(strcmp)(name, "x86g_dirtyhelper_loadF80le")){
+      // The same applies on amd64.
+      else if(!VG_(strcmp)(name, "x86g_dirtyhelper_loadF80le") ||
+              !VG_(strcmp)(name, "amd64g_dirtyhelper_loadF80le") ){
         IRExpr** args = det->args;
         IRExpr* addr = args[0];
         IRTemp t = det->tmp;
         IRDirty* dd = unsafeIRDirty_1_N(
               t + diffenv.t_offset,
               0,
-              "x86g_diff_dirtyhelper_loadF80le",
-              &x86g_diff_dirtyhelper_loadF80le,
+              "x86g_amd64g_diff_dirtyhelper_loadF80le",
+              &x86g_amd64g_diff_dirtyhelper_loadF80le,
               mkIRExprVec_1(addr));
         addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         addStmtToIRSB(sb_out, st_orig);
@@ -1160,7 +1371,13 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // The CPUID dirty calls set some registers in the guest state.
       // As these should never end up as floating-point data, we don't
       // need to do anything about AD.
-      else if(!VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23))){
+      else if(!VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23)) ||
+              !VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) ){
+        addStmtToIRSB(sb_out, st_orig);
+      }
+      // The following calls (re)store a SSE state, this seems to be a completely discrete thing.
+      else if(!VG_(strcmp(name, "amd64g_dirtyhelper_XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS")) ||
+              !VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) ){
         addStmtToIRSB(sb_out, st_orig);
       }
       // The RDTSC instruction loads a 64-bit time-stamp counter into
@@ -1168,7 +1385,8 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
       // clears the higher 32 bit on amd64). The dirty call just
       // stores an Ity_I64 in its return temporary. We put a zero in
       // the shadow temporary
-      else if(!VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC")) {
+      else if(!VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") ||
+              !VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") ) {
         addStmtToIRSB(sb_out,
           IRStmt_WrTmp(det->tmp+diffenv.t_offset,mkIRConst_zero(Ity_I64)));
         addStmtToIRSB(sb_out, st_orig);
@@ -1230,11 +1448,15 @@ static void nl_pre_clo_init(void)
    /* No needs, no core events to track */
    VG_(printf)("Allocate shadow memory... ");
    my_sm = (ShadowMap*) VG_(malloc)("allocate_shadow_memory", sizeof(ShadowMap));
+   #ifdef BUILD_32BIT
    if(my_sm==NULL) VG_(printf)("Error\n");
    my_sm->shadow_bits = 1;
    my_sm->application_bits = 1;
    my_sm->num_distinguished = 1;
    shadow_initialize_map(my_sm);
+   #else
+   shadow_initialize_with_mmap(my_sm);
+   #endif
    VG_(printf)("done\n");
 
    VG_(needs_client_requests)     (nl_handle_client_request);

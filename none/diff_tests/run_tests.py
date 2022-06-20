@@ -2,6 +2,7 @@ import numpy as np
 import copy
 from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE
 import sys
+import os
 
 selected_testcase = None
 if len(sys.argv)>2:
@@ -147,6 +148,7 @@ testlist.append(division_const_r)
 abs_plus = ClientRequestTestCase("abs_plus")
 abs_plus.include = "#include <math.h>"
 abs_plus.ldflags = '-lm'
+#abs_minus.cflags = '-fno-builtin' # might be advisable because the builtin fabs is difficult to differentiate
 abs_plus.stmt = "double c = fabs(a);"
 abs_plus.stmtf = "float c = fabsf(a);"
 abs_plus.stmtl = "long double c = fabsl(a);"
@@ -159,6 +161,7 @@ testlist.append(abs_plus)
 abs_minus = ClientRequestTestCase("abs_minus")
 abs_minus.include = "#include <math.h>"
 abs_minus.ldflags = '-lm'
+#abs_minus.cflags = '-fno-builtin' # might be advisable because the builtin fabs is difficult to differentiate
 abs_minus.stmt = "double c = fabs(a);"
 abs_minus.stmtf = "float c = fabsf(a);"
 abs_minus.stmtl = "long double c = fabsl(a);"
@@ -603,6 +606,20 @@ for i in range(ntests_now):
     long_double_test.stmt = test.stmtl
     long_double_test.type = TYPE_LONG_DOUBLE
     testlist.append(long_double_test)
+
+### Everything for 64 bit ###
+ntests_now = len(testlist)
+for i in range(ntests_now):
+  test = testlist[i]
+  amd64_test = copy.deepcopy(test)
+  amd64_test.name = "amd64_"+test.name
+  amd64_test.arch = 64
+  # Disable amd64 testcases if hinted so by the environment variable.
+  # Apparantly the current CI pipeline does not give us the 4 GB 
+  # of RAM that we need to initialize shadow memory on a 64-bit system.
+  if "DG_CONSTRAINED_ENVIRONMENT" in os.environ:
+    amd64_test.disabled = True
+  testlist.append(amd64_test)
 
 ### Run testcases ###
 there_are_failed_tests = False

@@ -2650,6 +2650,27 @@ static void iselInt128Expr_wrk ( HReg* rHi, HReg* rLo,
       lookupIRTempPair( rHi, rLo, env, e->Iex.RdTmp.tmp);
       return;
    }
+
+   /* 128-bit constant */
+   if (e->tag == Iex_Const){
+     HReg tLo = newVRegI(env);
+     HReg tHi = newVRegI(env);
+     vassert(e->Iex.Const.con->tag==Ico_U128);
+     union {
+       struct {UShort u16_1, u16_2, u16_3, u16_4;} u16x4;
+       ULong u64;
+     } u;
+     vassert(sizeof(u)==8);
+     vassert(sizeof(u.u64)==8);
+     vassert(sizeof(u.u16x4)==8);
+     u.u16x4.u16_1 = u.u16x4.u16_2 = u.u16x4.u16_3
+         = u.u16x4.u16_4 = e->Iex.Const.con->Ico.U128;
+     addInstr(env, AMD64Instr_Imm64(u.u64,tLo));
+     addInstr(env, AMD64Instr_Imm64(u.u64,tHi));
+     *rHi = tHi;
+     *rLo = tLo;
+     return;
+   }
  
    /* --------- BINARY ops --------- */
    if (e->tag == Iex_Binop) {
@@ -2738,6 +2759,33 @@ static HReg iselFltExpr_wrk ( ISelEnv* env, const IRExpr* e )
 
    if (e->tag == Iex_RdTmp) {
       return lookupIRTemp(env, e->Iex.RdTmp.tmp);
+   }
+
+   if (e->tag == Iex_Const) {
+      union { Int u32; Float f32; } u;
+      HReg res = newVRegV(env);
+      HReg tmp = newVRegI(env);
+      vassert(sizeof(u) == 4);
+      vassert(sizeof(u.u32) == 4);
+      vassert(sizeof(u.f32) == 4);
+
+      if (e->Iex.Const.con->tag == Ico_F32) {
+         u.f32 = e->Iex.Const.con->Ico.F32;
+      }
+      else if (e->Iex.Const.con->tag == Ico_F32i) {
+         u.u32 = e->Iex.Const.con->Ico.F32i;
+      }
+      else
+         vpanic("iselDblExpr(amd64): const");
+
+      addInstr(env, AMD64Instr_Imm64(u.u32, tmp));
+      addInstr(env, AMD64Instr_Push(AMD64RMI_Reg(tmp)));
+      addInstr(env, AMD64Instr_SseLdSt(
+                       True/*load*/, 8, res, // TODO no idea whether the 8 is correct
+                       AMD64AMode_IR(0, hregAMD64_RSP())
+              ));
+      add_to_rsp(env, 8); // TODO
+      return res;
    }
 
    if (e->tag == Iex_Load && e->Iex.Load.end == Iend_LE) {

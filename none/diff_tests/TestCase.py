@@ -5,7 +5,7 @@ import os
 
 TYPE_DOUBLE = {"ctype":"double", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.16lf"}
 TYPE_FLOAT = {"ctype":"float", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
-TYPE_LONG_DOUBLE = {"ctype":"long double", "size":"10", "tol":1e-8, "get":"lget", "set":"lset","format":"%.16Lf"}
+TYPE_LONG_DOUBLE = {"ctype":"long double", "size":"sizeof(long double)", "tol":1e-8, "get":"lget", "set":"lset","format":"%.16Lf"}
 
 class TestCase:
   """Basic data for a DerivGrind test case."""
@@ -23,6 +23,8 @@ class TestCase:
     self.cflags = "" # Additional flags for the C compiler
     self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
     self.type = TYPE_DOUBLE # TYPE_DOUBLE or TYPE_FLOAT
+    self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
+    self.disabled = False # if True, test will not be run
 
 class InteractiveTestCase(TestCase):
   """Methods to run a DerivGrind test case interactively in VGDB."""
@@ -59,14 +61,14 @@ class InteractiveTestCase(TestCase):
     # query GCC for all optimization options, and find flags to disable the enabled ones
     blacklist = ["stack-protector-strong","no-threadsafe-statics"] # these should not be disabled (as this would cause errors)
     options = []
-    compile_flags_process = subprocess.run(["gcc", "-Q", "--help=optimizers", "-g", "-O0", "-m32", "TestCase_src.c", "-o", "TestCase_exec"] + self.cflags.split() + self.ldflags.split(),stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True)
+    compile_flags_process = subprocess.run(["gcc", "-Q", "--help=optimizers", "-g", "-O0",  "TestCase_src.c", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True)
     for line in compile_flags_process.stdout.split("\n"):
       r = re.search(r"^\s*-f(\S+)\s*\[enabled\]", line)
       if r:
         if r.group(1) not in blacklist:
           options.append("-fno-"+r.group(1))
     # compile with disabled options
-    compile_process = subprocess.run(["gcc", "-g", "-O0", "-m32", "TestCase_src.c", "-o", "TestCase_exec"] + options + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    compile_process = subprocess.run(["gcc", "-g", "-O0", "TestCase_src.c", "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + options + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
@@ -77,9 +79,8 @@ class InteractiveTestCase(TestCase):
     environ = os.environ.copy()
     if "LD_LIBRARY_PATH" not in environ:
       environ["LD_LIBRARY_PATH"]=""
-    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/"
+    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/lib"+str(self.arch)+"/"
     valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=none", "--vgdb-error=0", "./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0,env=environ)
-    time.sleep(1)
     while True:
       line = valgrind.stdout.readline()
       self.valgrind_log += line
@@ -88,7 +89,8 @@ class InteractiveTestCase(TestCase):
         target_remote_command = r.group(1)
         break
     # start GDB and connect to Valgrind
-    gdb = subprocess.Popen(["gdb", "./TestCase_exec"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0,env=environ)
+    # Don't use the above environment, because GDB should see the normal libm.
+    gdb = subprocess.Popen(["gdb", "./TestCase_exec"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     gdb.stdin.write(target_remote_command+"\n")
     # set breakpoints and continue
     gdb.stdin.write("break TestCase_src.c:"+str(self.line_before_stmt)+"\n")
@@ -148,6 +150,9 @@ class InteractiveTestCase(TestCase):
 
   def run(self):
     print("##### Running interactive test '"+self.name+"'... #####", flush=True)
+    if self.disabled:
+      print("DISABLED.\n")
+      return True
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_c_code()
@@ -196,7 +201,7 @@ class ClientRequestTestCase(TestCase):
     with open("TestCase_src.c", "w") as f:
       f.write(self.code)
     # compile 
-    compile_process = subprocess.run(["gcc", "-g", "-O0", "-m32", "TestCase_src.c", "-o", "TestCase_exec", "-I../../install/include"] + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    compile_process = subprocess.run(["gcc", "-g", "-O0", "TestCase_src.c", "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
@@ -205,7 +210,7 @@ class ClientRequestTestCase(TestCase):
     environ = os.environ.copy()
     if "LD_LIBRARY_PATH" not in environ:
       environ["LD_LIBRARY_PATH"]=""
-    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/"
+    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-replacement/lib"+str(self.arch)+"/"
     valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none", "./TestCase_exec"],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
@@ -213,6 +218,9 @@ class ClientRequestTestCase(TestCase):
 
   def run(self):
     print("##### Running client request test '"+self.name+"'... #####", flush=True)
+    if self.disabled:
+      print("DISABLED.\n")
+      return True
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_c_code()
