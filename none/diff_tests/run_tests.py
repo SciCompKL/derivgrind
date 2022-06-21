@@ -662,6 +662,8 @@ multiplication_interactive = InteractiveTestCase("multiplication_interactive")
 multiplication_interactive.stmtd = "double c = a*b;"
 multiplication_interactive.stmtf = "float c = a*b;"
 multiplication_interactive.stmtl = "long double c = a*b;"
+multiplication_interactive.stmtr4 = "real :: c; c= a*b"
+multiplication_interactive.stmtr8 = "double precision :: c; c= a*b"
 multiplication_interactive.vals = {'a':1.0,'b':2.0}
 multiplication_interactive.grads = {'a':3.0,'b':4.0}
 multiplication_interactive.test_vals = {'c':2.0}
@@ -674,6 +676,8 @@ sin_100_interactive.ldflags = '-lm'
 sin_100_interactive.stmtd = "double c = sin(a);"
 sin_100_interactive.stmtf = "float c = sinf(a);"
 sin_100_interactive.stmtl = "long double c = sinl(a);"
+sin_100_interactive.stmtr4 = "real :: c; c= sin(a)"
+sin_100_interactive.stmtr8 = "double precision :: c; c= sin(a)"
 sin_100_interactive.vals = {'a':100}
 sin_100_interactive.grads = {'a':3.1}
 sin_100_interactive.test_vals = {'c':np.sin(100)}

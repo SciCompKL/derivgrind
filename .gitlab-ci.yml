@@ -11,14 +11,14 @@ build:
     - ./autogen.sh
     - CFLAGS=-g ./configure --prefix=$PWD/install
     - make install
-    - cd none/libm-replacement && python3 compile.py && cd -
+    - cd none/libm-extension && python3 compile.py && cd -
   artifacts:
     paths:
       - install/
-      - none/libm-replacement/lib32/libm.so*
-      - none/libm-replacement/lib32/libmoriginal.so*
-      - none/libm-replacement/lib64/libm.so*
-      - none/libm-replacement/lib64/libmoriginal.so*
+      - none/libm-extension/lib32/libmextension.so
+      - none/libm-extension/lib32/libmoriginal.so
+      - none/libm-extension/lib64/libmextension.so
+      - none/libm-extension/lib64/libmoriginal.so
 
 test:
   stage: test
