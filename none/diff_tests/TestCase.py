@@ -225,34 +225,72 @@ class ClientRequestTestCase(TestCase):
   def __init__(self,name):
     super().__init__(name)
 
-  def produce_c_code(self):
-    # Insert testcase data into C code template. 
-    self.code = "#include <stdio.h>\n"
-    self.code += "#include <valgrind/derivgrind.h>\n"
-    self.code += self.include + "\n"
-    self.code += "int main(){\n  int ret=0;\n"
-    self.code += "".join([f"  {self.type['ctype']} {var} = {self.vals[var]};\n" for var in self.vals]) 
-    self.code += "  {\n"
-    self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = {self.grads[var]}; VALGRIND_SET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.grads])
-    self.code += "  }\n"
-    self.code += "  " + self.stmt + "\n"
-    self.code += "  {\n"
-    self.code += "".join([f'    if({var} < {self.test_vals[var]-self.type["tol"]} || {var} > {self.test_vals[var]+self.type["tol"]}) {{ printf("VALUES DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_vals[var]},{var}); ret = 1; }}\n' for var in self.test_vals])
-    self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = 0.; VALGRIND_GET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.test_grads])
-    self.code += "".join([f'    if(_derivative_of_{var} < {self.test_grads[var]-self.type["tol"]} || _derivative_of_{var} > {self.test_grads[var]+self.type["tol"]}) {{ printf("GRADIENTS DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_grads[var]}, _derivative_of_{var}); ret = 1; }}\n' for var in self.test_grads])
+  def produce_code(self):
+    # Insert testcase data into C or Fortran code template. 
+    if self.compiler=='gcc' or self.compiler=='g++':
+      gcc = self.compiler=='gcc'
+      self.code = "#include <stdio.h>\n" if gcc else "#include <iostream>\n"
+      self.code += "#include <valgrind/derivgrind.h>\n"
+      self.code += self.include + "\n"
+      self.code += "int main(){\n  int ret=0;\n"
+      self.code += "".join([f"  {self.type['ctype']} {var} = {self.vals[var]};\n" for var in self.vals]) 
+      self.code += "  {\n"
+      self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = {self.grads[var]}; VALGRIND_SET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.grads])
+      self.code += "  }\n"
+      self.code += "  " + self.stmt + "\n"
+      self.code += "  {\n"
+      # check values
+      for var in self.test_vals:
+        self.code += f"""    
+          if({var} < {self.test_vals[var]-self.type["tol"]} 
+            || {var} > {self.test_vals[var]+self.type["tol"]}) {{
+        """
+        if gcc:
+          self.code += f"""
+            printf("VALUES DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_vals[var]},{var}); ret = 1; 
+          """
+        else:
+          self.code += f"""
+            std::cout << "VALUES DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_vals[var]}) << " computed=" << {var} << "\\n";
+          """
+        self.code += f""" }} """
+      # check gradients
+      for var in self.test_grads:
+        self.code += f"""
+          {self.type['ctype']} _derivative_of_{var} = 0.; 
+          VALGRIND_GET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});
+          if(_derivative_of_{var} < {self.test_grads[var]-self.type["tol"]} 
+              || _derivative_of_{var} > {self.test_grads[var]+self.type["tol"]}) {{
+        """ 
+        if gcc:
+          self.code += f"""
+            printf("GRADIENTS DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_grads[var]}, _derivative_of_{var}); ret = 1; 
+          """
+        else:
+          self.code += f"""
+            std::cout << "GRADIENTS DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_grads[var]}) << " computed=" << {var} << "\\n";
+          """
+        self.code += f""" }} """
     self.code += "  }\n"
     self.code += "  return ret;\n}\n"
 
-  def compile_c_code(self):
-    # write C code into file
-    with open("TestCase_src.c", "w") as f:
+  def compile_code(self):
+    # write C/C++ code into file
+    if self.compiler=='gcc':
+      self.source_filename = "TestCase_src.c"
+    elif self.compiler=='g++':
+      self.source_filename = "TestCase_src.cpp"
+    elif self.compiler=='gfortran':
+      self.source_filename = "TestCase_src.f90"
+    with open(self.source_filename, "w") as f:
       f.write(self.code)
-    # compile 
-    compile_process = subprocess.run([self.compiler, "-O3", "TestCase_src.c", "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    if self.compiler=='gcc' or self.compiler=='g++':
+      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
-  def run_c_code(self):
+  def run_code(self):
     self.valgrind_log = ""
     environ = os.environ.copy()
     if "LD_LIBRARY_PATH" not in environ:
@@ -273,11 +311,11 @@ class ClientRequestTestCase(TestCase):
       return True
     self.errmsg = ""
     if self.errmsg=="":
-      self.produce_c_code()
+      self.produce_code()
     if self.errmsg=="":
-     self.compile_c_code()
+     self.compile_code()
     if self.errmsg=="":
-      self.run_c_code()
+      self.run_code()
     if self.errmsg=="":
       print("OK.\n")
       return True
