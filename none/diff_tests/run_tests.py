@@ -513,8 +513,8 @@ elsebranch = ClientRequestTestCase("elsebranch")
 elsebranch.stmtd = "double c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.stmtf = "float c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.stmtl = "long double c; if(a<-1) c = 2+a; else c = 2*a; "
-ifbranch.stmtr4 = "real, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
-ifbranch.stmtr8 = "double precision, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
+elsebranch.stmtr4 = "real, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
+elsebranch.stmtr8 = "double precision, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.vals = {'a':0.0}
 elsebranch.grads = {'a':1.0}
 elsebranch.test_vals = {'c':0.0}
@@ -575,7 +575,7 @@ addition_whileloop.stmtd = "double c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtf = "float c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtl = "long double c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtr4 = "real, target :: c = 0; do while(c<19); c=c+a; end do"
-addition_whileloop.stmtr4 = "double precision, target :: c = 0; do while(c<19); c=c+a; end do"
+addition_whileloop.stmtr8 = "double precision, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.vals = {'a':2.0}
 addition_whileloop.grads = {'a':1.0}
 addition_whileloop.test_vals = {'c':20.0}
@@ -587,7 +587,7 @@ multiplication_whileloop.stmtd = "double c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtf = "float c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtl = "long double c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtr4 = "real, target :: c = 1; do while(c<1023); c=c*a; end do"
-multiplication_whileloop.stmtr4 = "double precision, target :: c = 1; do while(c<1023); c=c*a; end do"
+multiplication_whileloop.stmtr8 = "double precision, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.vals = {'a':2.0}
 multiplication_whileloop.grads = {'a':1.0}
 multiplication_whileloop.test_vals = {'c':1024.0}

@@ -19,6 +19,14 @@ TYPE_LONG_DOUBLE = {"ctype":"long double", "gdbptype":"long double \*", "size":"
 TYPE_REAL4 = {"ftype":"real", "gdbptype":"PTR TO -> \( real\(kind=4\) \)", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
 TYPE_REAL8 = {"ftype":"double precision", "gdbptype":"PTR TO -> \( real\(kind=8\) \)", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.9f"}
 
+def str_fortran(d):
+  """Convert d to Fortran double precision literal."""
+  s = str(d)
+  if "e" in s:
+    return s.replace("e","d")
+  else:
+    return s+"d0"
+
 class TestCase:
   """Basic data for a DerivGrind test case."""
   def __init__(self, name):
@@ -282,23 +290,16 @@ class ClientRequestTestCase(TestCase):
         integer :: ret = 0
       """
       for var in self.vals:
-        self.code += f"{self.type['ftype']}, target :: {var} = {self.vals[var]}\n"
+        self.code += f"{self.type['ftype']}, target :: {var} = {str_fortran(self.vals[var])}\n"
       for var in self.grads:
         self.code += f"""
           block
-          {self.type['ftype']}, target :: derivative_of_{var} = {self.grads[var]}
+          {self.type['ftype']}, target :: derivative_of_{var} = {str_fortran(self.grads[var])}
           call valgrind_set_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
           end block
         """
       self.code += "block\n"
       self.code += self.stmt + "\n"
-      def str_fortran(d):
-        """Convert d to Fortran double precision literal."""
-        s = str(d)
-        if "e" in s:
-          return s.replace("e","d")
-        else:
-          return s+"d0"
       # check values
       for var in self.test_vals:
         self.code += f"""
