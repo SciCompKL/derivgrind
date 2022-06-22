@@ -31,8 +31,8 @@ addition = ClientRequestTestCase("addition")
 addition.stmtd = "double c = a+b;"
 addition.stmtf = "float c = a+b;"
 addition.stmtl = "long double c = a+b;"
-#addition.stmtr4 = "real*4 :: c; c= a+b"
-#addition.stmtr8 = "real*8 :: c; c= a+b"
+addition.stmtr4 = "real, target :: c; c= a+b"
+addition.stmtr8 = "double precision, target :: c; c= a+b"
 addition.vals = {'a':1.0,'b':2.0}
 addition.grads = {'a':3.0,'b':4.0}
 addition.test_vals = {'c':3.0}

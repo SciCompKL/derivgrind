@@ -271,8 +271,45 @@ class ClientRequestTestCase(TestCase):
             std::cout << "GRADIENTS DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_grads[var]}) << " computed=" << {var} << "\\n";
           """
         self.code += f""" }} """
-    self.code += "  }\n"
-    self.code += "  return ret;\n}\n"
+      self.code += "  }\n"
+      self.code += "  return ret;\n}\n"
+    elif self.compiler=='gfortran':
+      self.code = """
+        program main
+        use derivgrind_clientrequests
+        use, intrinsic :: iso_c_binding
+        implicit none
+      """
+      for var in self.vals:
+        self.code += f"{self.type['ftype']}, target :: {var} = {self.vals[var]}\n"
+      for var in self.grads:
+        self.code += f"""
+          block
+          {self.type['ftype']}, target :: derivative_of_{var} = {self.grads[var]}
+          call valgrind_set_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
+          end block
+        """
+      self.code += "block\n"
+      self.code += self.stmt + "\n"
+      # check values
+      for var in self.test_vals:
+        self.code += f"""
+          if({var} < {self.test_vals[var]-self.type["tol"]} .or. {var} > {self.test_vals[var]+self.type["tol"]}) then
+            print *, "VALUES DISAGREE: {var} stored=", {self.test_vals[var]}, " computed=", {var}
+          end if
+        """
+      # check gradients
+      for var in self.test_grads:
+        self.code += f"""
+          block
+          {self.type['ftype']}, target :: derivative_of_{var} = 0
+          call valgrind_get_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
+          if(derivative_of_{var} < {self.test_grads[var]-self.type["tol"]} .or. derivative_of_{var} > {self.test_grads[var]+self.type["tol"]}) then
+            print *, "GRADIENTS DISAGREE: {var} stored=", {self.test_grads[var]}, " computed=", derivative_of_{var}
+          end if
+          end block
+        """
+      self.code += "end block \n end program"
 
   def compile_code(self):
     # write C/C++ code into file
@@ -286,6 +323,8 @@ class ClientRequestTestCase(TestCase):
       f.write(self.code)
     if self.compiler=='gcc' or self.compiler=='g++':
       compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+    elif self.compiler=='gfortran':
+      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "derivgrind_clientrequests.c", "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) ,universal_newlines=True)
 
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout

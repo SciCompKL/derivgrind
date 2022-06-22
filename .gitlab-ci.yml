@@ -12,6 +12,7 @@ build:
     - CFLAGS=-g ./configure --prefix=$PWD/install
     - make install
     - cd none/libm-extension && python3 compile.py && cd -
+    - cd none/diff_tests && gfortran -c derivgrind_clientrequests.f90 && cd - # seems to work with and without -m32
   artifacts:
     paths:
       - install/
@@ -19,6 +20,7 @@ build:
       - none/libm-extension/lib32/libmoriginal.so
       - none/libm-extension/lib64/libmextension.so
       - none/libm-extension/lib64/libmoriginal.so
+      - none/diff_tests/derivgrind_clientrequests.mod
 
 test:
   stage: test
