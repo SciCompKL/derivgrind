@@ -41,8 +41,10 @@ basiclist.append(addition)
 
 addition_const_l = ClientRequestTestCase("addition_const_l")
 addition_const_l.stmtd = "double c = 0.3 + a;"
-addition_const_l.stmtf = "float c = 0.3 + a;"
-addition_const_l.stmtl = "long double c = 0.3 + a;"
+addition_const_l.stmtf = "float c = 0.3f + a;"
+addition_const_l.stmtl = "long double c = 0.3l + a;"
+addition_const_l.stmtr4 = "real, target :: c; c= 0.3e0+a"
+addition_const_l.stmtr8 = "double precision, target :: c; c= 0.3d0+a"
 addition_const_l.vals = {'a':1.0}
 addition_const_l.grads = {'a':2.0}
 addition_const_l.test_vals = {'c':1.3}
@@ -51,8 +53,10 @@ basiclist.append(addition_const_l)
 
 addition_const_r = ClientRequestTestCase("addition_const_r")
 addition_const_r.stmtd = "double c = a + 0.3;"
-addition_const_r.stmtf = "float c = a + 0.3;"
-addition_const_r.stmtl = "long double c = a + 0.3;"
+addition_const_r.stmtf = "float c = a + 0.3f;"
+addition_const_r.stmtl = "long double c = a + 0.3l;"
+addition_const_r.stmtr4 = "real, target :: c; c= a+0.3e0"
+addition_const_r.stmtr8 = "double precision, target :: c; c= a+0.3d0"
 addition_const_r.vals = {'a':1.0}
 addition_const_r.grads = {'a':2.0}
 addition_const_r.test_vals = {'c':1.3}
@@ -63,6 +67,8 @@ subtraction = ClientRequestTestCase("subtraction")
 subtraction.stmtd = "double c = a-b;"
 subtraction.stmtf = "float c = a-b;"
 subtraction.stmtl = "long double c = a-b;"
+subtraction.stmtr4 = "real, target :: c; c= a-b"
+subtraction.stmtr8 = "double precision, target :: c; c= a-b"
 subtraction.vals = {'a':1.0,'b':2.0}
 subtraction.grads = {'a':3.0,'b':4.0}
 subtraction.test_vals = {'c':-1.0}
@@ -71,8 +77,10 @@ basiclist.append(subtraction)
 
 subtraction_const_l = ClientRequestTestCase("subtraction_const_l")
 subtraction_const_l.stmtd = "double c = 0.3 - a;"
-subtraction_const_l.stmtf = "float c = 0.3 - a;"
-subtraction_const_l.stmtl = "long double c = 0.3 - a;"
+subtraction_const_l.stmtf = "float c = 0.3f - a;"
+subtraction_const_l.stmtl = "long double c = 0.3l - a;"
+subtraction_const_l.stmtr4 = "real, target :: c; c= 0.3e0-a"
+subtraction_const_l.stmtr8 = "double precision, target :: c; c= 0.3d0-a"
 subtraction_const_l.vals = {'a':1.0}
 subtraction_const_l.grads = {'a':2.0}
 subtraction_const_l.test_vals = {'c':-0.7}
@@ -81,8 +89,10 @@ basiclist.append(subtraction_const_l)
 
 subtraction_const_r = ClientRequestTestCase("subtraction_const_r")
 subtraction_const_r.stmtd = "double c = a - 0.5;"
-subtraction_const_r.stmtf = "float c = a - 0.5;"
-subtraction_const_r.stmtl = "long double c = a - 0.5;"
+subtraction_const_r.stmtf = "float c = a - 0.5f;"
+subtraction_const_r.stmtl = "long double c = a - 0.5l;"
+subtraction_const_r.stmtr4 = "real, target :: c; c= a-0.5e0"
+subtraction_const_r.stmtr8 = "double precision, target :: c; c= a-0.5d0"
 subtraction_const_r.vals = {'a':1.0}
 subtraction_const_r.grads = {'a':2.0}
 subtraction_const_r.test_vals = {'c':0.5}
