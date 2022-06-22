@@ -251,7 +251,7 @@ class ClientRequestTestCase(TestCase):
           """
         else:
           self.code += f"""
-            std::cout << "VALUES DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_vals[var]}) << " computed=" << {var} << "\\n";
+            std::cout << "VALUES DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_vals[var]}) << " computed=" << {var} << "\\n"; ret = 1;
           """
         self.code += f""" }} """
       # check gradients
@@ -268,7 +268,7 @@ class ClientRequestTestCase(TestCase):
           """
         else:
           self.code += f"""
-            std::cout << "GRADIENTS DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_grads[var]}) << " computed=" << {var} << "\\n";
+            std::cout << "GRADIENTS DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_grads[var]}) << " computed=" << _derivative_of_{var} << "\\n"; ret=1;
           """
         self.code += f""" }} """
       self.code += "  }\n"
@@ -279,6 +279,7 @@ class ClientRequestTestCase(TestCase):
         use derivgrind_clientrequests
         use, intrinsic :: iso_c_binding
         implicit none
+        integer :: ret = 0
       """
       for var in self.vals:
         self.code += f"{self.type['ftype']}, target :: {var} = {self.vals[var]}\n"
@@ -291,11 +292,19 @@ class ClientRequestTestCase(TestCase):
         """
       self.code += "block\n"
       self.code += self.stmt + "\n"
+      def str_fortran(d):
+        """Convert d to Fortran double precision literal."""
+        s = str(d)
+        if "e" in s:
+          return s.replace("e","d")
+        else:
+          return s+"d0"
       # check values
       for var in self.test_vals:
         self.code += f"""
-          if({var} < {self.test_vals[var]-self.type["tol"]} .or. {var} > {self.test_vals[var]+self.type["tol"]}) then
-            print *, "VALUES DISAGREE: {var} stored=", {self.test_vals[var]}, " computed=", {var}
+          if({var} < {str_fortran(self.test_vals[var]-self.type["tol"])} .or. {var} > {str_fortran(self.test_vals[var]+self.type["tol"])}) then
+            print *, "VALUES DISAGREE: {var} stored=", {str_fortran(self.test_vals[var])}, " computed=", {var}
+            ret = 1
           end if
         """
       # check gradients
@@ -304,12 +313,17 @@ class ClientRequestTestCase(TestCase):
           block
           {self.type['ftype']}, target :: derivative_of_{var} = 0
           call valgrind_get_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
-          if(derivative_of_{var} < {self.test_grads[var]-self.type["tol"]} .or. derivative_of_{var} > {self.test_grads[var]+self.type["tol"]}) then
-            print *, "GRADIENTS DISAGREE: {var} stored=", {self.test_grads[var]}, " computed=", derivative_of_{var}
+          if(derivative_of_{var} < {str_fortran(self.test_grads[var]-self.type["tol"])} .or. derivative_of_{var} > {str_fortran(self.test_grads[var]+self.type["tol"])}) then
+            print *, "GRADIENTS DISAGREE: {var} stored=", {str_fortran(self.test_grads[var])}, " computed=", derivative_of_{var}
+            ret = 1
           end if
           end block
         """
-      self.code += "end block \n end program"
+      self.code += """
+        end block
+        call exit(ret)
+        end program
+      """
 
   def compile_code(self):
     # write C/C++ code into file
