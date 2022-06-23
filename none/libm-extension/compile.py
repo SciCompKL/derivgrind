@@ -90,5 +90,5 @@ for architecture in ["x86","x86_64"]:
       f.write(function.c_code())
 
   # Compile wrapper libm.so.
-  compile_libm = subprocess.run(["gcc",path+"math.c", "-o",path+libmso_name,"-shared","-fPIC","-Wl,--version-script",path+"version-script","-I../../install/include","-ldl"]+m32if32, universal_newlines=True)
+  compile_libm = subprocess.run(["gcc",path+"math.c", "-o",path+"libmextension.so","-shared","-fPIC","-Wl,--version-script",path+"version-script","-I../../install/include","-ldl"]+m32if32, universal_newlines=True)
 

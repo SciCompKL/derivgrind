@@ -7,24 +7,26 @@ build:
   stage: build
   script:
     - apt-get update
-    - apt-get install -y build-essential binutils automake gcc-multilib python3
+    - apt-get install -y build-essential binutils automake gcc-multilib python3 gfortran
     - ./autogen.sh
     - CFLAGS=-g ./configure --prefix=$PWD/install
     - make install
-    - cd none/libm-replacement && python3 compile.py && cd -
+    - cd none/libm-extension && python3 compile.py && cd -
+    - cd none/diff_tests && gfortran -c derivgrind_clientrequests.f90 && cd - # seems to work with and without -m32
   artifacts:
     paths:
       - install/
-      - none/libm-replacement/lib32/libm.so*
-      - none/libm-replacement/lib32/libmoriginal.so*
-      - none/libm-replacement/lib64/libm.so*
-      - none/libm-replacement/lib64/libmoriginal.so*
+      - none/libm-extension/lib32/libmextension.so
+      - none/libm-extension/lib32/libmoriginal.so
+      - none/libm-extension/lib64/libmextension.so
+      - none/libm-extension/lib64/libmoriginal.so
+      - none/diff_tests/derivgrind_clientrequests.mod
 
 test:
   stage: test
   script:
     - export DEBIAN_FRONTEND=noninteractive
     - apt-get update
-    - apt-get install -y build-essential python3 python3-numpy gdb gcc-multilib libc6-dbg
+    - apt-get install -y build-essential gfortran python3 python3-numpy gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg
     - export DG_CONSTRAINED_ENVIRONMENT=1
     - cd none/diff_tests && python3 run_tests.py

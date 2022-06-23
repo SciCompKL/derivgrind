@@ -1,0 +1,5 @@
+math.c
+sample
+version-script
+libmoriginal.so
+libmextension.so
