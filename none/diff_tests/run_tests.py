@@ -674,6 +674,33 @@ for (name, op, c_val, c_grad) in [
   autovectorization.test_grads = {'c':c_grad}
   basiclist.append(autovectorization)
 
+for (name, cfun, ffun, c_val, c_grad) in [ 
+  ("abs", "fabs", "abs", 1200.,-16.),
+  ]:
+  autovectorization = ClientRequestTestCase(name+"_autovectorization")
+  autovectorization_stmtbody_c = f"""
+  for(int i=0; i<16; i++) {{ a_arr[i] = i*a * pow(-1,i) + 1; }}
+  for(int i=0; i<16; i++) {{ c_arr[i] = {cfun}(a_arr[i]); }}
+  for(int i=0; i<16; i++) {{ c += c_arr[i]; }}
+  """
+  autovectorization_stmtbody_fortran = f"""
+  integer :: i
+  do i=1,16; a_arr(i) = (i-1)*a*(-1)**(i-1) + 1; end do
+  do i=1,16; c_arr(i) = {ffun}(a_arr(i)) ; end do
+  do i=1,16; c = c + c_arr(i); end do
+  """
+  autovectorization.stmtd = "double a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtf = "float a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtl = "long double a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtr4 = "real, dimension(16) :: a_arr, c_arr; real, target :: c; "+autovectorization_stmtbody_fortran
+  autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, c_arr; double precision, target :: c; "+autovectorization_stmtbody_fortran
+  autovectorization.ldflags = "-lm"
+  autovectorization.include = "#include <math.h>"
+  autovectorization.vals = {'a':10.0}
+  autovectorization.grads = {'a':2.0}
+  autovectorization.test_vals = {'c':c_val}
+  autovectorization.test_grads = {'c':c_grad}
+  basiclist.append(autovectorization)
 
 ### OpenMP ###
 
