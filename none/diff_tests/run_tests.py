@@ -645,29 +645,34 @@ multiplication_recursion.test_grads = {'c':5120.0}
 basiclist.append(multiplication_recursion)
 
 ### Auto-Vectorization ###
-
-addition_autovectorization = ClientRequestTestCase("addition_autovectorization")
-addition_autovectorization_stmtbody_c = """
-for(int i=0; i<16; i++) { a_arr[i] = i*a; b_arr[i] = b; }
-for(int i=0; i<16; i++) { c_arr[i] = a_arr[i] + b_arr[i]; }
-for(int i=0; i<16; i++) { c += c_arr[i]; }
-"""
-addition_autovectorization_stmtbody_fortran = """
-integer :: i
-do i=1,16; a_arr(i) = (i-1)*a; b_arr(i) = b; end do
-do i=1,16; c_arr(i) = a_arr(i) + b_arr(i); end do
-do i=1,16; c = c + c_arr(i); end do
-"""
-addition_autovectorization.stmtd = "double a_arr[16], b_arr[16], c_arr[16], c = 0;"+addition_autovectorization_stmtbody_c
-addition_autovectorization.stmtf = "float a_arr[16], b_arr[16], c_arr[16], c = 0;"+addition_autovectorization_stmtbody_c
-addition_autovectorization.stmtl = "long double a_arr[16], b_arr[16], c_arr[16], c = 0;"+addition_autovectorization_stmtbody_c
-addition_autovectorization.stmtr4 = "real, dimension(16) :: a_arr, b_arr, c_arr; real, target :: c; "+addition_autovectorization_stmtbody_fortran
-addition_autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, b_arr, c_arr; double precision, target :: c; "+addition_autovectorization_stmtbody_fortran
-addition_autovectorization.vals = {'a':10.0,'b':1.0}
-addition_autovectorization.grads = {'a':2.0,'b':3.0}
-addition_autovectorization.test_vals = {'c':1216.0}
-addition_autovectorization.test_grads = {'c':288.0}
-basiclist.append(addition_autovectorization)
+for (name, op, c_val, c_grad) in [ 
+  ("addition", "+", 1184.,288.),
+  ("subtraction", "-", 1216., 192.),
+  ("multiplication", "*", -1200., 3360.),
+  ("division", "/", -1200., -3840.0)
+  ]:
+  autovectorization = ClientRequestTestCase(name+"_autovectorization")
+  autovectorization_stmtbody_c = f"""
+  for(int i=0; i<16; i++) {{ a_arr[i] = i*a; b_arr[i] = b; }}
+  for(int i=0; i<16; i++) {{ c_arr[i] = a_arr[i] {op} b_arr[i]; }}
+  for(int i=0; i<16; i++) {{ c += c_arr[i]; }}
+  """
+  autovectorization_stmtbody_fortran = f"""
+  integer :: i
+  do i=1,16; a_arr(i) = (i-1)*a; b_arr(i) = b; end do
+  do i=1,16; c_arr(i) = a_arr(i) {op} b_arr(i); end do
+  do i=1,16; c = c + c_arr(i); end do
+  """
+  autovectorization.stmtd = "double a_arr[16], b_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtf = "float a_arr[16], b_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtl = "long double a_arr[16], b_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtr4 = "real, dimension(16) :: a_arr, b_arr, c_arr; real, target :: c; "+autovectorization_stmtbody_fortran
+  autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, b_arr, c_arr; double precision, target :: c; "+autovectorization_stmtbody_fortran
+  autovectorization.vals = {'a':10.0,'b':-1.0}
+  autovectorization.grads = {'a':2.0,'b':3.0}
+  autovectorization.test_vals = {'c':c_val}
+  autovectorization.test_grads = {'c':c_grad}
+  basiclist.append(autovectorization)
 
 
 ### OpenMP ###
