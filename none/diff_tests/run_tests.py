@@ -644,6 +644,32 @@ multiplication_recursion.test_vals = {'c':1024.0}
 multiplication_recursion.test_grads = {'c':5120.0}
 basiclist.append(multiplication_recursion)
 
+### Auto-Vectorization ###
+
+addition_autovectorization = ClientRequestTestCase("addition_autovectorization")
+addition_autovectorization_stmtbody_c = """
+for(int i=0; i<16; i++) { a_arr[i] = i*a; b_arr[i] = b; }
+for(int i=0; i<16; i++) { c_arr[i] = a_arr[i] + b_arr[i]; }
+for(int i=0; i<16; i++) { c += c_arr[i]; }
+"""
+addition_autovectorization_stmtbody_fortran = """
+integer :: i
+do i=1,16; a_arr(i) = (i-1)*a; b_arr(i) = b; end do
+do i=1,16; c_arr(i) = a_arr(i) + b_arr(i); end do
+do i=1,16; c = c + c_arr(i); end do
+"""
+addition_autovectorization.stmtd = "double a_arr[16], b_arr[16], c_arr[16], c = 0;"+addition_autovectorization_stmtbody_c
+addition_autovectorization.stmtf = "float a_arr[16], b_arr[16], c_arr[16], c = 0;"+addition_autovectorization_stmtbody_c
+addition_autovectorization.stmtl = "long double a_arr[16], b_arr[16], c_arr[16], c = 0;"+addition_autovectorization_stmtbody_c
+addition_autovectorization.stmtr4 = "real, dimension(16) :: a_arr, b_arr, c_arr; real, target :: c; "+addition_autovectorization_stmtbody_fortran
+addition_autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, b_arr, c_arr; double precision, target :: c; "+addition_autovectorization_stmtbody_fortran
+addition_autovectorization.vals = {'a':10.0,'b':1.0}
+addition_autovectorization.grads = {'a':2.0,'b':3.0}
+addition_autovectorization.test_vals = {'c':1216.0}
+addition_autovectorization.test_grads = {'c':288.0}
+basiclist.append(addition_autovectorization)
+
+
 ### OpenMP ###
 
 # The following test succeeds, but variations of
