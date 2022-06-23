@@ -798,10 +798,14 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_AddF32: return IRExpr_Triop(Iop_AddF32,arg1,d2,d3);
       case Iop_Add64Fx2:
             return IRExpr_Triop(Iop_Add64Fx2,arg1,d2,d3);
+      case Iop_Add32Fx4:
+            return IRExpr_Triop(Iop_Add32Fx4,arg1,d2,d3);
       case Iop_SubF64: return IRExpr_Triop(Iop_SubF64,arg1,d2,d3);
       case Iop_SubF32: return IRExpr_Triop(Iop_SubF32,arg1,d2,d3);
       case Iop_Sub64Fx2:
             return IRExpr_Triop(Iop_Sub64Fx2,arg1,d2,d3);
+      case Iop_Sub32Fx4:
+            return IRExpr_Triop(Iop_Sub32Fx4,arg1,d2,d3);
       case Iop_MulF64:
         return IRExpr_Triop(Iop_AddF64,arg1,
           IRExpr_Triop(Iop_MulF64, arg1, d2,arg3),
@@ -816,6 +820,11 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         return IRExpr_Triop(Iop_Add64Fx2,arg1,
           IRExpr_Triop(Iop_Mul64Fx2, arg1, d2,arg3),
           IRExpr_Triop(Iop_Mul64Fx2, arg1, d3,arg2)
+        );
+      case Iop_Mul32Fx4:
+        return IRExpr_Triop(Iop_Add32Fx4,arg1,
+          IRExpr_Triop(Iop_Mul32Fx4, arg1, d2,arg3),
+          IRExpr_Triop(Iop_Mul32Fx4, arg1, d3,arg2)
         );
       case Iop_DivF64:
         return IRExpr_Triop(Iop_DivF64,arg1,
@@ -840,6 +849,14 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
             IRExpr_Triop(Iop_Mul64Fx2, arg1, d3,arg2)
           ),
           IRExpr_Triop(Iop_Mul64Fx2, arg1, arg3, arg3)
+        );
+      case Iop_Div32Fx4:
+        return IRExpr_Triop(Iop_Div32Fx4,arg1,
+          IRExpr_Triop(Iop_Sub32Fx4, arg1,
+            IRExpr_Triop(Iop_Mul32Fx4, arg1, d2,arg3),
+            IRExpr_Triop(Iop_Mul32Fx4, arg1, d3,arg2)
+          ),
+          IRExpr_Triop(Iop_Mul32Fx4, arg1, arg3, arg3)
         );
       case Iop_AtanF64: {
         IRExpr* fraction = IRExpr_Triop(Iop_DivF64,arg1,arg2,arg3);
