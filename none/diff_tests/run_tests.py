@@ -171,6 +171,18 @@ division_const_r.test_vals = {'c':4.0}
 division_const_r.test_grads = {'c':6.0}
 basiclist.append(division_const_r)
 
+negative = ClientRequestTestCase("negative")
+negative.stmtd = "double c = -a;"
+negative.stmtf = "float c = -a;"
+negative.stmtl = "long double c = -a;"
+negative.stmtr4 = "real, target :: c; c= -a"
+negative.stmtr8 = "double precision, target :: c; c= -a"
+negative.vals = {'a':1.0}
+negative.grads = {'a':2.0}
+negative.test_vals = {'c':-1.0}
+negative.test_grads = {'c':-2.0}
+basiclist.append(negative)
+
 ### Advances arithmetic and trigonometric operations ###
 
 abs_plus = ClientRequestTestCase("abs_plus")
@@ -676,6 +688,7 @@ for (name, op, c_val, c_grad) in [
 
 for (name, cfun, ffun, c_val, c_grad) in [ 
   ("abs", "fabs", "abs", 1200.,-16.),
+  ("negative", "-", "-", 64.,16.),
   ]:
   autovectorization = ClientRequestTestCase(name+"_autovectorization")
   autovectorization_stmtbody_c = f"""
