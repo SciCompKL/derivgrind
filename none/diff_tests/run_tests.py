@@ -678,8 +678,8 @@ for (name, op, c_val, c_grad) in [
   autovectorization.stmtd = "double a_arr[16], b_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
   autovectorization.stmtf = "float a_arr[16], b_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
   autovectorization.stmtl = "long double a_arr[16], b_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
-  autovectorization.stmtr4 = "real, dimension(16) :: a_arr, b_arr, c_arr; real, target :: c; "+autovectorization_stmtbody_fortran
-  autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, b_arr, c_arr; double precision, target :: c; "+autovectorization_stmtbody_fortran
+  autovectorization.stmtr4 = "real, dimension(16) :: a_arr, b_arr, c_arr; real, target :: c = 0; "+autovectorization_stmtbody_fortran
+  autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, b_arr, c_arr; double precision, target :: c = 0; "+autovectorization_stmtbody_fortran
   autovectorization.vals = {'a':10.0,'b':-1.0}
   autovectorization.grads = {'a':2.0,'b':3.0}
   autovectorization.test_vals = {'c':c_val}
@@ -705,8 +705,8 @@ for (name, cfun, ffun, c_val, c_grad) in [
   autovectorization.stmtd = "double a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
   autovectorization.stmtf = "float a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
   autovectorization.stmtl = "long double a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
-  autovectorization.stmtr4 = "real, dimension(16) :: a_arr, c_arr; real, target :: c; "+autovectorization_stmtbody_fortran
-  autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, c_arr; double precision, target :: c; "+autovectorization_stmtbody_fortran
+  autovectorization.stmtr4 = "real, dimension(16) :: a_arr, c_arr; real, target :: c = 0; "+autovectorization_stmtbody_fortran
+  autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, c_arr; double precision, target :: c = 0; "+autovectorization_stmtbody_fortran
   autovectorization.ldflags = "-lm"
   autovectorization.include = "#include <math.h>"
   autovectorization.vals = {'a':10.0}
