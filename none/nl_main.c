@@ -844,74 +844,78 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     IRExpr* d2 = differentiate_expr(arg2,diffenv);
     if(d2==NULL) return NULL;
     switch(op){
-      // Iop_And32 is missing. It's not really clear how to properly
-      // distinguish with other Iop_AndN's.
-      /*case Iop_And64: {
-        return nl_helper_And64(arg1,arg2,diffenv);
-      }*/
-      case Iop_And32: {
-        IRExpr* d1 = differentiate_expr(arg1,diffenv);
-        IRExpr* zero32 = IRExpr_Const(IRConst_U32(0));
-        IRExpr* arg1_64 = IRExpr_Binop(Iop_32HLto64, zero32, arg1);
-        IRExpr* d1_64 = IRExpr_Binop(Iop_32HLto64, zero32, d1);
-        IRExpr* arg2_64 = IRExpr_Binop(Iop_32HLto64, zero32, arg2);
-        IRExpr* d2_64 = IRExpr_Binop(Iop_32HLto64, zero32, d2);
-        IRExpr* res = mkIRExprCCall(Ity_I64,
-          0,
-          "nl_logical_and64", &nl_logical_and64,
-          mkIRExprVec_4(arg1_64, d1_64, arg2_64, d2_64)
-        );
-        return IRExpr_Unop(Iop_64to32, res);
-      }
-      case Iop_And64: {
-        IRExpr* d1 = differentiate_expr(arg1,diffenv);
-        IRExpr* res = mkIRExprCCall(Ity_I64,
-          0,
-          "nl_logical_and64", &nl_logical_and64,
-          mkIRExprVec_4(arg1, d1, arg2, d2)
-        );
-        return res;
-      }
-      case Iop_AndV128: {
-        IRExpr* d1 = differentiate_expr(arg1,diffenv);
-        IRExpr *res[2];
-        for(int i=0; i<2; i++){ // 0=low half, 1=high half
-          IROp selector = i==0? Iop_V128to64 : Iop_V128HIto64;
-          IRExpr* arg1_part = IRExpr_Unop(selector, arg1);
-          IRExpr* arg2_part = IRExpr_Unop(selector, arg2);
-          IRExpr* d1_part = IRExpr_Unop(selector, d1);
-          IRExpr* d2_part = IRExpr_Unop(selector, d2);
-          res[i] = mkIRExprCCall(Ity_I64,
-                0,
-                "nl_logical_and64", &nl_logical_and64,
-                mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part)
-             );
-        }
-        return IRExpr_Binop(Iop_64HLtoV128, res[1], res[0]);
-      }
-      case Iop_AndV256: {
-        IRExpr* d1 = differentiate_expr(arg1,diffenv);
-        IRExpr *res[4];
-        for(int i=0; i<4; i++){ // 0=low quarter, ..., 3=high quarter
-          IROp selector;
-          switch(i){
-            case 0: selector = Iop_V256to64_0; break;
-            case 1: selector = Iop_V256to64_1; break;
-            case 2: selector = Iop_V256to64_2; break;
-            case 3: selector = Iop_V256to64_3; break;
-          }
-          IRExpr* arg1_part = IRExpr_Unop(selector, arg1);
-          IRExpr* arg2_part = IRExpr_Unop(selector, arg2);
-          IRExpr* d1_part = IRExpr_Unop(selector, d1);
-          IRExpr* d2_part = IRExpr_Unop(selector, d2);
-          res[i] = mkIRExprCCall(Ity_I64,
-                0,
-                "nl_logical_and64", &nl_logical_and64,
-                mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part)
-             );
-        }
-        return IRExpr_Qop(Iop_64x4toV256, res[3], res[2], res[1], res[0]);
-      }
+      /*! Handle logical "and", "or", "xor" on
+       *  32, 64, 128 and 256 bit.
+       *  \param[in] Op - And, Or or Xor
+       *  \param[in] op - and, or or xor
+       */
+      #define NL_HANDLE_LOGICAL(Op, op) \
+      case Iop_##Op##32: { \
+        IRExpr* d1 = differentiate_expr(arg1,diffenv); \
+        IRExpr* zero32 = IRExpr_Const(IRConst_U32(0)); \
+        IRExpr* arg1_64 = IRExpr_Binop(Iop_32HLto64, zero32, arg1); \
+        IRExpr* d1_64 = IRExpr_Binop(Iop_32HLto64, zero32, d1); \
+        IRExpr* arg2_64 = IRExpr_Binop(Iop_32HLto64, zero32, arg2); \
+        IRExpr* d2_64 = IRExpr_Binop(Iop_32HLto64, zero32, d2); \
+        IRExpr* res = mkIRExprCCall(Ity_I64, \
+          0, \
+          "nl_logical_" #op "64", &nl_logical_##op##64, \
+          mkIRExprVec_4(arg1_64, d1_64, arg2_64, d2_64) \
+        ); \
+        return IRExpr_Unop(Iop_64to32, res); \
+      } \
+      case Iop_##Op##64: { \
+        IRExpr* d1 = differentiate_expr(arg1,diffenv); \
+        IRExpr* res = mkIRExprCCall(Ity_I64, \
+          0, \
+          "nl_logical_" #op "64", &nl_logical_##op##64, \
+          mkIRExprVec_4(arg1, d1, arg2, d2) \
+        ); \
+        return res; \
+      } \
+      case Iop_##Op##V128: { \
+        IRExpr* d1 = differentiate_expr(arg1,diffenv); \
+        IRExpr *res[2]; \
+        for(int i=0; i<2; i++){ /* 0=low half, 1=high half */ \
+          IROp selector = i==0? Iop_V128to64 : Iop_V128HIto64; \
+          IRExpr* arg1_part = IRExpr_Unop(selector, arg1); \
+          IRExpr* arg2_part = IRExpr_Unop(selector, arg2); \
+          IRExpr* d1_part = IRExpr_Unop(selector, d1); \
+          IRExpr* d2_part = IRExpr_Unop(selector, d2); \
+          res[i] = mkIRExprCCall(Ity_I64, \
+                0, \
+                "nl_logical_" #op "64", &nl_logical_##op##64, \
+                mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part) \
+             ); \
+        } \
+        return IRExpr_Binop(Iop_64HLtoV128, res[1], res[0]); \
+      } \
+      case Iop_##Op##V256: { \
+        IRExpr* d1 = differentiate_expr(arg1,diffenv); \
+        IRExpr *res[4]; \
+        for(int i=0; i<4; i++){ /* 0=low quarter, ..., 3=high quarter */ \
+          IROp selector; \
+          switch(i){ \
+            case 0: selector = Iop_V256to64_0; break; \
+            case 1: selector = Iop_V256to64_1; break; \
+            case 2: selector = Iop_V256to64_2; break; \
+            case 3: selector = Iop_V256to64_3; break; \
+          } \
+          IRExpr* arg1_part = IRExpr_Unop(selector, arg1); \
+          IRExpr* arg2_part = IRExpr_Unop(selector, arg2); \
+          IRExpr* d1_part = IRExpr_Unop(selector, d1); \
+          IRExpr* d2_part = IRExpr_Unop(selector, d2); \
+          res[i] = mkIRExprCCall(Ity_I64, \
+                0, \
+                "nl_logical_" #op "64", &nl_logical_##op##64, \
+                mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part) \
+             ); \
+        } \
+        return IRExpr_Qop(Iop_64x4toV256, res[3], res[2], res[1], res[0]); \
+      } 
+      NL_HANDLE_LOGICAL(And, and)
+      NL_HANDLE_LOGICAL(Or, or)
+      NL_HANDLE_LOGICAL(Xor, xor)
 
       case Iop_SqrtF64: {
         IRExpr* numerator = d2;
