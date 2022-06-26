@@ -687,7 +687,7 @@ for (name, op, c_val, c_grad) in [
   basiclist.append(autovectorization)
 
 for (name, cfun, ffun, c_val, c_grad) in [ 
-  ("abs", "fabs", "abs", 1200.,-16.),
+  ("abs", "fabs", "abs", 1200.,240.),
   ("negative", "-", "-", 64.,16.),
   ]:
   autovectorization = ClientRequestTestCase(name+"_autovectorization")
