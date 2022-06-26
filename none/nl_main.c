@@ -280,14 +280,14 @@ static void convertToInteger(IRExpr* expr, IRExpr** converted, IRType type){
       converted[1] = IRExpr_Unop(Iop_128to64, expr);
       break;
     case Ity_V128:
-      converted[0] = IRExpr_Unop(Iop_V128HIto64, expr);
-      converted[1] = IRExpr_Unop(Iop_V128to64, expr);
+      converted[0] = IRExpr_Unop(Iop_V128to64, expr);
+      converted[1] = IRExpr_Unop(Iop_V128HIto64, expr);
       break;
     case Ity_V256:
-      converted[0] = IRExpr_Unop(Iop_V256to64_3, expr);
-      converted[1] = IRExpr_Unop(Iop_V256to64_2, expr);
-      converted[2] = IRExpr_Unop(Iop_V256to64_1, expr);
-      converted[3] = IRExpr_Unop(Iop_V256to64_0, expr);
+      converted[0] = IRExpr_Unop(Iop_V256to64_0, expr);
+      converted[1] = IRExpr_Unop(Iop_V256to64_1, expr);
+      converted[2] = IRExpr_Unop(Iop_V256to64_2, expr);
+      converted[3] = IRExpr_Unop(Iop_V256to64_3, expr);
       break;
     case Ity_D64:
       converted[0] = IRExpr_Unop(Iop_ReinterpD64asI64, expr);
@@ -356,9 +356,9 @@ static IRExpr* convertFromInteger(IRExpr** expr, IRType type){
     case Ity_I128:
       return IRExpr_Binop(Iop_64HLto128,expr[0], expr[1]);
     case Ity_V128:
-      return IRExpr_Binop(Iop_64HLtoV128,expr[0],expr[1]);
+      return IRExpr_Binop(Iop_64HLtoV128,expr[1],expr[0]);
     case Ity_V256:
-      return IRExpr_Qop(Iop_64x4toV256,expr[0],expr[1],expr[2],expr[3]);
+      return IRExpr_Qop(Iop_64x4toV256,expr[3],expr[2],expr[1],expr[0]);
     case Ity_D64:
       return IRExpr_Unop(Iop_ReinterpI64asD64, expr[0]);
     case Ity_D32:
