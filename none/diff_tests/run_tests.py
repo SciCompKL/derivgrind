@@ -207,6 +207,7 @@ abs_plus.stmtf = "float c = fabsf(a);"
 abs_plus.stmtl = "long double c = fabsl(a);"
 abs_plus.stmtr4 = "real, target :: c; c = abs(a)"
 abs_plus.stmtr8 = "double precision, target :: c; c = abs(a)"
+abs_plus.stmtp = "c = abs(a)"
 abs_plus.vals = {'a':1.0}
 abs_plus.grads = {'a':2.0}
 abs_plus.test_vals = {'c':1.0}
@@ -222,6 +223,7 @@ abs_minus.stmtf = "float c = fabsf(a);"
 abs_minus.stmtl = "long double c = fabsl(a);"
 abs_minus.stmtr4 = "real, target :: c; c = abs(a)"
 abs_minus.stmtr8 = "double precision, target :: c; c = abs(a)"
+abs_minus.stmtp = "c = abs(a)"
 abs_minus.vals = {'a':-1.0}
 abs_minus.grads = {'a':2.0}
 abs_minus.test_vals = {'c':1.0}
@@ -236,6 +238,7 @@ sqrt.stmtf = "float c = sqrtf(a);"
 sqrt.stmtl = "long double c = sqrtl(a);"
 sqrt.stmtr4 = "real, target :: c; c = sqrt(a)"
 sqrt.stmtr8 = "double precision, target :: c; c = sqrt(a)"
+sqrt.stmtp = "c = np.sqrt(a)"
 sqrt.vals = {'a':4.0}
 sqrt.grads = {'a':1.0}
 sqrt.test_vals = {'c':2.0}
@@ -252,6 +255,7 @@ pow_2.stmtf = "float c = powf(a,b);"
 pow_2.stmtl = "long double c = powl(a,b);"
 pow_2.stmtr4 = "real, target :: c; c = a**b"
 pow_2.stmtr8 = "double precision, target :: c; c = a**b"
+pow_2.stmtp = "c = a**b"
 pow_2.vals = {'a':4.0,'b':2.0}
 pow_2.grads = {'a':1.6,'b':1.9}
 pow_2.test_vals = {'c':4.0**2}
@@ -266,6 +270,7 @@ pow_both.stmtf = "float c = powf(a,b);"
 pow_both.stmtl = "long double c = powl(a,b);"
 pow_both.stmtr4 = "real, target :: c; c = a**b"
 pow_both.stmtr8 = "double precision, target :: c; c = a**b"
+pow_both.stmtp = "c = a**b"
 pow_both.vals = {'a':4.0,'b':3.0}
 pow_both.grads = {'a':1.6,'b':1.9}
 pow_both.test_vals = {'c':4.0**3.0}
@@ -281,6 +286,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.stmtl = "long double c = sinl(a);"
   sin.stmtr4 = "real, target :: c; c = sin(a)"
   sin.stmtr8 = "double precision, target :: c; c = sin(a)"
+  sin.stmtp = "c = np.sin(a)"
   sin.vals = {'a':angle}
   sin.grads = {'a':3.1}
   sin.test_vals = {'c':np.sin(angle)}
@@ -295,6 +301,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.stmtl = "long double c = cosl(a);"
   cos.stmtr4 = "real, target :: c; c = cos(a)"
   cos.stmtr8 = "double precision, target :: c; c = cos(a)"
+  cos.stmtp = "c = np.cos(a)"
   cos.vals = {'a':angle}
   cos.grads = {'a':2.7}
   cos.test_vals = {'c':np.cos(angle)}
@@ -309,6 +316,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   tan.stmtl = "long double c = tanl(a);"
   tan.stmtr4 = "real, target :: c; c = tan(a)"
   tan.stmtr8 = "double precision, target :: c; c = tan(a)"
+  tan.stmtp = "c = np.tan(a)"
   tan.vals = {'a':angle}
   tan.grads = {'a':1.0}
   tan.test_vals = {'c':np.tan(angle)}
@@ -323,6 +331,7 @@ exp.stmtf = "float c = expf(a);"
 exp.stmtl = "long double c = expl(a);"
 exp.stmtr4 = "real, target :: c; c = exp(a)"
 exp.stmtr8 = "double precision, target :: c; c = exp(a)"
+exp.stmtp = "c = np.exp(a)"
 exp.vals = {'a':4}
 exp.grads = {'a':5.0}
 exp.test_vals = {'c':np.exp(4)}
@@ -337,6 +346,7 @@ log.stmtf = "float c = logf(a);"
 log.stmtl = "long double c = logl(a);"
 log.stmtr4 = "real, target :: c; c = log(a)"
 log.stmtr8 = "double precision, target :: c; c = log(a)"
+log.stmtp = "c = np.log(a)"
 log.vals = {'a':20}
 log.grads = {'a':1.0}
 log.test_vals = {'c':np.log(20)}
@@ -351,6 +361,7 @@ log10.stmtf = "float c = log10f(a);"
 log10.stmtl = "long double c = log10l(a);"
 log10.stmtr4 = "real, target :: c; c = log10(a)"
 log10.stmtr8 = "double precision, target :: c; c = log10(a)"
+log10.stmtp = "c = np.log10(a)"
 log10.vals = {'a':0.01}
 log10.grads = {'a':1.0}
 log10.test_vals = {'c':-2}
@@ -365,6 +376,7 @@ sinh.stmtf = "float c = sinhf(a);"
 sinh.stmtl = "long double c = sinhl(a);"
 sinh.stmtr4 = "real, target :: c; c = sinh(a)"
 sinh.stmtr8 = "double precision, target :: c; c = sinh(a)"
+sinh.stmtp = "c = np.sinh(a)"
 sinh.vals = {'a':2.0}
 sinh.grads = {'a':1.0}
 sinh.test_vals = {'c':np.sinh(2.0)}
@@ -379,6 +391,7 @@ cosh.stmtf = "float c = coshf(a);"
 cosh.stmtl = "long double c = coshl(a);"
 cosh.stmtr4 = "real, target :: c; c = cosh(a)"
 cosh.stmtr8 = "double precision, target :: c; c = cosh(a)"
+cosh.stmtp = "c = np.cosh(a)"
 cosh.vals = {'a':-2.0}
 cosh.grads = {'a':1.0}
 cosh.test_vals = {'c':np.cosh(-2.0)}
@@ -393,6 +406,7 @@ tanh.stmtf = "float c = tanhf(a);"
 tanh.stmtl = "long double c = tanhl(a);"
 tanh.stmtr4 = "real, target :: c; c = tanh(a)"
 tanh.stmtr8 = "double precision, target :: c; c = tanh(a)"
+tanh.stmtp = "c = np.tanh(a)"
 tanh.vals = {'a':-0.5}
 tanh.grads = {'a':1.0}
 tanh.test_vals = {'c':np.tanh(-0.5)}
@@ -407,6 +421,7 @@ asin.stmtf = "float c = asinf(a);"
 asin.stmtl = "long double c = asinl(a);"
 asin.stmtr4 = "real, target :: c; c = asin(a)"
 asin.stmtr8 = "double precision, target :: c; c = asin(a)"
+asin.stmtp = "c = np.asin(a)"
 asin.vals = {'a':0.9}
 asin.grads = {'a':1.0}
 asin.test_vals = {'c':np.arcsin(0.9)}
@@ -421,6 +436,7 @@ acos.stmtf = "float c = acosf(a);"
 acos.stmtl = "long double c = acosl(a);"
 acos.stmtr4 = "real, target :: c; c = acos(a)"
 acos.stmtr8 = "double precision, target :: c; c = acos(a)"
+acos.stmtp = "c = np.acos(a)"
 acos.vals = {'a':-0.4}
 acos.grads = {'a':1.0}
 acos.test_vals = {'c':np.arccos(-0.4)}
@@ -435,6 +451,7 @@ atan.stmtf = "float c = atanf(a);"
 atan.stmtl = "long double c = atanl(a);"
 atan.stmtr4 = "real, target :: c; c = atan(a)"
 atan.stmtr8 = "double precision, target :: c; c = atan(a)"
+atan.stmtp = "c = np.atan(a)"
 atan.vals = {'a':100}
 atan.grads = {'a':1.0}
 atan.test_vals = {'c':np.arctan(100)}
@@ -449,6 +466,7 @@ atan2.stmtf = "float c = atan2f(a,b);"
 atan2.stmtl = "long double c = atan2l(a,b);"
 atan2.stmtr4 = "real, target :: c; c = atan2(a,b)"
 atan2.stmtr8 = "double precision, target :: c; c = atan2(a,b)"
+atan2.stmtp = "c = np.atan2(a,b)"
 atan2.vals = {'a':3,'b':4}
 atan2.grads = {'a':1.3, 'b':1.5}
 atan2.test_vals = {'c':np.arctan2(3,4)}
@@ -463,6 +481,7 @@ floor.stmtf = "float c = floorf(a);"
 floor.stmtl = "long double c = floorl(a);"
 floor.stmtr4 = "real, target :: c; c = floor(a)"
 floor.stmtr8 = "double precision, target :: c; c = floor(a)"
+floor.stmtp = "c = np.floor(a)"
 floor.vals = {'a':2.0}
 floor.grads = {'a':1.0}
 floor.test_vals = {'c':2.0}
@@ -477,6 +496,7 @@ ceil.stmtf = "float c = ceilf(a);"
 ceil.stmtl = "long double c = ceill(a);"
 ceil.stmtr4 = "real, target :: c; c = ceiling(a)"
 ceil.stmtr8 = "double precision, target :: c; c = ceiling(a)"
+ceil.stmtp = "c = np.ceil(a)"
 ceil.vals = {'a':2.1}
 ceil.grads = {'a':1.0}
 ceil.test_vals = {'c':3.0}
@@ -528,6 +548,7 @@ ifbranch.stmtf = "float c; if(a<1) c = 2+a; else c = 2*a; "
 ifbranch.stmtl = "long double c; if(a<1) c = 2+a; else c = 2*a; "
 ifbranch.stmtr4 = "real, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end if"
 ifbranch.stmtr8 = "double precision, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end if"
+ifbranch.stmtp = "if a<1:\n  c = 2+a\nelse:\n  c = 2*a\n"
 ifbranch.vals = {'a':0.0}
 ifbranch.grads = {'a':1.0}
 ifbranch.test_vals = {'c':2.0}
@@ -540,6 +561,7 @@ elsebranch.stmtf = "float c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.stmtl = "long double c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.stmtr4 = "real, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.stmtr8 = "double precision, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
+elsebranch.stmtp = "if a<-1:\n  c = 2+a\nelse:\n  c = 2*a\n"
 elsebranch.vals = {'a':0.0}
 elsebranch.grads = {'a':1.0}
 elsebranch.test_vals = {'c':0.0}
@@ -552,6 +574,7 @@ ternary_true.stmtf = "float c = (a>-1) ? (3*a) : (a*a);"
 ternary_true.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_true.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
+ternary_true.stmtp = "c = (3*a) if (a>-1) else (a*a)"
 ternary_true.vals = {'a':10.0}
 ternary_true.grads = {'a':1.0}
 ternary_true.test_vals = {'c':30.0}
@@ -564,6 +587,7 @@ ternary_false.stmtf = "float c = (a>-1) ? (3*a) : (a*a);"
 ternary_false.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_true.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
+ternary_true.stmtp = "c = (3*a) if (a>-1) else (a*a)"
 ternary_false.vals = {'a':-10.0}
 ternary_false.grads = {'a':1.0}
 ternary_false.test_vals = {'c':100.0}
@@ -577,6 +601,7 @@ addition_forloop.stmtf = "float c = 0; for(int i=0; i<10; i++) c+=a;"
 addition_forloop.stmtl = "long double c = 0; for(int i=0; i<10; i++) c+=a;"
 addition_forloop.stmtr4 = "real, target :: c = 0; integer :: i; do i=0, 9; c=c+a; end do"
 addition_forloop.stmtr8 = "double precision, target :: c = 0; integer :: i; do i=0, 9; c=c+a; end do"
+addition_forloop.stmtp = "for i in range(10):\n  c+=a"
 addition_forloop.vals = {'a':2.0}
 addition_forloop.grads = {'a':1.0}
 addition_forloop.test_vals = {'c':20.0}
@@ -589,6 +614,7 @@ multiplication_forloop.stmtf = "float c = 1; for(int i=0; i<10; i++) c*=a;"
 multiplication_forloop.stmtl = "long double c = 1; for(int i=0; i<10; i++) c*=a;"
 multiplication_forloop.stmtr4 = "real, target :: c = 1; integer :: i; do i=0, 9; c=c*a; end do"
 multiplication_forloop.stmtr8 = "double precision, target :: c = 1; integer :: i; do i=0, 9; c=c*a; end do"
+multiplication_forloop.stmtp = "for i in range(10):\n  c*=a"
 multiplication_forloop.vals = {'a':2.0}
 multiplication_forloop.grads = {'a':1.0}
 multiplication_forloop.test_vals = {'c':1024.0}
@@ -601,6 +627,7 @@ addition_whileloop.stmtf = "float c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtl = "long double c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtr4 = "real, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.stmtr8 = "double precision, target :: c = 0; do while(c<19); c=c+a; end do"
+addition_whileloop.stmtp = "c=0\nwhile c<19:\n  c=c+a"
 addition_whileloop.vals = {'a':2.0}
 addition_whileloop.grads = {'a':1.0}
 addition_whileloop.test_vals = {'c':20.0}
@@ -613,6 +640,7 @@ multiplication_whileloop.stmtf = "float c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtl = "long double c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtr4 = "real, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.stmtr8 = "double precision, target :: c = 1; do while(c<1023); c=c*a; end do"
+multiplication_whileloop.stmtp = "c=1\nwhile c<1023:\n  c=c*a"
 multiplication_whileloop.vals = {'a':2.0}
 multiplication_whileloop.grads = {'a':1.0}
 multiplication_whileloop.test_vals = {'c':1024.0}
@@ -648,6 +676,7 @@ addition_recursion.include = """
 addition_recursion.stmtd = "double c = f(10,a);"
 addition_recursion.stmtf = "float c = ff(10,a);"
 addition_recursion.stmtl = "long double c = fl(10,a);"
+addition_recursion.stmtp = "def f(n,x):\n  if n==0:\n    return 0.\n  else:\n    return x+f(n-1,x)\nc=f(10,a)"
 addition_recursion.vals = {'a':2.0}
 addition_recursion.grads = {'a':1.0}
 addition_recursion.test_vals = {'c':20.0}
@@ -663,6 +692,7 @@ multiplication_recursion.include = """
 multiplication_recursion.stmtd = "double c = f(10,a);"
 multiplication_recursion.stmtf = "float c = ff(10,a);"
 multiplication_recursion.stmtl = "long double c = fl(10,a);"
+multiplication_recursion.stmtp = "def f(n,x):\n  if n==0:\n    return 1.\n  else:\n    return x*f(n-1,x)\nc=f(10,a)"
 multiplication_recursion.vals = {'a':2.0}
 multiplication_recursion.grads = {'a':1.0}
 multiplication_recursion.test_vals = {'c':1024.0}
