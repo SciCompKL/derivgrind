@@ -1397,42 +1397,49 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         addStmtToIRSB(sb_out, st_orig);
       }
-      // The CPUID dirty calls set some registers in the guest state.
-      // As these should never end up as floating-point data, we don't
-      // need to do anything about AD.
-      else if(!VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23)) ||
-              !VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) ){
-        addStmtToIRSB(sb_out, st_orig);
-      }
-      // The following calls (re)store a SSE state, this seems to be a completely discrete thing.
-      else if(!VG_(strcmp(name, "amd64g_dirtyhelper_XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS")) ||
-              !VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) ){
-        addStmtToIRSB(sb_out, st_orig);
-      }
-      // The RDTSC instruction loads a 64-bit time-stamp counter into
-      // the (lower 32 bit of the) guest registers EAX and EDX (and
-      // clears the higher 32 bit on amd64). The dirty call just
-      // stores an Ity_I64 in its return temporary. We put a zero in
-      // the shadow temporary
-      else if(!VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") ||
-              !VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") ) {
-        addStmtToIRSB(sb_out,
-          IRStmt_WrTmp(det->tmp+diffenv.t_offset,mkIRConst_zero(Ity_I64)));
-        addStmtToIRSB(sb_out, st_orig);
-      }
-      // Yet untreated Ist_Dirty's.
-      // At least write a zero derivative if there is an output temporary,
-      // so it has been assigned to in case it is copied around later.
+      /*! \page dirty_calls_no_ad Dirty calls without relevance for AD
+       *  The following dirty calls do not handle AD-active bytes,
+       *  therefore no specific AD instrumentation is necessary. If
+       *  there is an output temporary, we set the shadow temporary to
+       *  zero in case it is further copied around.
+       * - The CPUID dirty calls set some registers in the guest state.
+       *   As these should never end up as floating-point data, we don't
+       *   need to do anything about AD.
+       * - The RDTSC instruction loads a 64-bit time-stamp counter into
+       *   the (lower 32 bit of the) guest registers EAX and EDX (and
+       *   clears the higher 32 bit on amd64). The dirty call just
+       *   stores an Ity_I64 in its return temporary. We put a zero in
+       *   the shadow temporary.
+       * - The XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS, XSAVE_.. dirty calls
+       *   (re)store a SSE state, this seems to be a completely discrete thing.
+       * - The PCMPxSTRx dirty calls account for SSE 4.2 string instructions,
+       *   also a purely discrete thing.
+       *
+       * For other dirty calls, a warning is emitted.
+       */
       else {
-        IRTemp t = st->Ist.Dirty.details->tmp;
-        if(t!=IRTemp_INVALID){
-          IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,t);
-          addStmtToIRSB(sb_out,IRStmt_WrTmp(t+diffenv.t_offset,mkIRConst_zero(type)));
+        if(det->tmp!=IRTemp_INVALID){
+          IRTemp shadow_tmp = det->tmp+diffenv.t_offset;
+          IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,det->tmp);
+          IRExpr* zero = mkIRConst_zero(type);
+          addStmtToIRSB(sb_out,IRStmt_WrTmp(shadow_tmp,zero));
         }
         addStmtToIRSB(sb_out, st_orig);
-        VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
-        ppIRStmt(st);
-        VG_(printf)("\n");
+
+        // warn if dirty call is unknown
+        if(VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23)) &&
+           VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) &&
+           VG_(strcmp(name, "amd64g_dirtyhelper_XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS")) &&
+           VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) &&
+           VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") &&
+           VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") &&
+           VG_(strcmp)(name,"amd64g_dirtyhelper_PCMPxSTRx")
+        ){
+          addStmtToIRSB(sb_out, st_orig);
+          VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
+          ppIRStmt(st);
+          VG_(printf)("\n");
+        }
       }
     } else if(st->tag==Ist_NoOp || st->tag==Ist_IMark || st->tag==Ist_AbiHint){
       addStmtToIRSB(sb_out, st_orig);
