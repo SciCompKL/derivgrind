@@ -339,7 +339,7 @@ class ClientRequestTestCase(TestCase):
     if self.compiler=='gcc' or self.compiler=='g++':
       compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     elif self.compiler=='gfortran':
-      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "derivgrind_clientrequests.c", "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) ,universal_newlines=True)
+      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "derivgrind_clientrequests.c", "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() ,universal_newlines=True)
 
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout

@@ -171,6 +171,18 @@ division_const_r.test_vals = {'c':4.0}
 division_const_r.test_grads = {'c':6.0}
 basiclist.append(division_const_r)
 
+negative = ClientRequestTestCase("negative")
+negative.stmtd = "double c = -a;"
+negative.stmtf = "float c = -a;"
+negative.stmtl = "long double c = -a;"
+negative.stmtr4 = "real, target :: c; c= -a"
+negative.stmtr8 = "double precision, target :: c; c= -a"
+negative.vals = {'a':1.0}
+negative.grads = {'a':2.0}
+negative.test_vals = {'c':-1.0}
+negative.test_grads = {'c':-2.0}
+basiclist.append(negative)
+
 ### Advances arithmetic and trigonometric operations ###
 
 abs_plus = ClientRequestTestCase("abs_plus")
@@ -643,6 +655,65 @@ multiplication_recursion.grads = {'a':1.0}
 multiplication_recursion.test_vals = {'c':1024.0}
 multiplication_recursion.test_grads = {'c':5120.0}
 basiclist.append(multiplication_recursion)
+
+### Auto-Vectorization ###
+for (name, op, c_val, c_grad) in [ 
+  ("addition", "+", 1184.,288.),
+  ("subtraction", "-", 1216., 192.),
+  ("multiplication", "*", -1200., 3360.),
+  ("division", "/", -1200., -3840.0)
+  ]:
+  autovectorization = ClientRequestTestCase(name+"_autovectorization")
+  autovectorization_stmtbody_c = f"""
+  for(int i=0; i<16; i++) {{ a_arr[i] = i*a; b_arr[i] = b; }}
+  for(int i=0; i<16; i++) {{ c_arr[i] = a_arr[i] {op} b_arr[i]; }}
+  for(int i=0; i<16; i++) {{ c += c_arr[i]; }}
+  """
+  autovectorization_stmtbody_fortran = f"""
+  integer :: i
+  do i=1,16; a_arr(i) = (i-1)*a; b_arr(i) = b; end do
+  do i=1,16; c_arr(i) = a_arr(i) {op} b_arr(i); end do
+  do i=1,16; c = c + c_arr(i); end do
+  """
+  autovectorization.stmtd = "double a_arr[16], b_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtf = "float a_arr[16], b_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtl = "long double a_arr[16], b_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtr4 = "real, dimension(16) :: a_arr, b_arr, c_arr; real, target :: c = 0; "+autovectorization_stmtbody_fortran
+  autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, b_arr, c_arr; double precision, target :: c = 0; "+autovectorization_stmtbody_fortran
+  autovectorization.vals = {'a':10.0,'b':-1.0}
+  autovectorization.grads = {'a':2.0,'b':3.0}
+  autovectorization.test_vals = {'c':c_val}
+  autovectorization.test_grads = {'c':c_grad}
+  basiclist.append(autovectorization)
+
+for (name, cfun, ffun, c_val, c_grad) in [ 
+  ("abs", "fabs", "abs", 1200.,240.),
+  ("negative", "-", "-", 64.,16.),
+  ]:
+  autovectorization = ClientRequestTestCase(name+"_autovectorization")
+  autovectorization_stmtbody_c = f"""
+  for(int i=0; i<16; i++) {{ a_arr[i] = i*a * pow(-1,i) + 1; }}
+  for(int i=0; i<16; i++) {{ c_arr[i] = {cfun}(a_arr[i]); }}
+  for(int i=0; i<16; i++) {{ c += c_arr[i]; }}
+  """
+  autovectorization_stmtbody_fortran = f"""
+  integer :: i
+  do i=1,16; a_arr(i) = (i-1)*a*(-1)**(i-1) + 1; end do
+  do i=1,16; c_arr(i) = {ffun}(a_arr(i)) ; end do
+  do i=1,16; c = c + c_arr(i); end do
+  """
+  autovectorization.stmtd = "double a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtf = "float a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtl = "long double a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtr4 = "real, dimension(16) :: a_arr, c_arr; real, target :: c = 0; "+autovectorization_stmtbody_fortran
+  autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, c_arr; double precision, target :: c = 0; "+autovectorization_stmtbody_fortran
+  autovectorization.ldflags = "-lm"
+  autovectorization.include = "#include <math.h>"
+  autovectorization.vals = {'a':10.0}
+  autovectorization.grads = {'a':2.0}
+  autovectorization.test_vals = {'c':c_val}
+  autovectorization.test_grads = {'c':c_grad}
+  basiclist.append(autovectorization)
 
 ### OpenMP ###
 

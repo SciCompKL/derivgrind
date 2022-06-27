@@ -35,6 +35,8 @@
 #include "valgrind.h"
 #include "derivgrind.h"
 
+#include "nl_logical.h"
+
 #ifndef __GNUC__
   #error "Only tested with GCC."
 #endif
@@ -278,14 +280,14 @@ static void convertToInteger(IRExpr* expr, IRExpr** converted, IRType type){
       converted[1] = IRExpr_Unop(Iop_128to64, expr);
       break;
     case Ity_V128:
-      converted[0] = IRExpr_Unop(Iop_V128HIto64, expr);
-      converted[1] = IRExpr_Unop(Iop_V128to64, expr);
+      converted[0] = IRExpr_Unop(Iop_V128to64, expr);
+      converted[1] = IRExpr_Unop(Iop_V128HIto64, expr);
       break;
     case Ity_V256:
-      converted[0] = IRExpr_Unop(Iop_V256to64_3, expr);
-      converted[1] = IRExpr_Unop(Iop_V256to64_2, expr);
-      converted[2] = IRExpr_Unop(Iop_V256to64_1, expr);
-      converted[3] = IRExpr_Unop(Iop_V256to64_0, expr);
+      converted[0] = IRExpr_Unop(Iop_V256to64_0, expr);
+      converted[1] = IRExpr_Unop(Iop_V256to64_1, expr);
+      converted[2] = IRExpr_Unop(Iop_V256to64_2, expr);
+      converted[3] = IRExpr_Unop(Iop_V256to64_3, expr);
       break;
     case Ity_D64:
       converted[0] = IRExpr_Unop(Iop_ReinterpD64asI64, expr);
@@ -354,9 +356,9 @@ static IRExpr* convertFromInteger(IRExpr** expr, IRType type){
     case Ity_I128:
       return IRExpr_Binop(Iop_64HLto128,expr[0], expr[1]);
     case Ity_V128:
-      return IRExpr_Binop(Iop_64HLtoV128,expr[0],expr[1]);
+      return IRExpr_Binop(Iop_64HLtoV128,expr[1],expr[0]);
     case Ity_V256:
-      return IRExpr_Qop(Iop_64x4toV256,expr[0],expr[1],expr[2],expr[3]);
+      return IRExpr_Qop(Iop_64x4toV256,expr[3],expr[2],expr[1],expr[0]);
     case Ity_D64:
       return IRExpr_Unop(Iop_ReinterpI64asD64, expr[0]);
     case Ity_D32:
@@ -701,43 +703,7 @@ typedef struct {
   IRSB* sb_out;
 } DiffEnv;
 
-static IRExpr* differentiate_expr(IRExpr const*, DiffEnv);
-
-/*! Helper to differentiate "abs" when implemented via logical "and".
- *
- *  Iop_AndF128 performs a bitwise logical "and", and normally we discard
- *  the gradient information for integer and logical operations. However,
- *  this particular logical operation can be used to implement a
- *  floating-point operation. Namely, in order to compute the absolute
- *  value of a IEEE-754 binary32 or binary64, it suffices to set the
- *  first bit to zero. We observed GCC using this trick.
- *  Thus the need for a special mapping. Flip the sign bit of the derivative
- *  if and only if the value is negative.
- *  \param[in] arg - Argument to "abs".
- *  \returns - Differentiated expression.
- */
-static IRExpr* nl_helper_LogicalAbs64(IRExpr* arg, DiffEnv diffenv){
-  IRExpr* d = differentiate_expr(arg, diffenv);
-  if(!d) return IRExpr_Const(IRConst_U64(0));
-  IRExpr* leading1 = IRExpr_Const(IRConst_U64(0x8000000000000000));
-  IRExpr* arg_is_negative = IRExpr_Binop(Iop_CmpEQ64, IRExpr_Binop(Iop_And64, arg, leading1), leading1);
-  IRExpr* derivative = IRExpr_ITE(arg_is_negative, IRExpr_Binop(Iop_Xor64, leading1, d), d);
-  return derivative;
-}
-/*! Helper to differentiate "abs" when implemented via logical "and".
- *
- *  See nl_helper_LogicalAbs64.
- *  \param[in] arg - Argument to "abs".
- *  \returns - Differentiated expression.
- */
-static IRExpr* nl_helper_LogicalAbs32(IRExpr* arg, DiffEnv diffenv){
-  IRExpr* d = differentiate_expr(arg, diffenv);
-  if(!d) return IRExpr_Const(IRConst_U32(0));
-  IRExpr* leading1 = IRExpr_Const(IRConst_U32(0x80000000));
-  IRExpr* arg_is_negative = IRExpr_Binop(Iop_CmpEQ32, IRExpr_Binop(Iop_And32, arg, leading1), leading1);
-  IRExpr* derivative = IRExpr_ITE(arg_is_negative, IRExpr_Binop(Iop_Xor32, leading1, d), d);
-  return derivative;
-}
+static IRExpr* differentiate_or_zero(IRExpr*, DiffEnv, Bool, const char*);
 
 /*! Differentiate an expression.
  *
@@ -792,38 +758,53 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     IRExpr* d2 = differentiate_expr(arg2,diffenv);
     IRExpr* d3 = differentiate_expr(arg3,diffenv);
     if(d2==NULL || d3==NULL) return NULL;
+    /*! Define derivative for addition IROp.
+     *  \param[in] suffix - Specifies addition IROp, e.g. F64 gives Iop_AddF64.
+     */
+    #define DERIVATIVE_OF_TRIOP_ADD(suffix) \
+      case Iop_Add##suffix: \
+        return IRExpr_Triop(Iop_Add##suffix, arg1, d2, d3);
+    /*! Define derivative for subtraction IROp.
+     */
+    #define DERIVATIVE_OF_TRIOP_SUB(suffix) \
+      case Iop_Sub##suffix: \
+        return IRExpr_Triop(Iop_Sub##suffix, arg1, d2, d3);
+    /*! Define derivative for multiplication IROp.
+     */
+    #define DERIVATIVE_OF_TRIOP_MUL(suffix) \
+      case Iop_Mul##suffix: \
+        return IRExpr_Triop(Iop_Add##suffix,arg1, \
+          IRExpr_Triop(Iop_Mul##suffix, arg1, d2,arg3), \
+          IRExpr_Triop(Iop_Mul##suffix, arg1, d3,arg2) \
+        );
+    /*! Define derivative for division IROp.
+     */
+    #define DERIVATIVE_OF_TRIOP_DIV(suffix) \
+      case Iop_Div##suffix: \
+        return IRExpr_Triop(Iop_Div##suffix,arg1, \
+          IRExpr_Triop(Iop_Sub##suffix, arg1, \
+            IRExpr_Triop(Iop_Mul##suffix, arg1, d2,arg3), \
+            IRExpr_Triop(Iop_Mul##suffix, arg1, d3,arg2) \
+          ), \
+          IRExpr_Triop(Iop_Mul##suffix, arg1, arg3, arg3) \
+        );
+    /*! Define derivatives for four basic arithmetic operations.
+     */
+    #define DERIVATIVE_OF_TRIOP_ALL(suffix) \
+      DERIVATIVE_OF_TRIOP_ADD(suffix) \
+      DERIVATIVE_OF_TRIOP_SUB(suffix) \
+      DERIVATIVE_OF_TRIOP_MUL(suffix) \
+      DERIVATIVE_OF_TRIOP_DIV(suffix)
+
     switch(rex->op){
-      case Iop_AddF64:
-            return IRExpr_Triop(Iop_AddF64,arg1,d2,d3);
-      case Iop_AddF32: return IRExpr_Triop(Iop_AddF32,arg1,d2,d3);
-      case Iop_SubF64: return IRExpr_Triop(Iop_SubF64,arg1,d2,d3);
-      case Iop_SubF32: return IRExpr_Triop(Iop_SubF32,arg1,d2,d3);
-      case Iop_MulF64:
-        return IRExpr_Triop(Iop_AddF64,arg1,
-          IRExpr_Triop(Iop_MulF64, arg1, d2,arg3),
-          IRExpr_Triop(Iop_MulF64, arg1, d3,arg2)
-        );
-      case Iop_MulF32:
-        return IRExpr_Triop(Iop_AddF32,arg1,
-          IRExpr_Triop(Iop_MulF32, arg1, d2,arg3),
-          IRExpr_Triop(Iop_MulF32, arg1, d3,arg2)
-        );
-      case Iop_DivF64:
-        return IRExpr_Triop(Iop_DivF64,arg1,
-          IRExpr_Triop(Iop_SubF64, arg1,
-            IRExpr_Triop(Iop_MulF64, arg1, d2,arg3),
-            IRExpr_Triop(Iop_MulF64, arg1, d3,arg2)
-          ),
-          IRExpr_Triop(Iop_MulF64, arg1, arg3, arg3)
-        );
-      case Iop_DivF32:
-        return IRExpr_Triop(Iop_DivF32,arg1,
-          IRExpr_Triop(Iop_SubF32, arg1,
-            IRExpr_Triop(Iop_MulF32, arg1, d2,arg3),
-            IRExpr_Triop(Iop_MulF32, arg1, d3,arg2)
-          ),
-          IRExpr_Triop(Iop_MulF32, arg1, arg3, arg3)
-        );
+      DERIVATIVE_OF_TRIOP_ALL(F64) // e.g. Iop_AddF64
+      DERIVATIVE_OF_TRIOP_ALL(F32) // e.g. Iop_AddF32
+      DERIVATIVE_OF_TRIOP_ALL(64Fx2) // e.g. Iop_Add64Fx2
+      DERIVATIVE_OF_TRIOP_ALL(64Fx4) // e.g. Iop_Add64Fx4
+      DERIVATIVE_OF_TRIOP_ALL(32Fx4) // e.g. Iop_Add32Fx4
+      DERIVATIVE_OF_TRIOP_ALL(32Fx8) // e.g. Iop_Add32Fx8
+      // there is no Iop_Div32Fx2
+      DERIVATIVE_OF_TRIOP_ADD(32Fx2) DERIVATIVE_OF_TRIOP_SUB(32Fx2) DERIVATIVE_OF_TRIOP_MUL(32Fx2)
       case Iop_AtanF64: {
         IRExpr* fraction = IRExpr_Triop(Iop_DivF64,arg1,arg2,arg3);
         IRExpr* fraction_d = IRExpr_Triop(Iop_DivF64,arg1,
@@ -863,63 +844,79 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     IRExpr* d2 = differentiate_expr(arg2,diffenv);
     if(d2==NULL) return NULL;
     switch(op){
-      // Iop_And32 is missing. It's not really clear how to properly
-      // distinguish with other Iop_AndN's.
-      /*case Iop_And64: {
-        return nl_helper_And64(arg1,arg2,diffenv);
-      }*/
-      case Iop_AndV128: {
-        // The V128 might be composed of 64-bit or 32-bit numbers.
-        // First see if one argument is the 64-bit 0b011..1, in this
-        // case we might be computing the absolute value of a binary64.
-        // If not, see if one argument is the 32-bit 0b011..1, in this
-        // case we might be computing the absolute value of a binary32.
-        // If not, it's something else and we calculate a zero derivative.
+      /*! Handle logical "and", "or", "xor" on
+       *  32, 64, 128 and 256 bit.
+       *  \param[in] Op - And, Or or Xor
+       *  \param[in] op - and, or or xor
+       */
+      #define NL_HANDLE_LOGICAL(Op, op) \
+      case Iop_##Op##32: { \
+        IRExpr* d1 = differentiate_expr(arg1,diffenv); \
+        IRExpr* zero32 = IRExpr_Const(IRConst_U32(0)); \
+        IRExpr* arg1_64 = IRExpr_Binop(Iop_32HLto64, zero32, arg1); \
+        IRExpr* d1_64 = IRExpr_Binop(Iop_32HLto64, zero32, d1); \
+        IRExpr* arg2_64 = IRExpr_Binop(Iop_32HLto64, zero32, arg2); \
+        IRExpr* d2_64 = IRExpr_Binop(Iop_32HLto64, zero32, d2); \
+        IRExpr* res = mkIRExprCCall(Ity_I64, \
+          0, \
+          "nl_logical_" #op "64", &nl_logical_##op##64, \
+          mkIRExprVec_4(arg1_64, d1_64, arg2_64, d2_64) \
+        ); \
+        return IRExpr_Unop(Iop_64to32, res); \
+      } \
+      case Iop_##Op##64: { \
+        IRExpr* d1 = differentiate_expr(arg1,diffenv); \
+        IRExpr* res = mkIRExprCCall(Ity_I64, \
+          0, \
+          "nl_logical_" #op "64", &nl_logical_##op##64, \
+          mkIRExprVec_4(arg1, d1, arg2, d2) \
+        ); \
+        return res; \
+      } \
+      case Iop_##Op##V128: { \
+        IRExpr* d1 = differentiate_expr(arg1,diffenv); \
+        IRExpr *res[2]; \
+        for(int i=0; i<2; i++){ /* 0=low half, 1=high half */ \
+          IROp selector = i==0? Iop_V128to64 : Iop_V128HIto64; \
+          IRExpr* arg1_part = IRExpr_Unop(selector, arg1); \
+          IRExpr* arg2_part = IRExpr_Unop(selector, arg2); \
+          IRExpr* d1_part = IRExpr_Unop(selector, d1); \
+          IRExpr* d2_part = IRExpr_Unop(selector, d2); \
+          res[i] = mkIRExprCCall(Ity_I64, \
+                0, \
+                "nl_logical_" #op "64", &nl_logical_##op##64, \
+                mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part) \
+             ); \
+        } \
+        return IRExpr_Binop(Iop_64HLtoV128, res[1], res[0]); \
+      } \
+      case Iop_##Op##V256: { \
+        IRExpr* d1 = differentiate_expr(arg1,diffenv); \
+        IRExpr *res[4]; \
+        for(int i=0; i<4; i++){ /* 0=low quarter, ..., 3=high quarter */ \
+          IROp selector; \
+          switch(i){ \
+            case 0: selector = Iop_V256to64_0; break; \
+            case 1: selector = Iop_V256to64_1; break; \
+            case 2: selector = Iop_V256to64_2; break; \
+            case 3: selector = Iop_V256to64_3; break; \
+          } \
+          IRExpr* arg1_part = IRExpr_Unop(selector, arg1); \
+          IRExpr* arg2_part = IRExpr_Unop(selector, arg2); \
+          IRExpr* d1_part = IRExpr_Unop(selector, d1); \
+          IRExpr* d2_part = IRExpr_Unop(selector, d2); \
+          res[i] = mkIRExprCCall(Ity_I64, \
+                0, \
+                "nl_logical_" #op "64", &nl_logical_##op##64, \
+                mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part) \
+             ); \
+        } \
+        return IRExpr_Qop(Iop_64x4toV256, res[3], res[2], res[1], res[0]); \
+      } 
+      NL_HANDLE_LOGICAL(And, and)
+      NL_HANDLE_LOGICAL(Or, or)
+      NL_HANDLE_LOGICAL(Xor, xor)
 
-        // binary64 parts
-        IRExpr* leading0_64 = IRExpr_Const(IRConst_U64(0x7fffffffffffffff));
-        IRExpr* derivative_parts_64[2];
-        IRExpr* is_0b01_parts_64[2][2];
-        for(int i=0; i<2; i++){ // 0=low, 1=high
-          IRExpr* arg1_part = IRExpr_Unop( i==0? Iop_V128to64 : Iop_V128HIto64 , arg1);
-          IRExpr* arg2_part = IRExpr_Unop( i==0? Iop_V128to64 : Iop_V128HIto64 , arg2);
-          is_0b01_parts_64[i][0] = IRExpr_Binop(Iop_CmpEQ64,arg1_part,leading0_64);
-          is_0b01_parts_64[i][1] = IRExpr_Binop(Iop_CmpEQ64,arg2_part,leading0_64);
-          derivative_parts_64[i] = IRExpr_ITE(is_0b01_parts_64[i][0], nl_helper_LogicalAbs64(arg2_part,diffenv), nl_helper_LogicalAbs64(arg1_part,diffenv));
-        }
-        IRExpr* is_64_split = IRExpr_Binop(Iop_Or1,
-          IRExpr_Binop(Iop_Or1, is_0b01_parts_64[0][0], is_0b01_parts_64[0][1]),
-          IRExpr_Binop(Iop_Or1, is_0b01_parts_64[1][0], is_0b01_parts_64[1][1]) );
-        IRExpr* derivative_if_64 = IRExpr_Binop(Iop_64HLtoV128, derivative_parts_64[1], derivative_parts_64[0]);
-
-        // binary32 parts
-        IRExpr* leading0_32 = IRExpr_Const(IRConst_U32(0x7fffffff));
-        IRExpr* derivative_parts_32[4];
-        IRExpr* is_0b01_parts_32[4][2];
-        for(int i=0; i<4; i++){ // 0=low, ..., 3=high
-          IRExpr* arg1_part = IRExpr_Unop( (i==0||i==2)? Iop_64to32 : Iop_64HIto32,
-            IRExpr_Unop( i<=1? Iop_V128to64 : Iop_V128HIto64 , arg1) );
-          IRExpr* arg2_part = IRExpr_Unop( (i==0||i==2)? Iop_64to32 : Iop_64HIto32,
-            IRExpr_Unop( i<=1? Iop_V128to64 : Iop_V128HIto64 , arg2) );
-          is_0b01_parts_32[i][0] = IRExpr_Binop(Iop_CmpEQ32,arg1_part,leading0_32);
-          is_0b01_parts_32[i][1] = IRExpr_Binop(Iop_CmpEQ32,arg2_part,leading0_32);
-          derivative_parts_32[i] = IRExpr_ITE(is_0b01_parts_32[i][0], nl_helper_LogicalAbs32(arg2_part,diffenv), nl_helper_LogicalAbs32(arg1_part,diffenv));
-        }
-        IRExpr* is_32_split = IRExpr_Binop(Iop_Or1,
-          IRExpr_Binop(Iop_Or1,
-            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[0][0], is_0b01_parts_32[0][1]),
-            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[1][0], is_0b01_parts_32[1][1]) ),
-          IRExpr_Binop(Iop_Or1,
-            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[2][0], is_0b01_parts_32[2][1]),
-            IRExpr_Binop(Iop_Or1, is_0b01_parts_32[3][0], is_0b01_parts_32[3][1]) ) );
-        IRExpr* derivative_if_32 = IRExpr_Binop(Iop_64HLtoV128,
-          IRExpr_Binop(Iop_32HLto64, derivative_parts_32[3], derivative_parts_32[2]),
-          IRExpr_Binop(Iop_32HLto64, derivative_parts_32[1], derivative_parts_32[0]) );
-
-        IRExpr* derivative = IRExpr_ITE( is_64_split, derivative_if_64,
-          IRExpr_ITE( is_32_split, derivative_if_32, mkIRConst_zero(Ity_V128)));
-        return derivative;
-      }
       case Iop_SqrtF64: {
         IRExpr* numerator = d2;
         IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
@@ -945,21 +942,21 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
             IRExpr_Binop(Iop_2xm1F64,arg1,arg2)
         ));
       case Iop_Mul64F0x2: {
-        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
         return IRExpr_Binop(Iop_Add64F0x2,
           IRExpr_Binop(Iop_Mul64F0x2,d1,arg2), // the order is important here
           IRExpr_Binop(Iop_Mul64F0x2,arg1,d2)
         );
       }
       case Iop_Mul32F0x4: {
-        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
         return IRExpr_Binop(Iop_Add32F0x4,
           IRExpr_Binop(Iop_Mul32F0x4,d1,arg2), // the order is important here
           IRExpr_Binop(Iop_Mul32F0x4,arg1,d2)
         );
       }
       case Iop_Div64F0x2: {
-        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
         return IRExpr_Binop(Iop_Div64F0x2,
           IRExpr_Binop(Iop_Sub64F0x2,
             IRExpr_Binop(Iop_Mul64F0x2,d1,arg2), // the order is important here
@@ -969,7 +966,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         );
       }
       case Iop_Div32F0x4: {
-        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
         return IRExpr_Binop(Iop_Div32F0x4,
           IRExpr_Binop(Iop_Sub32F0x4,
             IRExpr_Binop(Iop_Mul32F0x4,d1,arg2), // the order is important here
@@ -978,15 +975,19 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           IRExpr_Binop(Iop_Mul32F0x4,arg2,arg2)
         );
       }
+      // the following operations produce an F64 zero derivative
       case Iop_I64StoF64:
       case Iop_I64UtoF64:
       case Iop_RoundF64toInt:
         return mkIRConst_zero(Ity_F64);
+      // the following operations produce an F32 zero derivative
       case Iop_I64StoF32:
       case Iop_I64UtoF32:
       case Iop_I32StoF32:
       case Iop_I32UtoF32:
         return mkIRConst_zero(Ity_F32);
+      // the following operations only "transport", so they are applied
+      // on the derivatives in the same way as for primal values
       case Iop_64HLto128: case Iop_32HLto64:
       case Iop_16HLto32: case Iop_8HLto16:
       case Iop_64HLtoV128:
@@ -998,7 +999,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_InterleaveLO8x16: case Iop_InterleaveLO16x8:
       case Iop_InterleaveLO32x4: case Iop_InterleaveLO64x2:
         {
-          IRExpr* d1 = differentiate_expr(arg1,diffenv);
+          IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
           if(d1)
             return IRExpr_Binop(op, d1,d2);
           else
