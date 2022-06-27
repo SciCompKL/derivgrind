@@ -46,6 +46,7 @@ addition_const_l.stmtf = "float c = 0.3f + a;"
 addition_const_l.stmtl = "long double c = 0.3l + a;"
 addition_const_l.stmtr4 = "real, target :: c; c= 0.3e0+a"
 addition_const_l.stmtr8 = "double precision, target :: c; c= 0.3d0+a"
+addition_const_l.stmtp = "c = 0.3 + a"
 addition_const_l.vals = {'a':1.0}
 addition_const_l.grads = {'a':2.0}
 addition_const_l.test_vals = {'c':1.3}
@@ -58,6 +59,7 @@ addition_const_r.stmtf = "float c = a + 0.3f;"
 addition_const_r.stmtl = "long double c = a + 0.3l;"
 addition_const_r.stmtr4 = "real, target :: c; c= a+0.3e0"
 addition_const_r.stmtr8 = "double precision, target :: c; c= a+0.3d0"
+addition_const_r.stmtp = "c = a + 0.3"
 addition_const_r.vals = {'a':1.0}
 addition_const_r.grads = {'a':2.0}
 addition_const_r.test_vals = {'c':1.3}
@@ -70,6 +72,7 @@ subtraction.stmtf = "float c = a-b;"
 subtraction.stmtl = "long double c = a-b;"
 subtraction.stmtr4 = "real, target :: c; c= a-b"
 subtraction.stmtr8 = "double precision, target :: c; c= a-b"
+subtraction.stmtp = "c = a - b"
 subtraction.vals = {'a':1.0,'b':2.0}
 subtraction.grads = {'a':3.0,'b':4.0}
 subtraction.test_vals = {'c':-1.0}
@@ -82,6 +85,7 @@ subtraction_const_l.stmtf = "float c = 0.3f - a;"
 subtraction_const_l.stmtl = "long double c = 0.3l - a;"
 subtraction_const_l.stmtr4 = "real, target :: c; c= 0.3e0-a"
 subtraction_const_l.stmtr8 = "double precision, target :: c; c= 0.3d0-a"
+subtraction_const_l.stmtp = "c = 0.3 - a"
 subtraction_const_l.vals = {'a':1.0}
 subtraction_const_l.grads = {'a':2.0}
 subtraction_const_l.test_vals = {'c':-0.7}
@@ -94,6 +98,7 @@ subtraction_const_r.stmtf = "float c = a - 0.5f;"
 subtraction_const_r.stmtl = "long double c = a - 0.5l;"
 subtraction_const_r.stmtr4 = "real, target :: c; c= a-0.5e0"
 subtraction_const_r.stmtr8 = "double precision, target :: c; c= a-0.5d0"
+subtraction_const_r.stmtp = "c = a - 0.5"
 subtraction_const_r.vals = {'a':1.0}
 subtraction_const_r.grads = {'a':2.0}
 subtraction_const_r.test_vals = {'c':0.5}
@@ -106,6 +111,7 @@ multiplication.stmtf = "float c = a*b;"
 multiplication.stmtl = "long double c = a*b;"
 multiplication.stmtr4 = "real, target :: c; c= a*b"
 multiplication.stmtr8 = "double precision, target :: c; c= a*b"
+multiplication.stmtp = "c = a * b"
 multiplication.vals = {'a':1.0,'b':2.0}
 multiplication.grads = {'a':3.0,'b':4.0}
 multiplication.test_vals = {'c':2.0}
@@ -118,6 +124,7 @@ multiplication_const_l.stmtf = "float c = 0.3f * a;"
 multiplication_const_l.stmtl = "long double c = 0.3l * a;"
 multiplication_const_l.stmtr4 = "real, target :: c; c = 0.3e0 * a"
 multiplication_const_l.stmtr8 = "double precision, target :: c; c = 0.3d0 * a"
+multiplication_const_l.stmtp = "c = 0.3 * a"
 multiplication_const_l.vals = {'a':2.0}
 multiplication_const_l.grads = {'a':3.0}
 multiplication_const_l.test_vals = {'c':0.6}
@@ -130,6 +137,7 @@ multiplication_const_r.stmtf = "float c = a * 0.5;"
 multiplication_const_r.stmtl = "long double c = a * 0.5;"
 multiplication_const_r.stmtr4 = "real, target :: c; c = a * 0.5e0"
 multiplication_const_r.stmtr8 = "double precision, target :: c; c = a * 0.5d0"
+multiplication_const_r.stmtp = "c = a * 0.5"
 multiplication_const_r.vals = {'a':2.0}
 multiplication_const_r.grads = {'a':3.0}
 multiplication_const_r.test_vals = {'c':1.0}
@@ -142,6 +150,7 @@ division.stmtf = "float c = a/b;"
 division.stmtl = "long double c = a/b;"
 division.stmtr4 = "real, target :: c; c = a/b"
 division.stmtr8 = "double precision, target :: c; c = a/b"
+division.stmtp = "c = a/b"
 division.vals = {'a':1.0,'b':2.0}
 division.grads = {'a':5.0,'b':4.0}
 division.test_vals = {'c':0.5}
@@ -154,6 +163,7 @@ division_const_l.stmtf = "float c = 0.3f / a;"
 division_const_l.stmtl = "long double c = 0.3l / a;"
 division_const_l.stmtr4 = "real, target :: c; c = 0.3e0 / a"
 division_const_l.stmtr8 = "double precision, target :: c; c = 0.3d0 / a"
+division_const_l.stmtp = "c = 0.3/a"
 division_const_l.vals = {'a':2.0}
 division_const_l.grads = {'a':3.0}
 division_const_l.test_vals = {'c':0.15}
@@ -166,6 +176,7 @@ division_const_r.stmtf = "float c = a / 0.5f;"
 division_const_r.stmtl = "long double c = a / 0.5l;"
 division_const_r.stmtr4 = "real, target :: c; c = a / 0.5e0"
 division_const_r.stmtr8 = "double precision, target :: c; c = a / 0.5d0"
+division_const_r.stmtp = "c = a/0.5"
 division_const_r.vals = {'a':2.0}
 division_const_r.grads = {'a':3.0}
 division_const_r.test_vals = {'c':4.0}
@@ -178,6 +189,7 @@ negative.stmtf = "float c = -a;"
 negative.stmtl = "long double c = -a;"
 negative.stmtr4 = "real, target :: c; c= -a"
 negative.stmtr8 = "double precision, target :: c; c= -a"
+negative.stmtp = "c= -a"
 negative.vals = {'a':1.0}
 negative.grads = {'a':2.0}
 negative.test_vals = {'c':-1.0}
