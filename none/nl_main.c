@@ -1435,7 +1435,6 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
            VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") &&
            VG_(strcmp)(name,"amd64g_dirtyhelper_PCMPxSTRx")
         ){
-          addStmtToIRSB(sb_out, st_orig);
           VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
           ppIRStmt(st);
           VG_(printf)("\n");
