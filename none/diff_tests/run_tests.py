@@ -602,7 +602,7 @@ addition_forloop.stmtf = "float c = 0; for(int i=0; i<10; i++) c+=a;"
 addition_forloop.stmtl = "long double c = 0; for(int i=0; i<10; i++) c+=a;"
 addition_forloop.stmtr4 = "real, target :: c = 0; integer :: i; do i=0, 9; c=c+a; end do"
 addition_forloop.stmtr8 = "double precision, target :: c = 0; integer :: i; do i=0, 9; c=c+a; end do"
-addition_forloop.stmtp = "for i in range(10):\n  c+=a"
+addition_forloop.stmtp = "c=0\nfor i in range(10):\n  c+=a"
 addition_forloop.vals = {'a':2.0}
 addition_forloop.grads = {'a':1.0}
 addition_forloop.test_vals = {'c':20.0}
@@ -615,7 +615,7 @@ multiplication_forloop.stmtf = "float c = 1; for(int i=0; i<10; i++) c*=a;"
 multiplication_forloop.stmtl = "long double c = 1; for(int i=0; i<10; i++) c*=a;"
 multiplication_forloop.stmtr4 = "real, target :: c = 1; integer :: i; do i=0, 9; c=c*a; end do"
 multiplication_forloop.stmtr8 = "double precision, target :: c = 1; integer :: i; do i=0, 9; c=c*a; end do"
-multiplication_forloop.stmtp = "for i in range(10):\n  c*=a"
+multiplication_forloop.stmtp = "c=1\nfor i in range(10):\n  c*=a"
 multiplication_forloop.vals = {'a':2.0}
 multiplication_forloop.grads = {'a':1.0}
 multiplication_forloop.test_vals = {'c':1024.0}
