@@ -3,6 +3,7 @@ import copy
 from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHON64
 import sys
 import os
+import fnmatch
 
 selected_testcase = None
 if len(sys.argv)>2:
@@ -935,27 +936,23 @@ for test_arch in ["x86", "amd64"]:
           testlist.append(test)
 
 ### Run testcases ###
-there_are_failed_tests = False
-if selected_testcase:
-  for test in testlist:
-    if test.name==selected_testcase:
-      there_are_failed_tests = not test.run()
-else: 
-  outcomes = []
-  for test in testlist:
-    outcomes.append(test.run())
+if not selected_testcase:
+  selected_testcase = "*"
+outcomes = []
+for test in testlist:
+  if fnmatch.fnmatchcase(test.name, selected_testcase):
+    outcomes.append((test.name, test.run()))
 
-  print("Summary:")
-  for i in range(len(testlist)):
-    if outcomes[i]:
-      print("  "+testlist[i].name+": PASSED")
-    else:
-      print("* "+testlist[i].name+": FAILED")
-      there_are_failed_tests = True
+print("Summary:")
+number_of_failed_tests = 0
+for testname,testresult in outcomes:
+  if testresult:
+    print("  "+testname+" : PASSED")
+  else:
+    print("* "+testname+" : FAILED")
+    number_of_failed_tests += 1
+print(f"Ran {len(outcomes)} tests, {number_of_failed_tests} failed.")
 
-if there_are_failed_tests:
-  exit(1)
-else:
-  exit(0)
+exit(number_of_failed_tests)
 
   
