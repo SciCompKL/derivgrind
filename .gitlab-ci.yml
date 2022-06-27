@@ -7,7 +7,7 @@ build:
   stage: build
   script:
     - apt-get update
-    - apt-get install -y build-essential binutils automake gcc-multilib python3 gfortran
+    - apt-get install -y build-essential binutils automake gcc-multilib python3 gfortran git python3-dev
     - ./autogen.sh
     - CFLAGS=-g ./configure --prefix=$PWD/install
     - make install
