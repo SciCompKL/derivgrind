@@ -422,7 +422,7 @@ asin.stmtf = "float c = asinf(a);"
 asin.stmtl = "long double c = asinl(a);"
 asin.stmtr4 = "real, target :: c; c = asin(a)"
 asin.stmtr8 = "double precision, target :: c; c = asin(a)"
-asin.stmtp = "c = np.asin(a)"
+asin.stmtp = "c = np.arcsin(a)"
 asin.vals = {'a':0.9}
 asin.grads = {'a':1.0}
 asin.test_vals = {'c':np.arcsin(0.9)}
@@ -437,7 +437,7 @@ acos.stmtf = "float c = acosf(a);"
 acos.stmtl = "long double c = acosl(a);"
 acos.stmtr4 = "real, target :: c; c = acos(a)"
 acos.stmtr8 = "double precision, target :: c; c = acos(a)"
-acos.stmtp = "c = np.acos(a)"
+acos.stmtp = "c = np.arccos(a)"
 acos.vals = {'a':-0.4}
 acos.grads = {'a':1.0}
 acos.test_vals = {'c':np.arccos(-0.4)}
@@ -452,7 +452,7 @@ atan.stmtf = "float c = atanf(a);"
 atan.stmtl = "long double c = atanl(a);"
 atan.stmtr4 = "real, target :: c; c = atan(a)"
 atan.stmtr8 = "double precision, target :: c; c = atan(a)"
-atan.stmtp = "c = np.atan(a)"
+atan.stmtp = "c = np.arctan(a)"
 atan.vals = {'a':100}
 atan.grads = {'a':1.0}
 atan.test_vals = {'c':np.arctan(100)}
@@ -467,7 +467,7 @@ atan2.stmtf = "float c = atan2f(a,b);"
 atan2.stmtl = "long double c = atan2l(a,b);"
 atan2.stmtr4 = "real, target :: c; c = atan2(a,b)"
 atan2.stmtr8 = "double precision, target :: c; c = atan2(a,b)"
-atan2.stmtp = "c = np.atan2(a,b)"
+atan2.stmtp = "c = np.arctan2(a,b)"
 atan2.vals = {'a':3,'b':4}
 atan2.grads = {'a':1.3, 'b':1.5}
 atan2.test_vals = {'c':np.arctan2(3,4)}
@@ -913,6 +913,10 @@ for test_arch in ["x86", "amd64"]:
           test.compiler = "gfortran"
         elif test_language == "python":
           test.compiler = "python"
+          # Disable Python tests for x86 because most likely the python3
+          # executable is 64-bit. 
+          if test_arch == "x86":
+            test.disabled = True
 
         if test_type == "double":
           test.stmt = test.stmtd
