@@ -2,6 +2,7 @@ import subprocess
 import re
 import time
 import os
+import stat
 
 # Type information: 
 # ctype / ftype: Keyword in the C/C++/Fortran source
@@ -18,6 +19,8 @@ TYPE_LONG_DOUBLE = {"ctype":"long double", "gdbptype":"long double \*", "size":"
 # Fortran types
 TYPE_REAL4 = {"ftype":"real", "gdbptype":"PTR TO -> \( real\(kind=4\) \)", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
 TYPE_REAL8 = {"ftype":"double precision", "gdbptype":"PTR TO -> \( real\(kind=8\) \)", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.9f"}
+# Python types
+TYPE_PYTHON64 = {"tol":1e-8} # not suitable for interactive testcases
 
 def str_fortran(d):
   """Convert d to Fortran double precision literal."""
@@ -36,6 +39,7 @@ class TestCase:
     self.stmtl = None # Code to be run in C/C++ main function for long double test
     self.stmtr4 = None # Code to be run in Fortran program for real*4 test
     self.stmtr8 = None # Code to be run in Fortran program for real*8 test
+    self.stmtp = None # Code to be run in Python program
     self.stmt = None # One out of stmtd, stmtf, stmtl will be copied here
     # if a testcase is meant only for a subset of the three datatypes only,
     # set the others stmtX to None
@@ -234,7 +238,7 @@ class ClientRequestTestCase(TestCase):
     super().__init__(name)
 
   def produce_code(self):
-    # Insert testcase data into C or Fortran code template. 
+    # Insert testcase data into C, Fortran or Python code template. 
     if self.compiler=='gcc' or self.compiler=='g++':
       gcc = self.compiler=='gcc'
       self.code = "#include <stdio.h>\n" if gcc else "#include <iostream>\n"
@@ -325,6 +329,23 @@ class ClientRequestTestCase(TestCase):
         call exit(ret)
         end program
       """
+    elif self.compiler == "python":
+      self.code = "import numpy as np\nimport derivgrind\nret = 0\n"
+      for var in self.vals:
+        self.code += f"{var} = derivgrind.set_derivative({self.vals[var]}, {self.grads[var]})\n"
+      self.code += self.stmt + "\n"
+      for var in self.test_vals:
+        self.code += f'if {var} < {self.test_vals[var]-self.type["tol"]} or {var} > {self.test_vals[var]+self.type["tol"]}:\n'
+        self.code += f'  print("VALUES DISAGREE: {var} stored=", {self.test_vals[var]}, "computed=", {var})\n'
+        self.code +=  '  ret = 1\n' 
+      for var in self.test_vals:
+        self.code += f'derivative_of_{var} = derivgrind.get_derivative({var})\n'
+        self.code += f'if derivative_of_{var} < {self.test_grads[var]-self.type["tol"]} or derivative_of_{var} > {self.test_grads[var]+self.type["tol"]}:\n'
+        self.code += f'  print("GRADIENTS DISAGREE: {var} stored=", {self.test_grads[var]}, "computed=", derivative_of_{var})\n'
+        self.code +=  '  ret = 1\n' 
+      self.code += "exit(ret)\n"
+
+
 
   def compile_code(self):
     # write C/C++ code into file
@@ -334,14 +355,18 @@ class ClientRequestTestCase(TestCase):
       self.source_filename = "TestCase_src.cpp"
     elif self.compiler=='gfortran':
       self.source_filename = "TestCase_src.f90"
+    elif self.compiler=='python':
+      self.source_filename = "TestCase_src.py"
     with open(self.source_filename, "w") as f:
       f.write(self.code)
     if self.compiler=='gcc' or self.compiler=='g++':
       compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     elif self.compiler=='gfortran':
       compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "fortran/derivgrind_clientrequests.c", "-o", "TestCase_exec", "-I../../install/include", "-Ifortran"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() ,universal_newlines=True)
+    elif self.compiler=='python':
+      pass
 
-    if compile_process.returncode!=0:
+    if self.compiler!='python' and compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
   def run_code(self):
@@ -353,7 +378,11 @@ class ClientRequestTestCase(TestCase):
     if "LD_PRELOAD" not in environ:
       environ["LD_PRELOAD"]=""
     environ["LD_PRELOAD"] += ":"+environ["PWD"]+"/../libm-extension/lib"+str(self.arch)+"/libmextension.so"
-    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none", "./TestCase_exec"],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
+    if self.compiler=='python':
+      commands = ['python3', 'TestCase_src.py']
+    else:
+      commands = ['./TestCase_exec']
+    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none"]+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
     

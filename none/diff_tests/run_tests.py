@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8
+from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHON64
 import sys
 import os
 
@@ -33,6 +33,7 @@ addition.stmtf = "float c = a+b;"
 addition.stmtl = "long double c = a+b;"
 addition.stmtr4 = "real, target :: c; c= a+b"
 addition.stmtr8 = "double precision, target :: c; c= a+b"
+addition.stmtp = "c = a+b"
 addition.vals = {'a':1.0,'b':2.0}
 addition.grads = {'a':3.0,'b':4.0}
 addition.test_vals = {'c':3.0}
@@ -837,11 +838,13 @@ basiclist.append(sin_100_interactive)
 ### Take "cross product" with other configuation options ###
 testlist = []
 for test_arch in ["x86", "amd64"]:
-  for test_language in ["c", "cpp", "fortran"]:
+  for test_language in ["c", "cpp", "fortran", "python"]:
     if test_language=="c" or test_language=="cpp":
       test_type_list = ["double", "float", "longdouble"]
     elif test_language=="fortran":
       test_type_list = ["real4", "real8"]
+    elif test_language=='python':
+      test_type_list = ["float64"]
     for test_type in test_type_list:
       for basictest in basiclist:
         test = copy.deepcopy(basictest)
@@ -865,6 +868,8 @@ for test_arch in ["x86", "amd64"]:
           test.compiler = "g++"
         elif test_language == "fortran":
           test.compiler = "gfortran"
+        elif test_language == "python":
+          test.compiler = "python"
 
         if test_type == "double":
           test.stmt = test.stmtd
@@ -881,6 +886,9 @@ for test_arch in ["x86", "amd64"]:
         elif test_type == "real8":
           test.stmt = test.stmtr8
           test.type = TYPE_REAL8
+        elif test_type == "float64":
+          test.stmt = test.stmtp
+          test.type = TYPE_PYTHON64
         if test.stmt!=None:
           testlist.append(test)
 
