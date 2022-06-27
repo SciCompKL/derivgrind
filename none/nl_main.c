@@ -1414,6 +1414,8 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
        *   (re)store a SSE state, this seems to be a completely discrete thing.
        * - The PCMPxSTRx dirty calls account for SSE 4.2 string instructions,
        *   also a purely discrete thing.
+       * - amd64g_dirtyhelper_FSTENV and amd64g_dirtyhelper_FLDENV save status,
+       *   pointers and the like, but not the content of the x87 registers.
        *
        * For other dirty calls, a warning is emitted.
        */
@@ -1433,7 +1435,9 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
            VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) &&
            VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") &&
            VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") &&
-           VG_(strcmp)(name,"amd64g_dirtyhelper_PCMPxSTRx")
+           VG_(strcmp)(name,"amd64g_dirtyhelper_PCMPxSTRx") &&
+           VG_(strcmp)(name,"amd64g_dirtyhelper_FSTENV") &&
+           VG_(strcmp)(name,"amd64g_dirtyhelper_FLDENV")
         ){
           VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
           ppIRStmt(st);
