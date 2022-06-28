@@ -790,19 +790,19 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         );
     /*! Define derivatives for four basic arithmetic operations.
      */
-    #define DERIVATIVE_OF_TRIOP_ALL(suffix) \
+    #define DERIVATIVE_OF_BASICOP_ALL(suffix) \
       DERIVATIVE_OF_TRIOP_ADD(suffix) \
       DERIVATIVE_OF_TRIOP_SUB(suffix) \
       DERIVATIVE_OF_TRIOP_MUL(suffix) \
-      DERIVATIVE_OF_TRIOP_DIV(suffix)
+      DERIVATIVE_OF_TRIOP_DIV(suffix) \
 
     switch(rex->op){
-      DERIVATIVE_OF_TRIOP_ALL(F64) // e.g. Iop_AddF64
-      DERIVATIVE_OF_TRIOP_ALL(F32) // e.g. Iop_AddF32
-      DERIVATIVE_OF_TRIOP_ALL(64Fx2) // e.g. Iop_Add64Fx2
-      DERIVATIVE_OF_TRIOP_ALL(64Fx4) // e.g. Iop_Add64Fx4
-      DERIVATIVE_OF_TRIOP_ALL(32Fx4) // e.g. Iop_Add32Fx4
-      DERIVATIVE_OF_TRIOP_ALL(32Fx8) // e.g. Iop_Add32Fx8
+      DERIVATIVE_OF_BASICOP_ALL(F64) // e.g. Iop_AddF64
+      DERIVATIVE_OF_BASICOP_ALL(F32) // e.g. Iop_AddF32
+      DERIVATIVE_OF_BASICOP_ALL(64Fx2) // e.g. Iop_Add64Fx2
+      DERIVATIVE_OF_BASICOP_ALL(64Fx4) // e.g. Iop_Add64Fx4
+      DERIVATIVE_OF_BASICOP_ALL(32Fx4) // e.g. Iop_Add32Fx4
+      DERIVATIVE_OF_BASICOP_ALL(32Fx8) // e.g. Iop_Add32Fx8
       // there is no Iop_Div32Fx2
       DERIVATIVE_OF_TRIOP_ADD(32Fx2) DERIVATIVE_OF_TRIOP_SUB(32Fx2) DERIVATIVE_OF_TRIOP_MUL(32Fx2)
       case Iop_AtanF64: {
@@ -926,18 +926,22 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       NL_HANDLE_LOGICAL(Or, or)
       NL_HANDLE_LOGICAL(Xor, xor)
 
-      case Iop_SqrtF64: {
-        IRExpr* numerator = d2;
-        IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
-        IRExpr* denominator =  IRExpr_Triop(Iop_MulF64, arg1, consttwo, IRExpr_Binop(Iop_SqrtF64, arg1, arg2) );
-        return IRExpr_Triop(Iop_DivF64, arg1, numerator, denominator);
-      }
-      case Iop_SqrtF32: {
-        IRExpr* numerator = d2;
-        IRExpr* consttwo = IRExpr_Const(IRConst_F32(2.0));
-        IRExpr* denominator =  IRExpr_Triop(Iop_MulF32, arg1, consttwo, IRExpr_Binop(Iop_SqrtF32, arg1, arg2) );
-        return IRExpr_Triop(Iop_DivF32, arg1, numerator, denominator);
-      }
+      /*! Define derivative for square root IROp.
+       */
+      #define DERIVATIVE_OF_BINOP_SQRT(suffix) \
+        case Iop_Sqrt##suffix: { \
+          IRExpr* numerator = d2; \
+          IRExpr* consttwo = mkIRConst_zero(typeOfIRExpr(diffenv.sb_out->tyenv, arg2)); \
+          IRExpr* denominator =  IRExpr_Triop(Iop_Mul##suffix, arg1, consttwo, IRExpr_Binop(Iop_Sqrt##suffix, arg1, arg2) ); \
+          return IRExpr_Triop(Iop_Div##suffix, arg1, numerator, denominator); \
+        }
+      DERIVATIVE_OF_BINOP_SQRT(F64)
+      DERIVATIVE_OF_BINOP_SQRT(F32)
+      DERIVATIVE_OF_BINOP_SQRT(64Fx2)
+      DERIVATIVE_OF_BINOP_SQRT(64Fx4)
+      DERIVATIVE_OF_BINOP_SQRT(32Fx4)
+      DERIVATIVE_OF_BINOP_SQRT(32Fx8)
+
       case Iop_F64toF32: {
         return IRExpr_Binop(Iop_F64toF32, arg1, d2);
       }
