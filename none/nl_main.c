@@ -928,15 +928,14 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
 
       /*! Define derivative for square root IROp.
        */
-      #define DERIVATIVE_OF_BINOP_SQRT(suffix) \
+      #define DERIVATIVE_OF_BINOP_SQRT(suffix, consttwo) \
         case Iop_Sqrt##suffix: { \
           IRExpr* numerator = d2; \
-          IRExpr* consttwo = mkIRConst_zero(typeOfIRExpr(diffenv.sb_out->tyenv, arg2)); \
           IRExpr* denominator =  IRExpr_Triop(Iop_Mul##suffix, arg1, consttwo, IRExpr_Binop(Iop_Sqrt##suffix, arg1, arg2) ); \
           return IRExpr_Triop(Iop_Div##suffix, arg1, numerator, denominator); \
         }
-      DERIVATIVE_OF_BINOP_SQRT(F64)
-      DERIVATIVE_OF_BINOP_SQRT(F32)
+      DERIVATIVE_OF_BINOP_SQRT(F64, IRExpr_Const(IRConst_F64(2.)))
+      DERIVATIVE_OF_BINOP_SQRT(F32, IRExpr_Const(IRConst_F32(2.)))
 
       case Iop_F64toF32: {
         return IRExpr_Binop(Iop_F64toF32, arg1, d2);
