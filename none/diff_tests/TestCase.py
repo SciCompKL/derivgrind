@@ -20,7 +20,8 @@ TYPE_LONG_DOUBLE = {"ctype":"long double", "gdbptype":"long double \*", "size":"
 TYPE_REAL4 = {"ftype":"real", "gdbptype":"PTR TO -> \( real\(kind=4\) \)", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
 TYPE_REAL8 = {"ftype":"double precision", "gdbptype":"PTR TO -> \( real\(kind=8\) \)", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.9f"}
 # Python types
-TYPE_PYTHON64 = {"tol":1e-8} # not suitable for interactive testcases
+TYPE_PYTHONFLOAT = {"tol":1e-8, "pytype":"float"} # not suitable for interactive testcases
+TYPE_NUMPYFLOAT64 = {"tol":1e-8, "pytype":"np.float64"} # not suitable for interactive testcases
 
 def str_fortran(d):
   """Convert d to Fortran double precision literal."""
@@ -331,17 +332,35 @@ class ClientRequestTestCase(TestCase):
       """
     elif self.compiler == "python":
       self.code = "import numpy as np\nimport derivgrind\nret = 0\n"
-      for var in self.vals:
-        self.code += f"{var} = derivgrind.set_derivative({self.vals[var]}, {self.grads[var]})\n"
+      # NumPy tests perform the same calculation 16 times
+      if self.type['pytype']=='float':
+        self_vals = self.vals
+        self_grads = self.grads
+        self_test_vals = self.test_vals
+        self_test_grads = self.test_grads
+      elif self.type['pytype']=='np.float64':
+        self_vals = { (var+'['+str(i)+']'):self.vals[var] for var in self.vals for i in range(16) }
+        self_grads = { (var+'['+str(i)+']'):self.grads[var] for var in self.grads for i in range(16) }
+        self_test_vals = { (var+'['+str(i)+']'):self.test_vals[var] for var in self.test_vals for i in range(16) }
+        self_test_grads = { (var+'['+str(i)+']'):self.test_grads[var] for var in self.test_grads for i in range(16) }
+        for var in self.vals:
+          self.code += f"{var} = np.empty(16,dtype=np.float64)\n"
+      for var in self_vals:
+        self.code += f"{var} = {self_vals[var]}\n"
+      for var in self_grads:
+        self.code += f"{var} = derivgrind.set_derivative({var}, {self_grads[var]})\n"
       self.code += self.stmt + "\n"
-      for var in self.test_vals:
-        self.code += f'if {var} < {self.test_vals[var]-self.type["tol"]} or {var} > {self.test_vals[var]+self.type["tol"]}:\n'
-        self.code += f'  print("VALUES DISAGREE: {var} stored=", {self.test_vals[var]}, "computed=", {var})\n'
+      if self.type['pytype']=='np.float64':
+        for var in self.test_grads:
+          self.code += f"derivative_of_{var} = np.empty(16,dtype=np.float64)\n"
+      for var in self_test_vals:
+        self.code += f'if {var} < {self_test_vals[var]-self.type["tol"]} or {var} > {self_test_vals[var]+self.type["tol"]}:\n'
+        self.code += f'  print("VALUES DISAGREE: {var} stored=", {self_test_vals[var]}, "computed=", {var})\n'
         self.code +=  '  ret = 1\n' 
-      for var in self.test_vals:
+      for var in self_test_grads:
         self.code += f'derivative_of_{var} = derivgrind.get_derivative({var})\n'
-        self.code += f'if derivative_of_{var} < {self.test_grads[var]-self.type["tol"]} or derivative_of_{var} > {self.test_grads[var]+self.type["tol"]}:\n'
-        self.code += f'  print("GRADIENTS DISAGREE: {var} stored=", {self.test_grads[var]}, "computed=", derivative_of_{var})\n'
+        self.code += f'if derivative_of_{var} < {self_test_grads[var]-self.type["tol"]} or derivative_of_{var} > {self_test_grads[var]+self.type["tol"]}:\n'
+        self.code += f'  print("GRADIENTS DISAGREE: {var} stored=", {self_test_grads[var]}, "computed=", derivative_of_{var})\n'
         self.code +=  '  ret = 1\n' 
       self.code += "exit(ret)\n"
 

@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHON64
+from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHONFLOAT, TYPE_NUMPYFLOAT64
 import sys
 import os
 import fnmatch
@@ -887,7 +887,7 @@ for test_arch in ["x86", "amd64"]:
     elif test_language=="fortran":
       test_type_list = ["real4", "real8"]
     elif test_language=='python':
-      test_type_list = ["float64"]
+      test_type_list = ["float","np64"]
     for test_type in test_type_list:
       for basictest in basiclist:
         test = copy.deepcopy(basictest)
@@ -921,7 +921,7 @@ for test_arch in ["x86", "amd64"]:
         if test_type == "double":
           test.stmt = test.stmtd
           test.type = TYPE_DOUBLE
-        elif test_type == "float":
+        elif test_language in ["c","cpp"] and test_type == "float":
           test.stmt = test.stmtf
           test.type = TYPE_FLOAT
         elif test_type == "longdouble":
@@ -933,9 +933,12 @@ for test_arch in ["x86", "amd64"]:
         elif test_type == "real8":
           test.stmt = test.stmtr8
           test.type = TYPE_REAL8
-        elif test_type == "float64":
+        elif test_language=='python' and test_type == "float":
           test.stmt = test.stmtp
-          test.type = TYPE_PYTHON64
+          test.type = TYPE_PYTHONFLOAT
+        elif test_type == "np64":
+          test.stmt = test.stmtp
+          test.type = TYPE_NUMPYFLOAT64
         if test.stmt!=None:
           testlist.append(test)
 
