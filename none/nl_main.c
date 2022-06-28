@@ -89,7 +89,7 @@ static unsigned long stmt_counter = 0; //!< Can be used to tag nl_add_print_stmt
 
 /*! Condition for writing out unknown expressions.
  */
-#define UNWRAPPED_EXPRESSION_OUTPUT_FILTER True
+#define UNWRAPPED_EXPRESSION_OUTPUT_FILTER False
 
 static void nl_post_clo_init(void)
 {
