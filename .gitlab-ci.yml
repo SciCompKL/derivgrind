@@ -32,9 +32,10 @@ test_x86:
     - dpkg --add-architecture i386
     - apt-get update
     - apt-get install -y python3:i386
+    - apt-get install -y python3-numpy
     - cd none/diff_tests && python3 run_tests.py x86*
 
-test_amd64:
+.test_amd64:
   stage: test
   script:
     - export DEBIAN_FRONTEND=noninteractive
