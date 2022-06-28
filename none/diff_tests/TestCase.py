@@ -19,9 +19,10 @@ TYPE_LONG_DOUBLE = {"ctype":"long double", "gdbptype":"long double \*", "size":"
 # Fortran types
 TYPE_REAL4 = {"ftype":"real", "gdbptype":"PTR TO -> \( real\(kind=4\) \)", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
 TYPE_REAL8 = {"ftype":"double precision", "gdbptype":"PTR TO -> \( real\(kind=8\) \)", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.9f"}
-# Python types
-TYPE_PYTHONFLOAT = {"tol":1e-8, "pytype":"float"} # not suitable for interactive testcases
-TYPE_NUMPYFLOAT64 = {"tol":1e-8, "pytype":"np.float64"} # not suitable for interactive testcases
+# Python types, not suitable for interactive testcases
+TYPE_PYTHONFLOAT = {"tol":1e-8, "pytype":"float"}
+TYPE_NUMPYFLOAT64 = {"tol":1e-8, "pytype":"np.float64"}
+TYPE_NUMPYFLOAT32 = {"tol":1e-4, "pytype":"np.float32"}
 
 def str_fortran(d):
   """Convert d to Fortran double precision literal."""
@@ -55,7 +56,7 @@ class TestCase:
     self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
     self.type = TYPE_DOUBLE # TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE (for C/C++), TYPE_REAL4, TYPE_REAL8 (for Fortran)
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
-    self.disabled = False # if True, test will not be run
+    self.disable = lambda arch, language, typename : False # if True, test will not be run
     self.compiler = "gcc" # gcc, g++ or gfortran
     self.only_language = None # define if test works for one particular language only
 
@@ -210,9 +211,6 @@ class InteractiveTestCase(TestCase):
 
   def run(self):
     print("##### Running interactive test '"+self.name+"'... #####", flush=True)
-    if self.disabled:
-      print("DISABLED.\n")
-      return True
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_code()
@@ -338,21 +336,21 @@ class ClientRequestTestCase(TestCase):
         self_grads = self.grads
         self_test_vals = self.test_vals
         self_test_grads = self.test_grads
-      elif self.type['pytype']=='np.float64':
+      elif self.type['pytype'] in ['np.float64', 'np.float32']:
         self_vals = { (var+'['+str(i)+']'):self.vals[var] for var in self.vals for i in range(16) }
         self_grads = { (var+'['+str(i)+']'):self.grads[var] for var in self.grads for i in range(16) }
         self_test_vals = { (var+'['+str(i)+']'):self.test_vals[var] for var in self.test_vals for i in range(16) }
         self_test_grads = { (var+'['+str(i)+']'):self.test_grads[var] for var in self.test_grads for i in range(16) }
         for var in self.vals:
-          self.code += f"{var} = np.empty(16,dtype=np.float64)\n"
+          self.code += f"{var} = np.empty(16,dtype={self.type['pytype']})\n"
       for var in self_vals:
         self.code += f"{var} = {self_vals[var]}\n"
       for var in self_grads:
         self.code += f"{var} = derivgrind.set_derivative({var}, {self_grads[var]})\n"
       self.code += self.stmt + "\n"
-      if self.type['pytype']=='np.float64':
+      if self.type['pytype'] in ['np.float64','np.float32']:
         for var in self.test_grads:
-          self.code += f"derivative_of_{var} = np.empty(16,dtype=np.float64)\n"
+          self.code += f"derivative_of_{var} = np.empty(16,dtype={self.type['pytype']})\n"
       for var in self_test_vals:
         self.code += f'if {var} < {self_test_vals[var]-self.type["tol"]} or {var} > {self_test_vals[var]+self.type["tol"]}:\n'
         self.code += f'  print("VALUES DISAGREE: {var} stored=", {self_test_vals[var]}, "computed=", {var})\n'
@@ -408,9 +406,6 @@ class ClientRequestTestCase(TestCase):
 
   def run(self):
     print("##### Running client request test '"+self.name+"'... #####", flush=True)
-    if self.disabled:
-      print("DISABLED.\n")
-      return True
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_code()

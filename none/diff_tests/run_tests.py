@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHONFLOAT, TYPE_NUMPYFLOAT64
+from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHONFLOAT, TYPE_NUMPYFLOAT64, TYPE_NUMPYFLOAT32
 import sys
 import os
 import fnmatch
@@ -550,6 +550,7 @@ ifbranch.stmtl = "long double c; if(a<1) c = 2+a; else c = 2*a; "
 ifbranch.stmtr4 = "real, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end if"
 ifbranch.stmtr8 = "double precision, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end if"
 ifbranch.stmtp = "if a<1:\n  c = 2+a\nelse:\n  c = 2*a\n"
+ifbranch.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 ifbranch.vals = {'a':0.0}
 ifbranch.grads = {'a':1.0}
 ifbranch.test_vals = {'c':2.0}
@@ -563,6 +564,7 @@ elsebranch.stmtl = "long double c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.stmtr4 = "real, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.stmtr8 = "double precision, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.stmtp = "if a<-1:\n  c = 2+a\nelse:\n  c = 2*a\n"
+elsebranch.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 elsebranch.vals = {'a':0.0}
 elsebranch.grads = {'a':1.0}
 elsebranch.test_vals = {'c':0.0}
@@ -576,6 +578,7 @@ ternary_true.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_true.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtp = "c = (3*a) if (a>-1) else (a*a)"
+ternary_true.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 ternary_true.vals = {'a':10.0}
 ternary_true.grads = {'a':1.0}
 ternary_true.test_vals = {'c':30.0}
@@ -586,9 +589,10 @@ ternary_false = ClientRequestTestCase("ternary_false")
 ternary_false.stmtd = "double c = (a>-1) ? (3*a) : (a*a);"
 ternary_false.stmtf = "float c = (a>-1) ? (3*a) : (a*a);"
 ternary_false.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
-ternary_true.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
-ternary_true.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
-ternary_true.stmtp = "c = (3*a) if (a>-1) else (a*a)"
+ternary_false.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
+ternary_false.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
+ternary_false.stmtp = "c = (3*a) if (a>-1) else (a*a)"
+ternary_false.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 ternary_false.vals = {'a':-10.0}
 ternary_false.grads = {'a':1.0}
 ternary_false.test_vals = {'c':100.0}
@@ -629,6 +633,7 @@ addition_whileloop.stmtl = "long double c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtr4 = "real, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.stmtr8 = "double precision, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.stmtp = "c=0\nwhile c<19:\n  c=c+a"
+addition_whileloop.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 addition_whileloop.vals = {'a':2.0}
 addition_whileloop.grads = {'a':1.0}
 addition_whileloop.test_vals = {'c':20.0}
@@ -642,6 +647,7 @@ multiplication_whileloop.stmtl = "long double c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtr4 = "real, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.stmtr8 = "double precision, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.stmtp = "c=1\nwhile c<1023:\n  c=c*a"
+multiplication_whileloop.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 multiplication_whileloop.vals = {'a':2.0}
 multiplication_whileloop.grads = {'a':1.0}
 multiplication_whileloop.test_vals = {'c':1024.0}
@@ -887,7 +893,7 @@ for test_arch in ["x86", "amd64"]:
     elif test_language=="fortran":
       test_type_list = ["real4", "real8"]
     elif test_language=='python':
-      test_type_list = ["float","np64"]
+      test_type_list = ["float","np64","np32"]
     for test_type in test_type_list:
       for basictest in basiclist:
         test = copy.deepcopy(basictest)
@@ -901,7 +907,7 @@ for test_arch in ["x86", "amd64"]:
           # Apparantly the current CI pipeline does not give us the 4 GB 
           # of RAM that we need to initialize shadow memory on a 64-bit system.
           if "DG_CONSTRAINED_ENVIRONMENT" in os.environ:
-            test.disabled = True
+            test.disable = lambda arch, language, typename : True
 
         if test.only_language!=None and test.only_language!=test_language:
           continue
@@ -916,7 +922,7 @@ for test_arch in ["x86", "amd64"]:
           # Disable Python tests for x86 because most likely the python3
           # executable is 64-bit. 
           if test_arch == "x86":
-            test.disabled = True
+            test.disable = lambda arch, language, typename : True
 
         if test_type == "double":
           test.stmt = test.stmtd
@@ -939,7 +945,10 @@ for test_arch in ["x86", "amd64"]:
         elif test_type == "np64":
           test.stmt = test.stmtp
           test.type = TYPE_NUMPYFLOAT64
-        if test.stmt!=None:
+        elif test_type == "np32":
+          test.stmt = test.stmtp
+          test.type = TYPE_NUMPYFLOAT32
+        if test.stmt!=None and not test.disable(test_arch, test_language, test_type):
           testlist.append(test)
 
 ### Run testcases ###
