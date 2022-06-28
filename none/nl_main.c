@@ -89,7 +89,7 @@ static unsigned long stmt_counter = 0; //!< Can be used to tag nl_add_print_stmt
 
 /*! Condition for writing out unknown expressions.
  */
-#define UNWRAPPED_EXPRESSION_OUTPUT_FILTER type==Ity_F64||type==Ity_F32 //||type==Ity_V128
+#define UNWRAPPED_EXPRESSION_OUTPUT_FILTER True
 
 static void nl_post_clo_init(void)
 {
@@ -937,10 +937,6 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         }
       DERIVATIVE_OF_BINOP_SQRT(F64)
       DERIVATIVE_OF_BINOP_SQRT(F32)
-      DERIVATIVE_OF_BINOP_SQRT(64Fx2)
-      DERIVATIVE_OF_BINOP_SQRT(64Fx4)
-      DERIVATIVE_OF_BINOP_SQRT(32Fx4)
-      DERIVATIVE_OF_BINOP_SQRT(32Fx8)
 
       case Iop_F64toF32: {
         return IRExpr_Binop(Iop_F64toF32, arg1, d2);
@@ -1051,6 +1047,24 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         IRExpr* minus_d = IRExpr_Unop(Iop_NegF32, d);
         return IRExpr_ITE(IRExpr_Unop(Iop_32to1,cond), minus_d, d);
       }
+
+      /*! Define derivative for square root IROp.
+       */
+      #define DERIVATIVE_OF_UNOP_SQRT(suffix,consttwo) \
+        case Iop_Sqrt##suffix: { \
+          IRExpr* numerator = d; \
+          IRExpr* consttwo_32 = IRExpr_Unop(Iop_ReinterpF32asI32, IRExpr_Const(IRConst_F32(2.))); \
+          IRExpr* consttwo_32x2 = IRExpr_Binop(Iop_32HLto64, consttwo_32,consttwo_32); \
+          IRExpr* consttwo_64 = IRExpr_Unop(Iop_ReinterpF64asI64, IRExpr_Const(IRConst_F64(2.))); \
+          IRExpr* default_rounding = IRExpr_Const(IRConst_U32(Irrm_ZERO)); \
+          IRExpr* denominator =  IRExpr_Triop(Iop_Mul##suffix, default_rounding, consttwo, IRExpr_Unop(Iop_Sqrt##suffix, arg) ); \
+          return IRExpr_Triop(Iop_Div##suffix, default_rounding, numerator, denominator); \
+        }
+      DERIVATIVE_OF_UNOP_SQRT(64Fx2, IRExpr_Binop(Iop_64HLtoV128,consttwo_64,consttwo_64))
+      DERIVATIVE_OF_UNOP_SQRT(64Fx4, IRExpr_Qop(Iop_64x4toV256,consttwo_64,consttwo_64,consttwo_64,consttwo_64))
+      DERIVATIVE_OF_UNOP_SQRT(32Fx4, IRExpr_Binop(Iop_64HLtoV128, consttwo_32x2,consttwo_32x2))
+      DERIVATIVE_OF_UNOP_SQRT(32Fx8, IRExpr_Qop(Iop_64x4toV256,consttwo_32x2,consttwo_32x2,consttwo_32x2,consttwo_32x2))
+
       case Iop_Sqrt64F0x2: {
         IRExpr* numerator = d;
         IRExpr* consttwo_f64 = IRExpr_Const(IRConst_F64(2.0));
