@@ -903,11 +903,6 @@ for test_arch in ["x86", "amd64"]:
           test.arch = 32
         elif test_arch == "amd64":
           test.arch = 64
-          # Disable amd64 testcases if hinted so by the environment variable.
-          # Apparantly the current CI pipeline does not give us the 4 GB 
-          # of RAM that we need to initialize shadow memory on a 64-bit system.
-          if "DG_CONSTRAINED_ENVIRONMENT" in os.environ:
-            test.disable = lambda arch, language, typename : True
 
         if test.only_language!=None and test.only_language!=test_language:
           continue
@@ -919,10 +914,12 @@ for test_arch in ["x86", "amd64"]:
           test.compiler = "gfortran"
         elif test_language == "python":
           test.compiler = "python"
-          # Disable Python tests for x86 because most likely the python3
-          # executable is 64-bit. 
-          if test_arch == "x86":
-            test.disable = lambda arch, language, typename : True
+          # If the Python interpreter is 64-bit, disable the 32-bit Python tests
+          # and vice versa. 
+          if sys.maxsize > 2**32: # if 64 bit
+            test.disable = lambda arch, language, typename : arch=="x86"
+          else:
+            test.disable = lambda arch, language, typename : arch=="amd64"
 
         if test_type == "double":
           test.stmt = test.stmtd
