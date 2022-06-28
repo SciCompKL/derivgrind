@@ -1,4 +1,4 @@
-image: ubuntu:20.04
+image: debian:11.3
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -31,8 +31,7 @@ test_x86:
     - apt-get install -y build-essential gfortran python3 python3-numpy gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg
     - dpkg --add-architecture i386
     - apt-get update
-    - apt-get install -y python3:i386
-    - apt-get install -y python3-numpy
+    - apt-get install -y python3:i386 python3-numpy:i386
     - cd none/diff_tests && python3 run_tests.py x86*
 
 .test_amd64:
