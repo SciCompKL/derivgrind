@@ -800,11 +800,11 @@ basiclist.append(omp)
 
 ### C++ tests ###
 constructornew = ClientRequestTestCase("constructornew")
-constructornew.only_language = "cpp"
 constructornew.include = "template<typename T> struct A { T t; A(T t): t(t*t) {} };" 
 constructornew.stmtd = "A<double>* a = new A<double>(x); double y=a->t; "
 constructornew.stmtf = "A<float>* a = new A<float>(x); float y=a->t; "
 constructornew.stmtl = "A<long double>* a = new A<long double>(x); long double y=a->t; "
+constructornew.disable = lambda arch, language, typename: not language=='cpp'
 constructornew.vals = {'x': 2.0}
 constructornew.grads = {'x': 3.0}
 constructornew.test_vals = {'y': 4.0}
@@ -812,7 +812,6 @@ constructornew.test_grads = {'y': 12.0}
 basiclist.append(constructornew)
 
 virtualdispatch = ClientRequestTestCase("virtualdispatch")
-virtualdispatch.only_language = "cpp"
 virtualdispatch.include = """
 template<typename T>
 class A { 
@@ -836,6 +835,7 @@ class B : public A<T> {
 virtualdispatch.stmtd = "B<double> b1(1,x), b2(3,4); b2 = static_cast<A<double> >(b1); double y = b2.t1;"
 virtualdispatch.stmtf = "B<float> b1(1,x), b2(3,4); b2 = static_cast<A<float> >(b1); float y = b2.t1;"
 virtualdispatch.stmtl = "B<long double> b1(1,x), b2(3,4); b2 = static_cast<A<long double> >(b1); long double y = b2.t1;"
+virtualdispatch.disable = lambda arch, language, typename: not language=='cpp'
 virtualdispatch.vals = {'x': 2.}
 virtualdispatch.grads = {'x': 2.1}
 virtualdispatch.test_vals = {'y': 2.}
@@ -904,8 +904,6 @@ for test_arch in ["x86", "amd64"]:
         elif test_arch == "amd64":
           test.arch = 64
 
-        if test.only_language!=None and test.only_language!=test_language:
-          continue
         if test_language == "c":
           test.compiler = "gcc"
         elif test_language == "cpp":
@@ -917,9 +915,11 @@ for test_arch in ["x86", "amd64"]:
           # If the Python interpreter is 64-bit, disable the 32-bit Python tests
           # and vice versa. 
           if sys.maxsize > 2**32: # if 64 bit
-            test.disable = lambda arch, language, typename : arch=="x86"
+            old = test.disable
+            test.disable = lambda arch, language, typename : old(arch,language,typename) or arch=="x86"
           else:
-            test.disable = lambda arch, language, typename : arch=="amd64"
+            old = test.disable
+            test.disable = lambda arch, language, typename : old(arch,language,typename) or arch=="amd64"
 
         if test_type == "double":
           test.stmt = test.stmtd
