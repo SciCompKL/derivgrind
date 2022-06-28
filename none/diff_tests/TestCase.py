@@ -397,6 +397,9 @@ class ClientRequestTestCase(TestCase):
     environ["LD_PRELOAD"] += ":"+environ["PWD"]+"/../libm-extension/lib"+str(self.arch)+"/libmextension.so"
     if self.compiler=='python':
       commands = ['python3', 'TestCase_src.py']
+      if "PYTHONPATH" not in environ:
+        environ["PYTHONPATH"]=""
+      environ["PYTHONPATH"] += ":"+environ["PWD"]+"/python"
     else:
       commands = ['./TestCase_exec']
     valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none"]+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
