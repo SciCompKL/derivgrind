@@ -988,6 +988,19 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           IRExpr_Binop(Iop_Mul32F0x4,arg2,arg2)
         );
       }
+      case Iop_Min64F0x2: {
+        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
+        IRExpr* d1_lo = IRExpr_Unop(Iop_V128to64, d1);
+        IRExpr* d2_lo = IRExpr_Unop(Iop_V128to64, d2);
+        IRExpr* d1_hi = IRExpr_Unop(Iop_V128HIto64, d1);
+        IRExpr* arg1_lo_f = IRExpr_Unop(Iop_ReinterpI64asF64, IRExpr_Unop(Iop_V128to64, arg1));
+        IRExpr* arg2_lo_f = IRExpr_Unop(Iop_ReinterpI64asF64, IRExpr_Unop(Iop_V128to64, arg2));
+        IRExpr* cond = IRExpr_Binop(Iop_CmpF64, arg1_lo_f, arg2_lo_f);
+        return IRExpr_Binop(Iop_64HLtoV128,
+          d1_hi,
+          IRExpr_ITE(IRExpr_Unop(Iop_32to1,cond),d1_lo,d2_lo)
+        );
+      }
       // the following operations produce an F64 zero derivative
       case Iop_I64StoF64:
       case Iop_I64UtoF64:
