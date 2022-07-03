@@ -705,6 +705,36 @@ typedef struct {
 
 static IRExpr* differentiate_or_zero(IRExpr*, DiffEnv, Bool, const char*);
 
+// Some valid pieces of VEX IR cannot be translated back to machine code by
+// Valgrind, but end up with an "ISEL" error. Therefore we sometimes need
+// workarounds using convertToF64 and convertFromF64.
+/*! Convert F32 and F64 expressions to F64.
+ *  \param[in] expr - F32 or F64 expression.
+ *  \param[in] diffenv - Differentiation environment.
+ *  \param[out] originaltype - Original type is stored here so convertFromF64 can go back.
+ *  \return F64 expression.
+ */
+static IRExpr* convertToF64(IRExpr* expr, DiffEnv diffenv, IRType* originaltype){
+  *originaltype = typeOfIRExpr(diffenv.sb_out->tyenv, expr);
+  switch(*originaltype){
+    case Ity_F64: return expr;
+    case Ity_F32: return IRExpr_Unop(Iop_F32toF64, expr);
+    default: VG_(printf)("Bad type in convertToF64.\n"); tl_assert(False); return NULL;
+  }
+}
+/*! Convert F64 expressions to F32 or F64.
+ *  \param[in] expr - F64 expression.
+ *  \param[in] originaltype - Original type is stored here from convertToF64.
+ *  \return F32 or F64 expression.
+ */
+static IRExpr* convertFromF64(IRExpr* expr, IRType originaltype){
+  switch(originaltype){
+    case Ity_F64: return expr;
+    case Ity_F32: return IRExpr_Binop(Iop_F64toF32, IRExpr_Const(IRConst_U32(Irrm_ZERO)), expr);
+    default: VG_(printf)("Bad type in convertFromF64.\n"); tl_assert(False); return NULL;
+  }
+}
+
 /*! Differentiate an expression.
  *
  *  - For arithmetic expressions involving float or double variables, we
@@ -734,11 +764,28 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     IRExpr* d4 = differentiate_expr(arg4,diffenv);
     if(d2==NULL || d3==NULL || d4==NULL) return NULL;
     switch(rex->op){
-      case Iop_MAddF64:
-            return IRExpr_Triop(Iop_AddF64,arg1,
-              IRExpr_Triop(Iop_MulF64,arg1,d2,arg3),
-              IRExpr_Qop(Iop_MAddF64,arg1,arg2,d3,d4)
-             );
+      /*! Define derivative of e.g. Iop_MSubF32.
+       * \param addsub - Add or Sub
+       * \param suffix - F32 or F64
+       */
+      #define DERIVATIVE_OF_MADDSUB_QOP(addsub, suffix) \
+      case Iop_M##addsub##suffix: {\
+        IRType originaltype; \
+        IRExpr* arg2_f64 = convertToF64(arg2,diffenv,&originaltype); \
+        IRExpr* arg3_f64 = convertToF64(arg3,diffenv,&originaltype); \
+        IRExpr* d2_f64 = convertToF64(d2,diffenv,&originaltype); \
+        IRExpr* d3_f64 = convertToF64(d3,diffenv,&originaltype); \
+        IRExpr* d4_f64 = convertToF64(d4,diffenv,&originaltype); \
+        IRExpr* res = IRExpr_Triop(Iop_##addsub##F64,arg1, \
+          IRExpr_Triop(Iop_MulF64,arg1,d2_f64,arg3_f64), \
+          IRExpr_Qop(Iop_M##addsub##F64,arg1,arg2_f64,d3_f64,d4_f64) \
+         ); \
+        return convertFromF64(res, originaltype); \
+      }
+      DERIVATIVE_OF_MADDSUB_QOP(Add, F64)
+      DERIVATIVE_OF_MADDSUB_QOP(Sub, F64)
+      DERIVATIVE_OF_MADDSUB_QOP(Add, F32)
+      DERIVATIVE_OF_MADDSUB_QOP(Sub, F32)
       case Iop_64x4toV256: {
         IRExpr* d1 = differentiate_expr(arg2,diffenv);
         if(d1)
