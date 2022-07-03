@@ -807,7 +807,7 @@ exponentadd.grads = {'a': -42.0}
 exponentadd.test_vals = {'c':6.28}
 exponentadd.test_grads = {'c':-84.0}
 exponentadd.disable = lambda arch, language, typename: True
-basiclist.addpend(exponentadd)
+basiclist.append(exponentadd)
 
 exponentsub = ClientRequestTestCase("exponentsub")
 exponentsub.stmtd = "double c = a; *((char*)&c+6) -= 0x10;"
@@ -817,7 +817,7 @@ exponentsub.grads = {'a': -42.0}
 exponentsub.test_vals = {'c':3}
 exponentsub.test_grads = {'c':-84.0}
 exponentsub.disable = lambda arch, language, typename: True
-basiclist.addpend(exponentadd)
+basiclist.append(exponentadd)
 
 ### C++ tests ###
 constructornew = ClientRequestTestCase("constructornew")
