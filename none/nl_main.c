@@ -1058,7 +1058,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       // on the derivatives in the same way as for primal values
       case Iop_64HLto128: case Iop_32HLto64:
       case Iop_16HLto32: case Iop_8HLto16:
-      case Iop_64HLtoV128:
+      case Iop_64HLtoV128: case Iop_V128HLtoV256:
       case Iop_Add64F0x2: case Iop_Sub64F0x2:
       case Iop_Add32F0x4: case Iop_Sub32F0x4:
       case Iop_SetV128lo32: case Iop_SetV128lo64:
@@ -1143,6 +1143,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_32to16: case Iop_32HIto16:
       case Iop_64to32: case Iop_64HIto32:
       case Iop_V128to64: case Iop_V128HIto64:
+      case Iop_V256toV128_0: case Iop_V256toV128_1:
       case Iop_8Uto16: case Iop_8Uto32: case Iop_8Uto64:
       case Iop_16Uto32: case Iop_16Uto64:
       case Iop_32Uto64:
