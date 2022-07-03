@@ -798,6 +798,27 @@ omp.test_vals = {'sum':omp_test_sum_val}
 omp.test_grads = {'sum':omp_test_sum_grad}
 basiclist.append(omp)
 
+### Misusing integer and logic operations for floating-point arithmetics ###
+exponentadd = ClientRequestTestCase("exponentadd")
+exponentadd.stmtd = "double c = a; *((char*)&c+6) += 0x10;"
+exponentadd.stmtf = "float c = a; *((char*)&c+2) += 0xf0;"
+exponentadd.vals = {'a':3.14}
+exponentadd.grads = {'a': -42.0}
+exponentadd.test_vals = {'c':6.28}
+exponentadd.test_grads = {'c':-84.0}
+exponentadd.disable = lambda arch, language, typename: True
+basiclist.addpend(exponentadd)
+
+exponentsub = ClientRequestTestCase("exponentsub")
+exponentsub.stmtd = "double c = a; *((char*)&c+6) -= 0x10;"
+exponentsub.stmtf = "float c = a; *((char*)&c+2) -= 0xf0;"
+exponentsub.vals = {'a':3.14}
+exponentsub.grads = {'a': -42.0}
+exponentsub.test_vals = {'c':3}
+exponentsub.test_grads = {'c':-84.0}
+exponentsub.disable = lambda arch, language, typename: True
+basiclist.addpend(exponentadd)
+
 ### C++ tests ###
 constructornew = ClientRequestTestCase("constructornew")
 constructornew.include = "template<typename T> struct A { T t; A(T t): t(t*t) {} };" 
