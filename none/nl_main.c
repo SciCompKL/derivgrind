@@ -89,7 +89,7 @@ static unsigned long stmt_counter = 0; //!< Can be used to tag nl_add_print_stmt
 
 /*! Condition for writing out unknown expressions.
  */
-#define UNWRAPPED_EXPRESSION_OUTPUT_FILTER type==Ity_F64||type==Ity_F32 //||type==Ity_V128
+#define UNWRAPPED_EXPRESSION_OUTPUT_FILTER False
 
 static void nl_post_clo_init(void)
 {
@@ -705,6 +705,36 @@ typedef struct {
 
 static IRExpr* differentiate_or_zero(IRExpr*, DiffEnv, Bool, const char*);
 
+// Some valid pieces of VEX IR cannot be translated back to machine code by
+// Valgrind, but end up with an "ISEL" error. Therefore we sometimes need
+// workarounds using convertToF64 and convertFromF64.
+/*! Convert F32 and F64 expressions to F64.
+ *  \param[in] expr - F32 or F64 expression.
+ *  \param[in] diffenv - Differentiation environment.
+ *  \param[out] originaltype - Original type is stored here so convertFromF64 can go back.
+ *  \return F64 expression.
+ */
+static IRExpr* convertToF64(IRExpr* expr, DiffEnv diffenv, IRType* originaltype){
+  *originaltype = typeOfIRExpr(diffenv.sb_out->tyenv, expr);
+  switch(*originaltype){
+    case Ity_F64: return expr;
+    case Ity_F32: return IRExpr_Unop(Iop_F32toF64, expr);
+    default: VG_(printf)("Bad type in convertToF64.\n"); tl_assert(False); return NULL;
+  }
+}
+/*! Convert F64 expressions to F32 or F64.
+ *  \param[in] expr - F64 expression.
+ *  \param[in] originaltype - Original type is stored here from convertToF64.
+ *  \return F32 or F64 expression.
+ */
+static IRExpr* convertFromF64(IRExpr* expr, IRType originaltype){
+  switch(originaltype){
+    case Ity_F64: return expr;
+    case Ity_F32: return IRExpr_Binop(Iop_F64toF32, IRExpr_Const(IRConst_U32(Irrm_ZERO)), expr);
+    default: VG_(printf)("Bad type in convertFromF64.\n"); tl_assert(False); return NULL;
+  }
+}
+
 /*! Differentiate an expression.
  *
  *  - For arithmetic expressions involving float or double variables, we
@@ -734,11 +764,28 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
     IRExpr* d4 = differentiate_expr(arg4,diffenv);
     if(d2==NULL || d3==NULL || d4==NULL) return NULL;
     switch(rex->op){
-      case Iop_MAddF64:
-            return IRExpr_Triop(Iop_AddF64,arg1,
-              IRExpr_Triop(Iop_MulF64,arg1,d2,arg3),
-              IRExpr_Qop(Iop_MAddF64,arg1,arg2,d3,d4)
-             );
+      /*! Define derivative of e.g. Iop_MSubF32.
+       * \param addsub - Add or Sub
+       * \param suffix - F32 or F64
+       */
+      #define DERIVATIVE_OF_MADDSUB_QOP(addsub, suffix) \
+      case Iop_M##addsub##suffix: {\
+        IRType originaltype; \
+        IRExpr* arg2_f64 = convertToF64(arg2,diffenv,&originaltype); \
+        IRExpr* arg3_f64 = convertToF64(arg3,diffenv,&originaltype); \
+        IRExpr* d2_f64 = convertToF64(d2,diffenv,&originaltype); \
+        IRExpr* d3_f64 = convertToF64(d3,diffenv,&originaltype); \
+        IRExpr* d4_f64 = convertToF64(d4,diffenv,&originaltype); \
+        IRExpr* res = IRExpr_Triop(Iop_##addsub##F64,arg1, \
+          IRExpr_Triop(Iop_MulF64,arg1,d2_f64,arg3_f64), \
+          IRExpr_Qop(Iop_M##addsub##F64,arg1,arg2_f64,d3_f64,d4_f64) \
+         ); \
+        return convertFromF64(res, originaltype); \
+      }
+      DERIVATIVE_OF_MADDSUB_QOP(Add, F64)
+      DERIVATIVE_OF_MADDSUB_QOP(Sub, F64)
+      DERIVATIVE_OF_MADDSUB_QOP(Add, F32)
+      DERIVATIVE_OF_MADDSUB_QOP(Sub, F32)
       case Iop_64x4toV256: {
         IRExpr* d1 = differentiate_expr(arg2,diffenv);
         if(d1)
@@ -790,19 +837,19 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         );
     /*! Define derivatives for four basic arithmetic operations.
      */
-    #define DERIVATIVE_OF_TRIOP_ALL(suffix) \
+    #define DERIVATIVE_OF_BASICOP_ALL(suffix) \
       DERIVATIVE_OF_TRIOP_ADD(suffix) \
       DERIVATIVE_OF_TRIOP_SUB(suffix) \
       DERIVATIVE_OF_TRIOP_MUL(suffix) \
-      DERIVATIVE_OF_TRIOP_DIV(suffix)
+      DERIVATIVE_OF_TRIOP_DIV(suffix) \
 
     switch(rex->op){
-      DERIVATIVE_OF_TRIOP_ALL(F64) // e.g. Iop_AddF64
-      DERIVATIVE_OF_TRIOP_ALL(F32) // e.g. Iop_AddF32
-      DERIVATIVE_OF_TRIOP_ALL(64Fx2) // e.g. Iop_Add64Fx2
-      DERIVATIVE_OF_TRIOP_ALL(64Fx4) // e.g. Iop_Add64Fx4
-      DERIVATIVE_OF_TRIOP_ALL(32Fx4) // e.g. Iop_Add32Fx4
-      DERIVATIVE_OF_TRIOP_ALL(32Fx8) // e.g. Iop_Add32Fx8
+      DERIVATIVE_OF_BASICOP_ALL(F64) // e.g. Iop_AddF64
+      DERIVATIVE_OF_BASICOP_ALL(F32) // e.g. Iop_AddF32
+      DERIVATIVE_OF_BASICOP_ALL(64Fx2) // e.g. Iop_Add64Fx2
+      DERIVATIVE_OF_BASICOP_ALL(64Fx4) // e.g. Iop_Add64Fx4
+      DERIVATIVE_OF_BASICOP_ALL(32Fx4) // e.g. Iop_Add32Fx4
+      DERIVATIVE_OF_BASICOP_ALL(32Fx8) // e.g. Iop_Add32Fx8
       // there is no Iop_Div32Fx2
       DERIVATIVE_OF_TRIOP_ADD(32Fx2) DERIVATIVE_OF_TRIOP_SUB(32Fx2) DERIVATIVE_OF_TRIOP_MUL(32Fx2)
       case Iop_AtanF64: {
@@ -832,6 +879,15 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
             IRExpr_Triop(Iop_MulF64,arg1,
               IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),
               arg3))
+        );
+      case Iop_Yl2xp1F64:
+        return IRExpr_Triop(Iop_AddF64,arg1,
+          IRExpr_Triop(Iop_Yl2xp1F64,arg1,d2,arg3),
+          IRExpr_Triop(Iop_DivF64,arg1,
+            IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),
+            IRExpr_Triop(Iop_MulF64,arg1,
+              IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),
+              IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.)))))
         );
 
       default:
@@ -917,18 +973,17 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       NL_HANDLE_LOGICAL(Or, or)
       NL_HANDLE_LOGICAL(Xor, xor)
 
-      case Iop_SqrtF64: {
-        IRExpr* numerator = d2;
-        IRExpr* consttwo = IRExpr_Const(IRConst_F64(2.0));
-        IRExpr* denominator =  IRExpr_Triop(Iop_MulF64, arg1, consttwo, IRExpr_Binop(Iop_SqrtF64, arg1, arg2) );
-        return IRExpr_Triop(Iop_DivF64, arg1, numerator, denominator);
-      }
-      case Iop_SqrtF32: {
-        IRExpr* numerator = d2;
-        IRExpr* consttwo = IRExpr_Const(IRConst_F32(2.0));
-        IRExpr* denominator =  IRExpr_Triop(Iop_MulF32, arg1, consttwo, IRExpr_Binop(Iop_SqrtF32, arg1, arg2) );
-        return IRExpr_Triop(Iop_DivF32, arg1, numerator, denominator);
-      }
+      /*! Define derivative for square root IROp.
+       */
+      #define DERIVATIVE_OF_BINOP_SQRT(suffix, consttwo) \
+        case Iop_Sqrt##suffix: { \
+          IRExpr* numerator = d2; \
+          IRExpr* denominator =  IRExpr_Triop(Iop_Mul##suffix, arg1, consttwo, IRExpr_Binop(Iop_Sqrt##suffix, arg1, arg2) ); \
+          return IRExpr_Triop(Iop_Div##suffix, arg1, numerator, denominator); \
+        }
+      DERIVATIVE_OF_BINOP_SQRT(F64, IRExpr_Const(IRConst_F64(2.)))
+      DERIVATIVE_OF_BINOP_SQRT(F32, IRExpr_Const(IRConst_F32(2.)))
+
       case Iop_F64toF32: {
         return IRExpr_Binop(Iop_F64toF32, arg1, d2);
       }
@@ -975,6 +1030,19 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
           IRExpr_Binop(Iop_Mul32F0x4,arg2,arg2)
         );
       }
+      case Iop_Min64F0x2: {
+        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
+        IRExpr* d1_lo = IRExpr_Unop(Iop_V128to64, d1);
+        IRExpr* d2_lo = IRExpr_Unop(Iop_V128to64, d2);
+        IRExpr* d1_hi = IRExpr_Unop(Iop_V128HIto64, d1);
+        IRExpr* arg1_lo_f = IRExpr_Unop(Iop_ReinterpI64asF64, IRExpr_Unop(Iop_V128to64, arg1));
+        IRExpr* arg2_lo_f = IRExpr_Unop(Iop_ReinterpI64asF64, IRExpr_Unop(Iop_V128to64, arg2));
+        IRExpr* cond = IRExpr_Binop(Iop_CmpF64, arg1_lo_f, arg2_lo_f);
+        return IRExpr_Binop(Iop_64HLtoV128,
+          d1_hi,
+          IRExpr_ITE(IRExpr_Unop(Iop_32to1,cond),d1_lo,d2_lo)
+        );
+      }
       // the following operations produce an F64 zero derivative
       case Iop_I64StoF64:
       case Iop_I64UtoF64:
@@ -990,7 +1058,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       // on the derivatives in the same way as for primal values
       case Iop_64HLto128: case Iop_32HLto64:
       case Iop_16HLto32: case Iop_8HLto16:
-      case Iop_64HLtoV128:
+      case Iop_64HLtoV128: case Iop_V128HLtoV256:
       case Iop_Add64F0x2: case Iop_Sub64F0x2:
       case Iop_Add32F0x4: case Iop_Sub32F0x4:
       case Iop_SetV128lo32: case Iop_SetV128lo64:
@@ -1025,6 +1093,24 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         IRExpr* minus_d = IRExpr_Unop(Iop_NegF32, d);
         return IRExpr_ITE(IRExpr_Unop(Iop_32to1,cond), minus_d, d);
       }
+
+      /*! Define derivative for square root IROp.
+       */
+      #define DERIVATIVE_OF_UNOP_SQRT(suffix,consttwo) \
+        case Iop_Sqrt##suffix: { \
+          IRExpr* numerator = d; \
+          IRExpr* consttwo_32 = IRExpr_Unop(Iop_ReinterpF32asI32, IRExpr_Const(IRConst_F32(2.))); \
+          IRExpr* consttwo_32x2 = IRExpr_Binop(Iop_32HLto64, consttwo_32,consttwo_32); \
+          IRExpr* consttwo_64 = IRExpr_Unop(Iop_ReinterpF64asI64, IRExpr_Const(IRConst_F64(2.))); \
+          IRExpr* default_rounding = IRExpr_Const(IRConst_U32(Irrm_ZERO)); \
+          IRExpr* denominator =  IRExpr_Triop(Iop_Mul##suffix, default_rounding, consttwo, IRExpr_Unop(Iop_Sqrt##suffix, arg) ); \
+          return IRExpr_Triop(Iop_Div##suffix, default_rounding, numerator, denominator); \
+        }
+      DERIVATIVE_OF_UNOP_SQRT(64Fx2, IRExpr_Binop(Iop_64HLtoV128,consttwo_64,consttwo_64))
+      DERIVATIVE_OF_UNOP_SQRT(64Fx4, IRExpr_Qop(Iop_64x4toV256,consttwo_64,consttwo_64,consttwo_64,consttwo_64))
+      DERIVATIVE_OF_UNOP_SQRT(32Fx4, IRExpr_Binop(Iop_64HLtoV128, consttwo_32x2,consttwo_32x2))
+      DERIVATIVE_OF_UNOP_SQRT(32Fx8, IRExpr_Qop(Iop_64x4toV256,consttwo_32x2,consttwo_32x2,consttwo_32x2,consttwo_32x2))
+
       case Iop_Sqrt64F0x2: {
         IRExpr* numerator = d;
         IRExpr* consttwo_f64 = IRExpr_Const(IRConst_F64(2.0));
@@ -1057,6 +1143,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_32to16: case Iop_32HIto16:
       case Iop_64to32: case Iop_64HIto32:
       case Iop_V128to64: case Iop_V128HIto64:
+      case Iop_V256toV128_0: case Iop_V256toV128_1:
       case Iop_8Uto16: case Iop_8Uto32: case Iop_8Uto64:
       case Iop_16Uto32: case Iop_16Uto64:
       case Iop_32Uto64:
@@ -1388,42 +1475,52 @@ IRSB* nl_instrument ( VgCallbackClosure* closure,
         addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         addStmtToIRSB(sb_out, st_orig);
       }
-      // The CPUID dirty calls set some registers in the guest state.
-      // As these should never end up as floating-point data, we don't
-      // need to do anything about AD.
-      else if(!VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23)) ||
-              !VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) ){
-        addStmtToIRSB(sb_out, st_orig);
-      }
-      // The following calls (re)store a SSE state, this seems to be a completely discrete thing.
-      else if(!VG_(strcmp(name, "amd64g_dirtyhelper_XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS")) ||
-              !VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) ){
-        addStmtToIRSB(sb_out, st_orig);
-      }
-      // The RDTSC instruction loads a 64-bit time-stamp counter into
-      // the (lower 32 bit of the) guest registers EAX and EDX (and
-      // clears the higher 32 bit on amd64). The dirty call just
-      // stores an Ity_I64 in its return temporary. We put a zero in
-      // the shadow temporary
-      else if(!VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") ||
-              !VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") ) {
-        addStmtToIRSB(sb_out,
-          IRStmt_WrTmp(det->tmp+diffenv.t_offset,mkIRConst_zero(Ity_I64)));
-        addStmtToIRSB(sb_out, st_orig);
-      }
-      // Yet untreated Ist_Dirty's.
-      // At least write a zero derivative if there is an output temporary,
-      // so it has been assigned to in case it is copied around later.
+      /*! \page dirty_calls_no_ad Dirty calls without relevance for AD
+       *  The following dirty calls do not handle AD-active bytes,
+       *  therefore no specific AD instrumentation is necessary. If
+       *  there is an output temporary, we set the shadow temporary to
+       *  zero in case it is further copied around.
+       * - The CPUID dirty calls set some registers in the guest state.
+       *   As these should never end up as floating-point data, we don't
+       *   need to do anything about AD.
+       * - The RDTSC instruction loads a 64-bit time-stamp counter into
+       *   the (lower 32 bit of the) guest registers EAX and EDX (and
+       *   clears the higher 32 bit on amd64). The dirty call just
+       *   stores an Ity_I64 in its return temporary. We put a zero in
+       *   the shadow temporary.
+       * - The XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS, XSAVE_.. dirty calls
+       *   (re)store a SSE state, this seems to be a completely discrete thing.
+       * - The PCMPxSTRx dirty calls account for SSE 4.2 string instructions,
+       *   also a purely discrete thing.
+       * - amd64g_dirtyhelper_FSTENV and amd64g_dirtyhelper_FLDENV save status,
+       *   pointers and the like, but not the content of the x87 registers.
+       *
+       * For other dirty calls, a warning is emitted.
+       */
       else {
-        IRTemp t = st->Ist.Dirty.details->tmp;
-        if(t!=IRTemp_INVALID){
-          IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,t);
-          addStmtToIRSB(sb_out,IRStmt_WrTmp(t+diffenv.t_offset,mkIRConst_zero(type)));
+        if(det->tmp!=IRTemp_INVALID){
+          IRTemp shadow_tmp = det->tmp+diffenv.t_offset;
+          IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,det->tmp);
+          IRExpr* zero = mkIRConst_zero(type);
+          addStmtToIRSB(sb_out,IRStmt_WrTmp(shadow_tmp,zero));
         }
         addStmtToIRSB(sb_out, st_orig);
-        VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
-        ppIRStmt(st);
-        VG_(printf)("\n");
+
+        // warn if dirty call is unknown
+        if(VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23)) &&
+           VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) &&
+           VG_(strcmp(name, "amd64g_dirtyhelper_XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS")) &&
+           VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) &&
+           VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") &&
+           VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") &&
+           VG_(strcmp)(name,"amd64g_dirtyhelper_PCMPxSTRx") &&
+           VG_(strcmp)(name,"amd64g_dirtyhelper_FSTENV") &&
+           VG_(strcmp)(name,"amd64g_dirtyhelper_FLDENV")
+        ){
+          VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
+          ppIRStmt(st);
+          VG_(printf)("\n");
+        }
       }
     } else if(st->tag==Ist_NoOp || st->tag==Ist_IMark || st->tag==Ist_AbiHint){
       addStmtToIRSB(sb_out, st_orig);

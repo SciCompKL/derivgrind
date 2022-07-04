@@ -2,6 +2,7 @@ import subprocess
 import re
 import time
 import os
+import stat
 
 # Type information: 
 # ctype / ftype: Keyword in the C/C++/Fortran source
@@ -18,6 +19,10 @@ TYPE_LONG_DOUBLE = {"ctype":"long double", "gdbptype":"long double \*", "size":"
 # Fortran types
 TYPE_REAL4 = {"ftype":"real", "gdbptype":"PTR TO -> \( real\(kind=4\) \)", "size":4, "tol":1e-4, "get":"fget", "set":"fset","format":"%.9f"}
 TYPE_REAL8 = {"ftype":"double precision", "gdbptype":"PTR TO -> \( real\(kind=8\) \)", "size":8, "tol":1e-8, "get":"get", "set":"set","format":"%.9f"}
+# Python types, not suitable for interactive testcases
+TYPE_PYTHONFLOAT = {"tol":1e-8, "pytype":"float"}
+TYPE_NUMPYFLOAT64 = {"tol":1e-8, "pytype":"np.float64"}
+TYPE_NUMPYFLOAT32 = {"tol":1e-4, "pytype":"np.float32"}
 
 def str_fortran(d):
   """Convert d to Fortran double precision literal."""
@@ -36,6 +41,7 @@ class TestCase:
     self.stmtl = None # Code to be run in C/C++ main function for long double test
     self.stmtr4 = None # Code to be run in Fortran program for real*4 test
     self.stmtr8 = None # Code to be run in Fortran program for real*8 test
+    self.stmtp = None # Code to be run in Python program
     self.stmt = None # One out of stmtd, stmtf, stmtl will be copied here
     # if a testcase is meant only for a subset of the three datatypes only,
     # set the others stmtX to None
@@ -50,9 +56,8 @@ class TestCase:
     self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
     self.type = TYPE_DOUBLE # TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE (for C/C++), TYPE_REAL4, TYPE_REAL8 (for Fortran)
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
-    self.disabled = False # if True, test will not be run
+    self.disable = lambda arch, language, typename : False # if True, test will not be run
     self.compiler = "gcc" # gcc, g++ or gfortran
-    self.only_language = None # define if test works for one particular language only
 
 class InteractiveTestCase(TestCase):
   """Methods to run a DerivGrind test case interactively in VGDB."""
@@ -205,9 +210,6 @@ class InteractiveTestCase(TestCase):
 
   def run(self):
     print("##### Running interactive test '"+self.name+"'... #####", flush=True)
-    if self.disabled:
-      print("DISABLED.\n")
-      return True
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_code()
@@ -234,7 +236,7 @@ class ClientRequestTestCase(TestCase):
     super().__init__(name)
 
   def produce_code(self):
-    # Insert testcase data into C or Fortran code template. 
+    # Insert testcase data into C, Fortran or Python code template. 
     if self.compiler=='gcc' or self.compiler=='g++':
       gcc = self.compiler=='gcc'
       self.code = "#include <stdio.h>\n" if gcc else "#include <iostream>\n"
@@ -325,6 +327,41 @@ class ClientRequestTestCase(TestCase):
         call exit(ret)
         end program
       """
+    elif self.compiler == "python":
+      self.code = "import numpy as np\nimport derivgrind\nret = 0\n"
+      # NumPy tests perform the same calculation 16 times
+      if self.type['pytype']=='float':
+        self_vals = self.vals
+        self_grads = self.grads
+        self_test_vals = self.test_vals
+        self_test_grads = self.test_grads
+      elif self.type['pytype'] in ['np.float64', 'np.float32']:
+        self_vals = { (var+'['+str(i)+']'):self.vals[var] for var in self.vals for i in range(16) }
+        self_grads = { (var+'['+str(i)+']'):self.grads[var] for var in self.grads for i in range(16) }
+        self_test_vals = { (var+'['+str(i)+']'):self.test_vals[var] for var in self.test_vals for i in range(16) }
+        self_test_grads = { (var+'['+str(i)+']'):self.test_grads[var] for var in self.test_grads for i in range(16) }
+        for var in self.vals:
+          self.code += f"{var} = np.empty(16,dtype={self.type['pytype']})\n"
+      for var in self_vals:
+        self.code += f"{var} = {self_vals[var]}\n"
+      for var in self_grads:
+        self.code += f"{var} = derivgrind.set_derivative({var}, {self_grads[var]})\n"
+      self.code += self.stmt + "\n"
+      if self.type['pytype'] in ['np.float64','np.float32']:
+        for var in self.test_grads:
+          self.code += f"derivative_of_{var} = np.empty(16,dtype={self.type['pytype']})\n"
+      for var in self_test_vals:
+        self.code += f'if {var} < {self_test_vals[var]-self.type["tol"]} or {var} > {self_test_vals[var]+self.type["tol"]}:\n'
+        self.code += f'  print("VALUES DISAGREE: {var} stored=", {self_test_vals[var]}, "computed=", {var})\n'
+        self.code +=  '  ret = 1\n' 
+      for var in self_test_grads:
+        self.code += f'derivative_of_{var} = derivgrind.get_derivative({var})\n'
+        self.code += f'if derivative_of_{var} < {self_test_grads[var]-self.type["tol"]} or derivative_of_{var} > {self_test_grads[var]+self.type["tol"]}:\n'
+        self.code += f'  print("GRADIENTS DISAGREE: {var} stored=", {self_test_grads[var]}, "computed=", derivative_of_{var})\n'
+        self.code +=  '  ret = 1\n' 
+      self.code += "exit(ret)\n"
+
+
 
   def compile_code(self):
     # write C/C++ code into file
@@ -334,14 +371,18 @@ class ClientRequestTestCase(TestCase):
       self.source_filename = "TestCase_src.cpp"
     elif self.compiler=='gfortran':
       self.source_filename = "TestCase_src.f90"
+    elif self.compiler=='python':
+      self.source_filename = "TestCase_src.py"
     with open(self.source_filename, "w") as f:
       f.write(self.code)
     if self.compiler=='gcc' or self.compiler=='g++':
       compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     elif self.compiler=='gfortran':
-      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "derivgrind_clientrequests.c", "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() ,universal_newlines=True)
+      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "fortran/derivgrind_clientrequests.c", "-o", "TestCase_exec", "-I../../install/include", "-Ifortran"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() ,universal_newlines=True)
+    elif self.compiler=='python':
+      pass
 
-    if compile_process.returncode!=0:
+    if self.compiler!='python' and compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
   def run_code(self):
@@ -353,16 +394,20 @@ class ClientRequestTestCase(TestCase):
     if "LD_PRELOAD" not in environ:
       environ["LD_PRELOAD"]=""
     environ["LD_PRELOAD"] += ":"+environ["PWD"]+"/../libm-extension/lib"+str(self.arch)+"/libmextension.so"
-    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none", "./TestCase_exec"],stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
+    if self.compiler=='python':
+      commands = ['python3', 'TestCase_src.py']
+      if "PYTHONPATH" not in environ:
+        environ["PYTHONPATH"]=""
+      environ["PYTHONPATH"] += ":"+environ["PWD"]+"/python"
+    else:
+      commands = ['./TestCase_exec']
+    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none"]+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
     
 
   def run(self):
     print("##### Running client request test '"+self.name+"'... #####", flush=True)
-    if self.disabled:
-      print("DISABLED.\n")
-      return True
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_code()

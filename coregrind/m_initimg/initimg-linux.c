@@ -1106,7 +1106,7 @@ IIFinaliseImageInfo VG_(ii_create_image)( IICreateImageInfo iicii,
    //--------------------------------------------------------------
    { 
       SizeT m1 = 1024 * 1024;
-      SizeT m8 = 8 * m1;
+      SizeT m8 = 16 * m1;
       SizeT dseg_max_size = (SizeT)VG_(client_rlimit_data).rlim_cur;
       VG_(debugLog)(1, "initimg", "Setup client data (brk) segment\n");
       if (dseg_max_size < m1) dseg_max_size = m1;

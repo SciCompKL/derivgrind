@@ -1,8 +1,9 @@
 import numpy as np
 import copy
-from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8
+from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHONFLOAT, TYPE_NUMPYFLOAT64, TYPE_NUMPYFLOAT32
 import sys
 import os
+import fnmatch
 
 selected_testcase = None
 if len(sys.argv)>2:
@@ -33,6 +34,7 @@ addition.stmtf = "float c = a+b;"
 addition.stmtl = "long double c = a+b;"
 addition.stmtr4 = "real, target :: c; c= a+b"
 addition.stmtr8 = "double precision, target :: c; c= a+b"
+addition.stmtp = "c = a+b"
 addition.vals = {'a':1.0,'b':2.0}
 addition.grads = {'a':3.0,'b':4.0}
 addition.test_vals = {'c':3.0}
@@ -45,6 +47,7 @@ addition_const_l.stmtf = "float c = 0.3f + a;"
 addition_const_l.stmtl = "long double c = 0.3l + a;"
 addition_const_l.stmtr4 = "real, target :: c; c= 0.3e0+a"
 addition_const_l.stmtr8 = "double precision, target :: c; c= 0.3d0+a"
+addition_const_l.stmtp = "c = 0.3 + a"
 addition_const_l.vals = {'a':1.0}
 addition_const_l.grads = {'a':2.0}
 addition_const_l.test_vals = {'c':1.3}
@@ -57,6 +60,7 @@ addition_const_r.stmtf = "float c = a + 0.3f;"
 addition_const_r.stmtl = "long double c = a + 0.3l;"
 addition_const_r.stmtr4 = "real, target :: c; c= a+0.3e0"
 addition_const_r.stmtr8 = "double precision, target :: c; c= a+0.3d0"
+addition_const_r.stmtp = "c = a + 0.3"
 addition_const_r.vals = {'a':1.0}
 addition_const_r.grads = {'a':2.0}
 addition_const_r.test_vals = {'c':1.3}
@@ -69,6 +73,7 @@ subtraction.stmtf = "float c = a-b;"
 subtraction.stmtl = "long double c = a-b;"
 subtraction.stmtr4 = "real, target :: c; c= a-b"
 subtraction.stmtr8 = "double precision, target :: c; c= a-b"
+subtraction.stmtp = "c = a - b"
 subtraction.vals = {'a':1.0,'b':2.0}
 subtraction.grads = {'a':3.0,'b':4.0}
 subtraction.test_vals = {'c':-1.0}
@@ -81,6 +86,7 @@ subtraction_const_l.stmtf = "float c = 0.3f - a;"
 subtraction_const_l.stmtl = "long double c = 0.3l - a;"
 subtraction_const_l.stmtr4 = "real, target :: c; c= 0.3e0-a"
 subtraction_const_l.stmtr8 = "double precision, target :: c; c= 0.3d0-a"
+subtraction_const_l.stmtp = "c = 0.3 - a"
 subtraction_const_l.vals = {'a':1.0}
 subtraction_const_l.grads = {'a':2.0}
 subtraction_const_l.test_vals = {'c':-0.7}
@@ -93,6 +99,7 @@ subtraction_const_r.stmtf = "float c = a - 0.5f;"
 subtraction_const_r.stmtl = "long double c = a - 0.5l;"
 subtraction_const_r.stmtr4 = "real, target :: c; c= a-0.5e0"
 subtraction_const_r.stmtr8 = "double precision, target :: c; c= a-0.5d0"
+subtraction_const_r.stmtp = "c = a - 0.5"
 subtraction_const_r.vals = {'a':1.0}
 subtraction_const_r.grads = {'a':2.0}
 subtraction_const_r.test_vals = {'c':0.5}
@@ -105,6 +112,7 @@ multiplication.stmtf = "float c = a*b;"
 multiplication.stmtl = "long double c = a*b;"
 multiplication.stmtr4 = "real, target :: c; c= a*b"
 multiplication.stmtr8 = "double precision, target :: c; c= a*b"
+multiplication.stmtp = "c = a * b"
 multiplication.vals = {'a':1.0,'b':2.0}
 multiplication.grads = {'a':3.0,'b':4.0}
 multiplication.test_vals = {'c':2.0}
@@ -117,6 +125,7 @@ multiplication_const_l.stmtf = "float c = 0.3f * a;"
 multiplication_const_l.stmtl = "long double c = 0.3l * a;"
 multiplication_const_l.stmtr4 = "real, target :: c; c = 0.3e0 * a"
 multiplication_const_l.stmtr8 = "double precision, target :: c; c = 0.3d0 * a"
+multiplication_const_l.stmtp = "c = 0.3 * a"
 multiplication_const_l.vals = {'a':2.0}
 multiplication_const_l.grads = {'a':3.0}
 multiplication_const_l.test_vals = {'c':0.6}
@@ -129,6 +138,7 @@ multiplication_const_r.stmtf = "float c = a * 0.5;"
 multiplication_const_r.stmtl = "long double c = a * 0.5;"
 multiplication_const_r.stmtr4 = "real, target :: c; c = a * 0.5e0"
 multiplication_const_r.stmtr8 = "double precision, target :: c; c = a * 0.5d0"
+multiplication_const_r.stmtp = "c = a * 0.5"
 multiplication_const_r.vals = {'a':2.0}
 multiplication_const_r.grads = {'a':3.0}
 multiplication_const_r.test_vals = {'c':1.0}
@@ -141,6 +151,7 @@ division.stmtf = "float c = a/b;"
 division.stmtl = "long double c = a/b;"
 division.stmtr4 = "real, target :: c; c = a/b"
 division.stmtr8 = "double precision, target :: c; c = a/b"
+division.stmtp = "c = a/b"
 division.vals = {'a':1.0,'b':2.0}
 division.grads = {'a':5.0,'b':4.0}
 division.test_vals = {'c':0.5}
@@ -153,6 +164,7 @@ division_const_l.stmtf = "float c = 0.3f / a;"
 division_const_l.stmtl = "long double c = 0.3l / a;"
 division_const_l.stmtr4 = "real, target :: c; c = 0.3e0 / a"
 division_const_l.stmtr8 = "double precision, target :: c; c = 0.3d0 / a"
+division_const_l.stmtp = "c = 0.3/a"
 division_const_l.vals = {'a':2.0}
 division_const_l.grads = {'a':3.0}
 division_const_l.test_vals = {'c':0.15}
@@ -165,6 +177,7 @@ division_const_r.stmtf = "float c = a / 0.5f;"
 division_const_r.stmtl = "long double c = a / 0.5l;"
 division_const_r.stmtr4 = "real, target :: c; c = a / 0.5e0"
 division_const_r.stmtr8 = "double precision, target :: c; c = a / 0.5d0"
+division_const_r.stmtp = "c = a/0.5"
 division_const_r.vals = {'a':2.0}
 division_const_r.grads = {'a':3.0}
 division_const_r.test_vals = {'c':4.0}
@@ -177,6 +190,7 @@ negative.stmtf = "float c = -a;"
 negative.stmtl = "long double c = -a;"
 negative.stmtr4 = "real, target :: c; c= -a"
 negative.stmtr8 = "double precision, target :: c; c= -a"
+negative.stmtp = "c= -a"
 negative.vals = {'a':1.0}
 negative.grads = {'a':2.0}
 negative.test_vals = {'c':-1.0}
@@ -194,6 +208,7 @@ abs_plus.stmtf = "float c = fabsf(a);"
 abs_plus.stmtl = "long double c = fabsl(a);"
 abs_plus.stmtr4 = "real, target :: c; c = abs(a)"
 abs_plus.stmtr8 = "double precision, target :: c; c = abs(a)"
+abs_plus.stmtp = "c = abs(a)"
 abs_plus.vals = {'a':1.0}
 abs_plus.grads = {'a':2.0}
 abs_plus.test_vals = {'c':1.0}
@@ -209,6 +224,7 @@ abs_minus.stmtf = "float c = fabsf(a);"
 abs_minus.stmtl = "long double c = fabsl(a);"
 abs_minus.stmtr4 = "real, target :: c; c = abs(a)"
 abs_minus.stmtr8 = "double precision, target :: c; c = abs(a)"
+abs_minus.stmtp = "c = abs(a)"
 abs_minus.vals = {'a':-1.0}
 abs_minus.grads = {'a':2.0}
 abs_minus.test_vals = {'c':1.0}
@@ -223,6 +239,7 @@ sqrt.stmtf = "float c = sqrtf(a);"
 sqrt.stmtl = "long double c = sqrtl(a);"
 sqrt.stmtr4 = "real, target :: c; c = sqrt(a)"
 sqrt.stmtr8 = "double precision, target :: c; c = sqrt(a)"
+sqrt.stmtp = "c = np.sqrt(a)"
 sqrt.vals = {'a':4.0}
 sqrt.grads = {'a':1.0}
 sqrt.test_vals = {'c':2.0}
@@ -239,6 +256,7 @@ pow_2.stmtf = "float c = powf(a,b);"
 pow_2.stmtl = "long double c = powl(a,b);"
 pow_2.stmtr4 = "real, target :: c; c = a**b"
 pow_2.stmtr8 = "double precision, target :: c; c = a**b"
+pow_2.stmtp = "c = a**b"
 pow_2.vals = {'a':4.0,'b':2.0}
 pow_2.grads = {'a':1.6,'b':1.9}
 pow_2.test_vals = {'c':4.0**2}
@@ -253,6 +271,7 @@ pow_both.stmtf = "float c = powf(a,b);"
 pow_both.stmtl = "long double c = powl(a,b);"
 pow_both.stmtr4 = "real, target :: c; c = a**b"
 pow_both.stmtr8 = "double precision, target :: c; c = a**b"
+pow_both.stmtp = "c = a**b"
 pow_both.vals = {'a':4.0,'b':3.0}
 pow_both.grads = {'a':1.6,'b':1.9}
 pow_both.test_vals = {'c':4.0**3.0}
@@ -268,6 +287,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.stmtl = "long double c = sinl(a);"
   sin.stmtr4 = "real, target :: c; c = sin(a)"
   sin.stmtr8 = "double precision, target :: c; c = sin(a)"
+  sin.stmtp = "c = np.sin(a)"
   sin.vals = {'a':angle}
   sin.grads = {'a':3.1}
   sin.test_vals = {'c':np.sin(angle)}
@@ -282,6 +302,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.stmtl = "long double c = cosl(a);"
   cos.stmtr4 = "real, target :: c; c = cos(a)"
   cos.stmtr8 = "double precision, target :: c; c = cos(a)"
+  cos.stmtp = "c = np.cos(a)"
   cos.vals = {'a':angle}
   cos.grads = {'a':2.7}
   cos.test_vals = {'c':np.cos(angle)}
@@ -296,6 +317,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   tan.stmtl = "long double c = tanl(a);"
   tan.stmtr4 = "real, target :: c; c = tan(a)"
   tan.stmtr8 = "double precision, target :: c; c = tan(a)"
+  tan.stmtp = "c = np.tan(a)"
   tan.vals = {'a':angle}
   tan.grads = {'a':1.0}
   tan.test_vals = {'c':np.tan(angle)}
@@ -310,6 +332,7 @@ exp.stmtf = "float c = expf(a);"
 exp.stmtl = "long double c = expl(a);"
 exp.stmtr4 = "real, target :: c; c = exp(a)"
 exp.stmtr8 = "double precision, target :: c; c = exp(a)"
+exp.stmtp = "c = np.exp(a)"
 exp.vals = {'a':4}
 exp.grads = {'a':5.0}
 exp.test_vals = {'c':np.exp(4)}
@@ -324,6 +347,7 @@ log.stmtf = "float c = logf(a);"
 log.stmtl = "long double c = logl(a);"
 log.stmtr4 = "real, target :: c; c = log(a)"
 log.stmtr8 = "double precision, target :: c; c = log(a)"
+log.stmtp = "c = np.log(a)"
 log.vals = {'a':20}
 log.grads = {'a':1.0}
 log.test_vals = {'c':np.log(20)}
@@ -338,6 +362,7 @@ log10.stmtf = "float c = log10f(a);"
 log10.stmtl = "long double c = log10l(a);"
 log10.stmtr4 = "real, target :: c; c = log10(a)"
 log10.stmtr8 = "double precision, target :: c; c = log10(a)"
+log10.stmtp = "c = np.log10(a)"
 log10.vals = {'a':0.01}
 log10.grads = {'a':1.0}
 log10.test_vals = {'c':-2}
@@ -352,6 +377,7 @@ sinh.stmtf = "float c = sinhf(a);"
 sinh.stmtl = "long double c = sinhl(a);"
 sinh.stmtr4 = "real, target :: c; c = sinh(a)"
 sinh.stmtr8 = "double precision, target :: c; c = sinh(a)"
+sinh.stmtp = "c = np.sinh(a)"
 sinh.vals = {'a':2.0}
 sinh.grads = {'a':1.0}
 sinh.test_vals = {'c':np.sinh(2.0)}
@@ -366,6 +392,7 @@ cosh.stmtf = "float c = coshf(a);"
 cosh.stmtl = "long double c = coshl(a);"
 cosh.stmtr4 = "real, target :: c; c = cosh(a)"
 cosh.stmtr8 = "double precision, target :: c; c = cosh(a)"
+cosh.stmtp = "c = np.cosh(a)"
 cosh.vals = {'a':-2.0}
 cosh.grads = {'a':1.0}
 cosh.test_vals = {'c':np.cosh(-2.0)}
@@ -380,6 +407,7 @@ tanh.stmtf = "float c = tanhf(a);"
 tanh.stmtl = "long double c = tanhl(a);"
 tanh.stmtr4 = "real, target :: c; c = tanh(a)"
 tanh.stmtr8 = "double precision, target :: c; c = tanh(a)"
+tanh.stmtp = "c = np.tanh(a)"
 tanh.vals = {'a':-0.5}
 tanh.grads = {'a':1.0}
 tanh.test_vals = {'c':np.tanh(-0.5)}
@@ -394,6 +422,7 @@ asin.stmtf = "float c = asinf(a);"
 asin.stmtl = "long double c = asinl(a);"
 asin.stmtr4 = "real, target :: c; c = asin(a)"
 asin.stmtr8 = "double precision, target :: c; c = asin(a)"
+asin.stmtp = "c = np.arcsin(a)"
 asin.vals = {'a':0.9}
 asin.grads = {'a':1.0}
 asin.test_vals = {'c':np.arcsin(0.9)}
@@ -408,6 +437,7 @@ acos.stmtf = "float c = acosf(a);"
 acos.stmtl = "long double c = acosl(a);"
 acos.stmtr4 = "real, target :: c; c = acos(a)"
 acos.stmtr8 = "double precision, target :: c; c = acos(a)"
+acos.stmtp = "c = np.arccos(a)"
 acos.vals = {'a':-0.4}
 acos.grads = {'a':1.0}
 acos.test_vals = {'c':np.arccos(-0.4)}
@@ -422,6 +452,7 @@ atan.stmtf = "float c = atanf(a);"
 atan.stmtl = "long double c = atanl(a);"
 atan.stmtr4 = "real, target :: c; c = atan(a)"
 atan.stmtr8 = "double precision, target :: c; c = atan(a)"
+atan.stmtp = "c = np.arctan(a)"
 atan.vals = {'a':100}
 atan.grads = {'a':1.0}
 atan.test_vals = {'c':np.arctan(100)}
@@ -436,6 +467,7 @@ atan2.stmtf = "float c = atan2f(a,b);"
 atan2.stmtl = "long double c = atan2l(a,b);"
 atan2.stmtr4 = "real, target :: c; c = atan2(a,b)"
 atan2.stmtr8 = "double precision, target :: c; c = atan2(a,b)"
+atan2.stmtp = "c = np.arctan2(a,b)"
 atan2.vals = {'a':3,'b':4}
 atan2.grads = {'a':1.3, 'b':1.5}
 atan2.test_vals = {'c':np.arctan2(3,4)}
@@ -450,6 +482,7 @@ floor.stmtf = "float c = floorf(a);"
 floor.stmtl = "long double c = floorl(a);"
 floor.stmtr4 = "real, target :: c; c = floor(a)"
 floor.stmtr8 = "double precision, target :: c; c = floor(a)"
+floor.stmtp = "c = np.floor(a)"
 floor.vals = {'a':2.0}
 floor.grads = {'a':1.0}
 floor.test_vals = {'c':2.0}
@@ -464,6 +497,7 @@ ceil.stmtf = "float c = ceilf(a);"
 ceil.stmtl = "long double c = ceill(a);"
 ceil.stmtr4 = "real, target :: c; c = ceiling(a)"
 ceil.stmtr8 = "double precision, target :: c; c = ceiling(a)"
+ceil.stmtp = "c = np.ceil(a)"
 ceil.vals = {'a':2.1}
 ceil.grads = {'a':1.0}
 ceil.test_vals = {'c':3.0}
@@ -515,6 +549,8 @@ ifbranch.stmtf = "float c; if(a<1) c = 2+a; else c = 2*a; "
 ifbranch.stmtl = "long double c; if(a<1) c = 2+a; else c = 2*a; "
 ifbranch.stmtr4 = "real, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end if"
 ifbranch.stmtr8 = "double precision, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end if"
+ifbranch.stmtp = "if a<1:\n  c = 2+a\nelse:\n  c = 2*a\n"
+ifbranch.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 ifbranch.vals = {'a':0.0}
 ifbranch.grads = {'a':1.0}
 ifbranch.test_vals = {'c':2.0}
@@ -527,6 +563,8 @@ elsebranch.stmtf = "float c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.stmtl = "long double c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.stmtr4 = "real, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.stmtr8 = "double precision, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
+elsebranch.stmtp = "if a<-1:\n  c = 2+a\nelse:\n  c = 2*a\n"
+elsebranch.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 elsebranch.vals = {'a':0.0}
 elsebranch.grads = {'a':1.0}
 elsebranch.test_vals = {'c':0.0}
@@ -539,6 +577,8 @@ ternary_true.stmtf = "float c = (a>-1) ? (3*a) : (a*a);"
 ternary_true.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_true.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
+ternary_true.stmtp = "c = (3*a) if (a>-1) else (a*a)"
+ternary_true.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 ternary_true.vals = {'a':10.0}
 ternary_true.grads = {'a':1.0}
 ternary_true.test_vals = {'c':30.0}
@@ -549,8 +589,10 @@ ternary_false = ClientRequestTestCase("ternary_false")
 ternary_false.stmtd = "double c = (a>-1) ? (3*a) : (a*a);"
 ternary_false.stmtf = "float c = (a>-1) ? (3*a) : (a*a);"
 ternary_false.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
-ternary_true.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
-ternary_true.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
+ternary_false.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
+ternary_false.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
+ternary_false.stmtp = "c = (3*a) if (a>-1) else (a*a)"
+ternary_false.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 ternary_false.vals = {'a':-10.0}
 ternary_false.grads = {'a':1.0}
 ternary_false.test_vals = {'c':100.0}
@@ -564,6 +606,7 @@ addition_forloop.stmtf = "float c = 0; for(int i=0; i<10; i++) c+=a;"
 addition_forloop.stmtl = "long double c = 0; for(int i=0; i<10; i++) c+=a;"
 addition_forloop.stmtr4 = "real, target :: c = 0; integer :: i; do i=0, 9; c=c+a; end do"
 addition_forloop.stmtr8 = "double precision, target :: c = 0; integer :: i; do i=0, 9; c=c+a; end do"
+addition_forloop.stmtp = "c=0\nfor i in range(10):\n  c+=a"
 addition_forloop.vals = {'a':2.0}
 addition_forloop.grads = {'a':1.0}
 addition_forloop.test_vals = {'c':20.0}
@@ -576,6 +619,7 @@ multiplication_forloop.stmtf = "float c = 1; for(int i=0; i<10; i++) c*=a;"
 multiplication_forloop.stmtl = "long double c = 1; for(int i=0; i<10; i++) c*=a;"
 multiplication_forloop.stmtr4 = "real, target :: c = 1; integer :: i; do i=0, 9; c=c*a; end do"
 multiplication_forloop.stmtr8 = "double precision, target :: c = 1; integer :: i; do i=0, 9; c=c*a; end do"
+multiplication_forloop.stmtp = "c=1\nfor i in range(10):\n  c*=a"
 multiplication_forloop.vals = {'a':2.0}
 multiplication_forloop.grads = {'a':1.0}
 multiplication_forloop.test_vals = {'c':1024.0}
@@ -588,6 +632,8 @@ addition_whileloop.stmtf = "float c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtl = "long double c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtr4 = "real, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.stmtr8 = "double precision, target :: c = 0; do while(c<19); c=c+a; end do"
+addition_whileloop.stmtp = "c=0\nwhile c<19:\n  c=c+a"
+addition_whileloop.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 addition_whileloop.vals = {'a':2.0}
 addition_whileloop.grads = {'a':1.0}
 addition_whileloop.test_vals = {'c':20.0}
@@ -600,6 +646,8 @@ multiplication_whileloop.stmtf = "float c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtl = "long double c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtr4 = "real, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.stmtr8 = "double precision, target :: c = 1; do while(c<1023); c=c*a; end do"
+multiplication_whileloop.stmtp = "c=1\nwhile c<1023:\n  c=c*a"
+multiplication_whileloop.disable = lambda arch, language, typename : typename in ["np64", "np32"]
 multiplication_whileloop.vals = {'a':2.0}
 multiplication_whileloop.grads = {'a':1.0}
 multiplication_whileloop.test_vals = {'c':1024.0}
@@ -635,6 +683,7 @@ addition_recursion.include = """
 addition_recursion.stmtd = "double c = f(10,a);"
 addition_recursion.stmtf = "float c = ff(10,a);"
 addition_recursion.stmtl = "long double c = fl(10,a);"
+addition_recursion.stmtp = "def f(n,x):\n  if n==0:\n    return 0.\n  else:\n    return x+f(n-1,x)\nc=f(10,a)"
 addition_recursion.vals = {'a':2.0}
 addition_recursion.grads = {'a':1.0}
 addition_recursion.test_vals = {'c':20.0}
@@ -650,6 +699,7 @@ multiplication_recursion.include = """
 multiplication_recursion.stmtd = "double c = f(10,a);"
 multiplication_recursion.stmtf = "float c = ff(10,a);"
 multiplication_recursion.stmtl = "long double c = fl(10,a);"
+multiplication_recursion.stmtp = "def f(n,x):\n  if n==0:\n    return 1.\n  else:\n    return x*f(n-1,x)\nc=f(10,a)"
 multiplication_recursion.vals = {'a':2.0}
 multiplication_recursion.grads = {'a':1.0}
 multiplication_recursion.test_vals = {'c':1024.0}
@@ -748,13 +798,34 @@ omp.test_vals = {'sum':omp_test_sum_val}
 omp.test_grads = {'sum':omp_test_sum_grad}
 basiclist.append(omp)
 
+### Misusing integer and logic operations for floating-point arithmetics ###
+exponentadd = ClientRequestTestCase("exponentadd")
+exponentadd.stmtd = "double c = a; *((char*)&c+6) += 0x10;"
+exponentadd.stmtf = "float c = a; *((char*)&c+2) += 0xf0;"
+exponentadd.vals = {'a':3.14}
+exponentadd.grads = {'a': -42.0}
+exponentadd.test_vals = {'c':6.28}
+exponentadd.test_grads = {'c':-84.0}
+exponentadd.disable = lambda arch, language, typename: True
+basiclist.append(exponentadd)
+
+exponentsub = ClientRequestTestCase("exponentsub")
+exponentsub.stmtd = "double c = a; *((char*)&c+6) -= 0x10;"
+exponentsub.stmtf = "float c = a; *((char*)&c+2) -= 0xf0;"
+exponentsub.vals = {'a':3.14}
+exponentsub.grads = {'a': -42.0}
+exponentsub.test_vals = {'c':3}
+exponentsub.test_grads = {'c':-84.0}
+exponentsub.disable = lambda arch, language, typename: True
+basiclist.append(exponentadd)
+
 ### C++ tests ###
 constructornew = ClientRequestTestCase("constructornew")
-constructornew.only_language = "cpp"
 constructornew.include = "template<typename T> struct A { T t; A(T t): t(t*t) {} };" 
 constructornew.stmtd = "A<double>* a = new A<double>(x); double y=a->t; "
 constructornew.stmtf = "A<float>* a = new A<float>(x); float y=a->t; "
 constructornew.stmtl = "A<long double>* a = new A<long double>(x); long double y=a->t; "
+constructornew.disable = lambda arch, language, typename: not language=='cpp'
 constructornew.vals = {'x': 2.0}
 constructornew.grads = {'x': 3.0}
 constructornew.test_vals = {'y': 4.0}
@@ -762,7 +833,6 @@ constructornew.test_grads = {'y': 12.0}
 basiclist.append(constructornew)
 
 virtualdispatch = ClientRequestTestCase("virtualdispatch")
-virtualdispatch.only_language = "cpp"
 virtualdispatch.include = """
 template<typename T>
 class A { 
@@ -786,6 +856,7 @@ class B : public A<T> {
 virtualdispatch.stmtd = "B<double> b1(1,x), b2(3,4); b2 = static_cast<A<double> >(b1); double y = b2.t1;"
 virtualdispatch.stmtf = "B<float> b1(1,x), b2(3,4); b2 = static_cast<A<float> >(b1); float y = b2.t1;"
 virtualdispatch.stmtl = "B<long double> b1(1,x), b2(3,4); b2 = static_cast<A<long double> >(b1); long double y = b2.t1;"
+virtualdispatch.disable = lambda arch, language, typename: not language=='cpp'
 virtualdispatch.vals = {'x': 2.}
 virtualdispatch.grads = {'x': 2.1}
 virtualdispatch.test_vals = {'y': 2.}
@@ -837,11 +908,13 @@ basiclist.append(sin_100_interactive)
 ### Take "cross product" with other configuation options ###
 testlist = []
 for test_arch in ["x86", "amd64"]:
-  for test_language in ["c", "cpp", "fortran"]:
+  for test_language in ["c", "cpp", "fortran", "python"]:
     if test_language=="c" or test_language=="cpp":
       test_type_list = ["double", "float", "longdouble"]
     elif test_language=="fortran":
       test_type_list = ["real4", "real8"]
+    elif test_language=='python':
+      test_type_list = ["float","np64","np32"]
     for test_type in test_type_list:
       for basictest in basiclist:
         test = copy.deepcopy(basictest)
@@ -851,25 +924,28 @@ for test_arch in ["x86", "amd64"]:
           test.arch = 32
         elif test_arch == "amd64":
           test.arch = 64
-          # Disable amd64 testcases if hinted so by the environment variable.
-          # Apparantly the current CI pipeline does not give us the 4 GB 
-          # of RAM that we need to initialize shadow memory on a 64-bit system.
-          if "DG_CONSTRAINED_ENVIRONMENT" in os.environ:
-            test.disabled = True
 
-        if test.only_language!=None and test.only_language!=test_language:
-          continue
         if test_language == "c":
           test.compiler = "gcc"
         elif test_language == "cpp":
           test.compiler = "g++"
         elif test_language == "fortran":
           test.compiler = "gfortran"
+        elif test_language == "python":
+          test.compiler = "python"
+          # If the Python interpreter is 64-bit, disable the 32-bit Python tests
+          # and vice versa. 
+          if sys.maxsize > 2**32: # if 64 bit
+            old = test.disable
+            test.disable = lambda arch, language, typename : old(arch,language,typename) or arch=="x86"
+          else:
+            old = test.disable
+            test.disable = lambda arch, language, typename : old(arch,language,typename) or arch=="amd64"
 
         if test_type == "double":
           test.stmt = test.stmtd
           test.type = TYPE_DOUBLE
-        elif test_type == "float":
+        elif test_language in ["c","cpp"] and test_type == "float":
           test.stmt = test.stmtf
           test.type = TYPE_FLOAT
         elif test_type == "longdouble":
@@ -881,31 +957,36 @@ for test_arch in ["x86", "amd64"]:
         elif test_type == "real8":
           test.stmt = test.stmtr8
           test.type = TYPE_REAL8
-        if test.stmt!=None:
+        elif test_language=='python' and test_type == "float":
+          test.stmt = test.stmtp
+          test.type = TYPE_PYTHONFLOAT
+        elif test_type == "np64":
+          test.stmt = test.stmtp
+          test.type = TYPE_NUMPYFLOAT64
+        elif test_type == "np32":
+          test.stmt = test.stmtp
+          test.type = TYPE_NUMPYFLOAT32
+        if test.stmt!=None and not test.disable(test_arch, test_language, test_type):
           testlist.append(test)
 
 ### Run testcases ###
-there_are_failed_tests = False
-if selected_testcase:
-  for test in testlist:
-    if test.name==selected_testcase:
-      there_are_failed_tests = not test.run()
-else: 
-  outcomes = []
-  for test in testlist:
-    outcomes.append(test.run())
+if not selected_testcase:
+  selected_testcase = "*"
+outcomes = []
+for test in testlist:
+  if fnmatch.fnmatchcase(test.name, selected_testcase):
+    outcomes.append((test.name, test.run()))
 
-  print("Summary:")
-  for i in range(len(testlist)):
-    if outcomes[i]:
-      print("  "+testlist[i].name+": PASSED")
-    else:
-      print("* "+testlist[i].name+": FAILED")
-      there_are_failed_tests = True
+print("Summary:")
+number_of_failed_tests = 0
+for testname,testresult in outcomes:
+  if testresult:
+    print("  "+testname+" : PASSED")
+  else:
+    print("* "+testname+" : FAILED")
+    number_of_failed_tests += 1
+print(f"Ran {len(outcomes)} tests, {number_of_failed_tests} failed.")
 
-if there_are_failed_tests:
-  exit(1)
-else:
-  exit(0)
+exit(number_of_failed_tests)
 
   

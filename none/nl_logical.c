@@ -20,6 +20,10 @@
  *  negative value, respectively. In this case, the other operand is 0b011..1 or
  *  0b100..0. A 64-bit datatype could either contain one binary64 or two binary32
  *  numbers.
+ *
+ *  Additionally, "and" with 0b11...1 and "or" with 0b00...0 does not change the
+ *  other operand, so we should keep its derivative.
+ *
  */
 
 /*! Building block to apply 32-bit AD handling to both
@@ -41,16 +45,18 @@
 
 /*! Building block for the AD handling of logical "and".
  *
- *  b011_val should be 0b0111... If x is equal to that,
- *  assume that the operation computes abs(y) and return
- *  the derivative accordingly.
+ *  If x is equal to 0b0111..., assume that the operation
+ *  computes abs(y) and return the derivative accordingly.
  */
 
-#define NL_HANDLE_AND(fptype, inttype, b011_val, x, y) \
-  if( x == b011_val){ \
+#define NL_HANDLE_AND(fptype, inttype, x, y) \
+  if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1))-1 ){ /* 0b01..1 */ \
     fptype y_f = *(fptype*)&y, yd_f = *(fptype*)&y##d; \
     if(y_f<0) yd_f = -yd_f; \
     return *(inttype*)&yd_f; \
+  } \
+  else if( x == (inttype)(-1) ){ /* 0b1..1 */ \
+    return y##d; \
   }
 
 /*! AD handling of logical "and" for F32 type.
@@ -64,8 +70,8 @@
  *  \returns Derivative of abs(x) or abs(y), if the other one is 0b0111.., otherwise zero.
  */
 VG_REGPARM(0) UInt nl_logical_and32(UInt x, UInt xd, UInt y, UInt yd){
-  NL_HANDLE_AND(float,UInt,0x7fffffff, x, y)
-  else NL_HANDLE_AND(float,UInt,0x7fffffff, y, x)
+  NL_HANDLE_AND(float,UInt, x, y)
+  else NL_HANDLE_AND(float,UInt, y, x)
   else return 0x0;
 }
 
@@ -76,49 +82,53 @@ VG_REGPARM(0) UInt nl_logical_and32(UInt x, UInt xd, UInt y, UInt yd){
  * might be a 32-bit absolute value operation on either half.
  */
 VG_REGPARM(0) ULong nl_logical_and64(ULong x, ULong xd, ULong y, ULong yd){
-  NL_HANDLE_AND(double,ULong,0x7fffffffffffffff, x, y)
-  else NL_HANDLE_AND(double,ULong,0x7fffffffffffffff, y, x)
+  NL_HANDLE_AND(double,ULong, x, y)
+  else NL_HANDLE_AND(double,ULong, y, x)
   else NL_HANDLE_HALVES(nl_logical_and32)
 }
 
 /*--- OR <-> negative abs ---*/
-
-#define NL_HANDLE_OR(fptype, inttype, b100_val, x, y) \
-  if( x == b100_val){ \
+// compare with 0b100...0 and 0b00...0
+#define NL_HANDLE_OR(fptype, inttype, x, y) \
+  if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) ){ /* 0b10..0 */ \
     fptype y_f = *(fptype*)&y, yd_f = *(fptype*)&y##d; \
     if(y_f>0) yd_f = -yd_f; \
     return *(inttype*)&yd_f; \
+  } \
+  else if( x == 0 ){ /* 0b0..0 */ \
+    return y##d; \
   }
 
 VG_REGPARM(0) UInt nl_logical_or32(UInt x, UInt xd, UInt y, UInt yd){
-  NL_HANDLE_OR(float,UInt,0x80000000, x, y)
-  else NL_HANDLE_OR(float,UInt,0x80000000, y, x)
+  NL_HANDLE_OR(float,UInt, x, y)
+  else NL_HANDLE_OR(float,UInt, y, x)
   else return 0x0;
 }
 
 VG_REGPARM(0) ULong nl_logical_or64(ULong x, ULong xd, ULong y, ULong yd){
-  NL_HANDLE_OR(double,ULong,0x8000000000000000, x, y)
-  else NL_HANDLE_OR(double,ULong,0x8000000000000000, y, x)
+  NL_HANDLE_OR(double,ULong, x, y)
+  else NL_HANDLE_OR(double,ULong, y, x)
   else NL_HANDLE_HALVES(nl_logical_or32)
 }
 
 /*--- XOR <-> negative ---*/
+// compare with 0b100...0
 
-#define NL_HANDLE_XOR(fptype, inttype, b100_val, x, y) \
-  if( x == b100_val){ \
+#define NL_HANDLE_XOR(fptype, inttype, x, y) \
+  if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) ){ \
     fptype yd_f = *(fptype*)&y##d; \
     yd_f = -yd_f; \
     return *(inttype*)&yd_f; \
   }
 
 VG_REGPARM(0) UInt nl_logical_xor32(UInt x, UInt xd, UInt y, UInt yd){
-  NL_HANDLE_XOR(float,UInt,0x80000000, x, y)
-  else NL_HANDLE_XOR(float,UInt,0x80000000, y, x)
+  NL_HANDLE_XOR(float,UInt, x, y)
+  else NL_HANDLE_XOR(float,UInt, y, x)
   else return 0x0;
 }
 
 VG_REGPARM(0) ULong nl_logical_xor64(ULong x, ULong xd, ULong y, ULong yd){
-  NL_HANDLE_XOR(double,ULong,0x8000000000000000, x, y)
-  else NL_HANDLE_XOR(double,ULong,0x8000000000000000, y, x)
+  NL_HANDLE_XOR(double,ULong, x, y)
+  else NL_HANDLE_XOR(double,ULong, y, x)
   else NL_HANDLE_HALVES(nl_logical_xor32)
 }
