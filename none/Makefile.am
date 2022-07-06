@@ -3,13 +3,6 @@ include $(top_srcdir)/Makefile.tool.am
 EXTRA_DIST = docs/nl-manual.xml
 
 #----------------------------------------------------------------------------
-# Headers
-#----------------------------------------------------------------------------
-
-pkginclude_HEADERS = \
-  derivgrind.h
-
-#----------------------------------------------------------------------------
 # none-<platform>
 #----------------------------------------------------------------------------
 
@@ -18,7 +11,7 @@ if VGCONF_HAVE_PLATFORM_SEC
 noinst_PROGRAMS += none-@VGCONF_ARCH_SEC@-@VGCONF_OS@
 endif
 
-NONE_SOURCES_COMMON = nl_main.c ../shadow-memory/src/shadow-64.c nl_logical.c
+NONE_SOURCES_COMMON = nl_main.c
 
 none_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES      = \
 	$(NONE_SOURCES_COMMON)
