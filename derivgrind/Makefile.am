@@ -12,6 +12,7 @@ pkginclude_HEADERS = \
 #----------------------------------------------------------------------------
 # derivgrind-<platform>
 #----------------------------------------------------------------------------
+# adapted from the Nulgrind Makefile.am
 
 noinst_PROGRAMS  = derivgrind-@VGCONF_ARCH_PRI@-@VGCONF_OS@
 if VGCONF_HAVE_PLATFORM_SEC
@@ -60,4 +61,49 @@ derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LINK = \
 	$(derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDFLAGS)
 endif
 
+
+#----------------------------------------------------------------------------
+# vgpreload_derivgrind-<platform>.so
+#----------------------------------------------------------------------------
+# adapted from the Memcheck Makefile.am
+
+noinst_PROGRAMS += vgpreload_derivgrind-@VGCONF_ARCH_PRI@-@VGCONF_OS@.so
+if VGCONF_HAVE_PLATFORM_SEC
+noinst_PROGRAMS += vgpreload_derivgrind-@VGCONF_ARCH_SEC@-@VGCONF_OS@.so
+endif
+
+if VGCONF_OS_IS_DARWIN
+noinst_DSYMS = $(noinst_PROGRAMS)
+endif
+
+# dg_replace_math.c runs on the simulated CPU, and is built with
+# AM_CFLAGS_PSO_* (see $(top_srcdir)/Makefile.all.am).
+# Generate dg_replace_math.c by gen_replace_math.py.
+VGPRELOAD_DERIVGRIND_SOURCES_COMMON = dg_replace_math.c
+
+vgpreload_derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_SOURCES      = \
+	$(VGPRELOAD_DERIVGRIND_SOURCES_COMMON)
+vgpreload_derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CPPFLAGS     = \
+	$(AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@)
+vgpreload_derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CFLAGS       = \
+	$(AM_CFLAGS_PSO_@VGCONF_PLATFORM_PRI_CAPS@) -O2
+vgpreload_derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_DEPENDENCIES = \
+	$(LIBREPLACEMALLOC_@VGCONF_PLATFORM_PRI_CAPS@)
+vgpreload_derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_LDFLAGS      = \
+	$(PRELOAD_LDFLAGS_@VGCONF_PLATFORM_PRI_CAPS@) \
+	$(LIBREPLACEMALLOC_LDFLAGS_@VGCONF_PLATFORM_PRI_CAPS@)
+
+if VGCONF_HAVE_PLATFORM_SEC
+vgpreload_derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_SOURCES      = \
+	$(VGPRELOAD_DERIVGRIND_SOURCES_COMMON)
+vgpreload_derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CPPFLAGS     = \
+	$(AM_CPPFLAGS_@VGCONF_PLATFORM_SEC_CAPS@)
+vgpreload_derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CFLAGS       = \
+	$(AM_CFLAGS_PSO_@VGCONF_PLATFORM_SEC_CAPS@) -O2
+vgpreload_derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_DEPENDENCIES = \
+	$(LIBREPLACEMALLOC_@VGCONF_PLATFORM_SEC_CAPS@)
+vgpreload_derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_LDFLAGS      = \
+	$(PRELOAD_LDFLAGS_@VGCONF_PLATFORM_SEC_CAPS@) \
+	$(LIBREPLACEMALLOC_LDFLAGS_@VGCONF_PLATFORM_SEC_CAPS@)
+endif
 
