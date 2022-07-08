@@ -37,7 +37,7 @@ __attribute__((optimize("O0")))
     {self.type} x_d;
     VALGRIND_GET_DERIVATIVE(&x, &x_d, {self.size});
     called_from_within_wrapper = true;
-      double ret_d = ({self.deriv}) * x_d;
+      {self.type} ret_d = ({self.deriv}) * x_d;
     called_from_within_wrapper = false;
     VALGRIND_SET_DERIVATIVE(&ret, &ret_d, {self.size});
   }}
@@ -64,6 +64,23 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("sqrt", "1./(2.*sqrt(x))","double"),
   DERIVGRIND_MATH_FUNCTION("tan", "1./(cos(x)*cos(x))","double"),
   DERIVGRIND_MATH_FUNCTION("tanh", "1.-tanh(x)*tanh(x)","double"),
+
+  DERIVGRIND_MATH_FUNCTION("acosf","-1.f/sqrtf(1.f-x*x)","float"),
+  DERIVGRIND_MATH_FUNCTION("asinf","1.f/sqrtf(1.f-x*x)","float"),
+  DERIVGRIND_MATH_FUNCTION("atanf","1.f/(1.f+x*x)","float"),
+  DERIVGRIND_MATH_FUNCTION("ceilf","0.f","float"),
+  DERIVGRIND_MATH_FUNCTION("cosf", "-sinf(x)","float"),
+  DERIVGRIND_MATH_FUNCTION("coshf", "sinhf(x)","float"),
+  DERIVGRIND_MATH_FUNCTION("expf", "expf(x)","float"),
+  DERIVGRIND_MATH_FUNCTION("fabsf", "(x>0.f?1.f:-1.f)","float"),
+  DERIVGRIND_MATH_FUNCTION("floorf", "0.f","float"),
+  DERIVGRIND_MATH_FUNCTION("logf","1.f/x","float"),
+  DERIVGRIND_MATH_FUNCTION("log10f", "1.f/(logf(10.f)*x)","float"),
+  DERIVGRIND_MATH_FUNCTION("sinf", "cosf(x)","float"),
+  DERIVGRIND_MATH_FUNCTION("sinhf", "coshf(x)","float"),
+  DERIVGRIND_MATH_FUNCTION("sqrtf", "1.f/(2.f*sqrtf(x))","float"),
+  DERIVGRIND_MATH_FUNCTION("tanf", "1.f/(cosf(x)*cosf(x))","float"),
+  DERIVGRIND_MATH_FUNCTION("tanhf", "1.f-tanhf(x)*tanhf(x)","float"),
 
 ]
 

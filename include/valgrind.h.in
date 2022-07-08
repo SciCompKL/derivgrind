@@ -1827,7 +1827,6 @@ typedef
       volatile unsigned long _argvec[2];                               \
       volatile unsigned long _res;                                     \
       _argvec[0] = (unsigned long)_orig.nraddr;  \
-      double arg1_d = (double) (arg1); \
       _argvec[1] = *(unsigned long*)&(arg1);                              \
       __asm__ volatile(                                                \
          VALGRIND_CFI_PROLOGUE                                         \
