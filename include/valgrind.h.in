@@ -1664,7 +1664,9 @@ typedef
 
 /* These regs are trashed by the hidden call. */
 #define __CALLER_SAVED_REGS /*"rax",*/ "rcx", "rdx", "rsi",       \
-                            "rdi", "r8", "r9", "r10", "r11"
+                            "rdi", "r8", "r9", "r10", "r11",       \
+                            "xmm0", "xmm1","xmm2","xmm3","xmm4","xmm5","xmm6", "xmm7", \
+                            "xmm8", "xmm9","xmm10","xmm11","xmm12","xmm13","xmm14", "xmm15"
 
 /* This is all pretty complex.  It's so as to make stack unwinding
    work reliably.  See bug 243270.  The basic problem is the sub and
@@ -1814,6 +1816,33 @@ typedef
          : /*trash*/ "cc", "memory", __CALLER_SAVED_REGS, "r14", "r15" \
       );                                                               \
       lval = (__typeof__(lval)) _res;                                  \
+   } while (0)
+
+#define CALL_FN_D_D(lval, orig, arg1)                                  \
+   do {                                                                \
+      volatile OrigFn        _orig = (orig);                           \
+      volatile unsigned long _argvec[2];                               \
+      volatile unsigned long _res;                                     \
+      _argvec[0] = (unsigned long)_orig.nraddr;  \
+      double arg1_d = (double) (arg1); \
+      _argvec[1] = *(unsigned long*)&(arg1);                              \
+      __asm__ volatile(                                                \
+         VALGRIND_CFI_PROLOGUE                                         \
+         VALGRIND_ALIGN_STACK                                          \
+         "subq $128,%%rsp\n\t"                                         \
+         "movsd 8(%%rax), %%xmm0\n\t"                                    \
+         "movq %%rax, %%r13\n\t" \
+         "movq (%%rax), %%rax\n\t"  /* target->%rax */                 \
+         VALGRIND_CALL_NOREDIR_RAX  \
+         "movsd %%xmm0, 8(%%r13)\n\t" \
+         VALGRIND_RESTORE_STACK                                        \
+         VALGRIND_CFI_EPILOGUE                                         \
+         : /*out*/   "=m" (_argvec[1])                                       \
+         : /*in*/    "a" (&_argvec[0]) __FRAME_POINTER                 \
+         : /*trash*/ "cc", "memory", __CALLER_SAVED_REGS, "xmm0", "r13", "r14", "r15" \
+      );      \
+       double res_d = *(double*)&_argvec[1];\
+      lval = (__typeof__(lval)) res_d;                                  \
    } while (0)
 
 #define CALL_FN_W_WW(lval, orig, arg1,arg2)                            \
