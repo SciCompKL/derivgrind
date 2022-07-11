@@ -1923,7 +1923,35 @@ typedef
          : /*in*/    "a" (&_argvec[0]) __FRAME_POINTER                 \
          : /*trash*/ "cc", "memory", __CALLER_SAVED_REGS, "r14", "r15" \
       );      \
-       double res_d = *(double*)&_res;\
+       volatile double res_d = *(double*)&_res;\
+      lval = (__typeof__(lval)) res_d;                                  \
+   } while (0)
+
+// long double is passed on the stack and returned in ST0
+
+#define CALL_FN_L_L(lval, orig, arg1)                                  \
+   do {                                                                \
+      volatile OrigFn        _orig = (orig);                           \
+      volatile unsigned long _argvec[3];                               \
+      volatile long double _res;                                     \
+      _argvec[0] = (unsigned long)_orig.nraddr;  \
+      _argvec[1] = *(unsigned long*)&(arg1);                              \
+      _argvec[2] = *((unsigned long*)&(arg1)+1); \
+      __asm__ volatile(                                                \
+         VALGRIND_CFI_PROLOGUE                                         \
+         VALGRIND_ALIGN_STACK                                          \
+         "subq $128,%%rsp\n\t"                                         \
+         "pushq 16(%%rax)\n\t" \
+         "pushq 8(%%rax)\n\t" \
+         "movq (%%rax), %%rax\n\t"  /* target->%rax */                 \
+         VALGRIND_CALL_NOREDIR_RAX  \
+         VALGRIND_RESTORE_STACK                                        \
+         VALGRIND_CFI_EPILOGUE                                         \
+         : /*out*/   "=t" (_res)                                       \
+         : /*in*/    "a" (&_argvec[0]) __FRAME_POINTER                 \
+         : /*trash*/ "cc", "memory", __CALLER_SAVED_REGS, "r14", "r15" \
+      );      \
+      volatile long double res_d = _res;\
       lval = (__typeof__(lval)) res_d;                                  \
    } while (0)
 
