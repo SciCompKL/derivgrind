@@ -10,10 +10,13 @@ class DERIVGRIND_MATH_FUNCTION_BASE:
     self.type = type_
     if self.type=="double":
       self.size = 8
+      self.T = "D"
     elif self.type=="float":
       self.size = 4
+      self.T = "F"
     elif self.type=="long double":
       self.size = 10
+      self.T = "LD"
     else:
       print("Unknown type '"+self.type+"'")
       exit(1)
@@ -32,7 +35,7 @@ __attribute__((optimize("O0")))
   OrigFn fn;
   VALGRIND_GET_ORIG_FN(fn);
   {self.type} ret;
-  CALL_FN_D_D(ret, fn, x);
+  CALL_FN_{self.T}_{self.T}(ret, fn, x);
   if(!called_from_within_wrapper) {{
     {self.type} x_d;
     VALGRIND_GET_DERIVATIVE(&x, &x_d, {self.size});
