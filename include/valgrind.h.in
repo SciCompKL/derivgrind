@@ -1301,7 +1301,8 @@ typedef
          VALGRIND_RESTORE_STACK                                   \
          : /*out*/   "=t" (_res)                                  \
          : /*in*/    "a" (&_argvec[0])                            \
-         : /*trash*/ "cc", "memory", __CALLER_SAVED_REGS, "edi"   \
+         : /*trash*/ "cc", "memory", __CALLER_SAVED_REGS, "edi",  \
+             "st(1)", "st(2)", "st(3)", "st(4)", "st(5)", "st(6)", "st(7)" \
       );                                                          \
       float res_f = _res; \
       lval = (__typeof__(lval)) res_f;                             \
