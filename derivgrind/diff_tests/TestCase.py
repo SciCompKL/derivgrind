@@ -133,14 +133,7 @@ class InteractiveTestCase(TestCase):
     self.valgrind_log = ""
     self.gdb_log = ""
     # start Valgrind and extract "target remote" line
-    environ = os.environ.copy()
-    if "LD_LIBRARY_PATH" not in environ:
-      environ["LD_LIBRARY_PATH"]=""
-    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-extension/lib"+str(self.arch)+"/"
-    if "LD_PRELOAD" not in environ:
-      environ["LD_PRELOAD"]=""
-    environ["LD_PRELOAD"] += ":"+environ["PWD"]+"/../libm-extension/lib"+str(self.arch)+"/libmextension.so"
-    valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=none", "--vgdb-error=0", "./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0,env=environ)
+    valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=derivgrind", "--vgdb-error=0", "./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     while True:
       line = valgrind.stdout.readline()
       self.valgrind_log += line
@@ -149,7 +142,6 @@ class InteractiveTestCase(TestCase):
         target_remote_command = r.group(1)
         break
     # start GDB and connect to Valgrind
-    # Don't use the above environment, because GDB should see the normal libm.
     gdb = subprocess.Popen(["gdb", "./TestCase_exec"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     gdb.stdin.write(target_remote_command+"\n")
     # set breakpoints and continue
@@ -388,12 +380,6 @@ class ClientRequestTestCase(TestCase):
   def run_code(self):
     self.valgrind_log = ""
     environ = os.environ.copy()
-    if "LD_LIBRARY_PATH" not in environ:
-      environ["LD_LIBRARY_PATH"]=""
-    environ["LD_LIBRARY_PATH"] += ":"+environ["PWD"]+"/../libm-extension/lib"+str(self.arch)+"/"
-    if "LD_PRELOAD" not in environ:
-      environ["LD_PRELOAD"]=""
-    environ["LD_PRELOAD"] += ":"+environ["PWD"]+"/../libm-extension/lib"+str(self.arch)+"/libmextension.so"
     if self.compiler=='python':
       commands = ['python3', 'TestCase_src.py']
       if "PYTHONPATH" not in environ:
@@ -401,7 +387,7 @@ class ClientRequestTestCase(TestCase):
       environ["PYTHONPATH"] += ":"+environ["PWD"]+"/python"
     else:
       commands = ['./TestCase_exec']
-    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=none"]+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
+    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=derivgrind"]+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
     
