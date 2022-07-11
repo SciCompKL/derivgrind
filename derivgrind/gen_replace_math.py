@@ -16,7 +16,7 @@ class DERIVGRIND_MATH_FUNCTION_BASE:
       self.T = "F"
     elif self.type=="long double":
       self.size = 10
-      self.T = "LD"
+      self.T = "L"
     else:
       print("Unknown type '"+self.type+"'")
       exit(1)
@@ -85,6 +85,8 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("tanf", "1.f/(cosf(x)*cosf(x))","float"),
   DERIVGRIND_MATH_FUNCTION("tanhf", "1.f-tanhf(x)*tanhf(x)","float"),
 
+  DERIVGRIND_MATH_FUNCTION("cosl", "-sinl(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("sinl", "cosl(x)","long double"),
 ]
 
 
