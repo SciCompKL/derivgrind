@@ -85,8 +85,22 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("tanf", "1.f/(cosf(x)*cosf(x))","float"),
   DERIVGRIND_MATH_FUNCTION("tanhf", "1.f-tanhf(x)*tanhf(x)","float"),
 
+  DERIVGRIND_MATH_FUNCTION("acosl","-1.l/sqrtl(1.l-x*x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("asinl","1.l/sqrtl(1.l-x*x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("atanl","1.l/(1.l+x*x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("ceill","0.l","long double"),
   DERIVGRIND_MATH_FUNCTION("cosl", "-sinl(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("coshl", "sinhl(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("expl", "expl(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("fabsl", "(x>0.l?1.l:-1.l)","long double"),
+  DERIVGRIND_MATH_FUNCTION("floorl", "0.l","long double"),
+  DERIVGRIND_MATH_FUNCTION("logl","1.l/x","long double"),
+  DERIVGRIND_MATH_FUNCTION("log10l", "1.l/(logl(10.l)*x)","long double"),
   DERIVGRIND_MATH_FUNCTION("sinl", "cosl(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("sinhl", "coshl(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION("sqrtl", "1.l/(2.l*sqrtl(x))","long double"),
+  DERIVGRIND_MATH_FUNCTION("tanl", "1.l/(cosl(x)*cosl(x))","long double"),
+  DERIVGRIND_MATH_FUNCTION("tanhl", "1.l-tanhl(x)*tanhl(x)","long double"),
 ]
 
 
