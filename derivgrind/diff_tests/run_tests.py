@@ -504,6 +504,31 @@ ceil.test_vals = {'c':3.0}
 ceil.test_grads = {'c':0.0}
 basiclist.append(ceil)
 
+ldexp = ClientRequestTestCase("ldexp")
+ldexp.include = "#include <math.h>"
+ldexp.ldflags = '-lm'
+ldexp.stmtd = "double c = ldexp(a,-3);"
+ldexp.stmtf = "float c = ldexpf(a,-3);"
+ldexp.stmtl = "long double c = ldexpl(a,-3);"
+ldexp.stmtp = "c = np.ldexp(a,-3)"
+ldexp.vals = {'a':2.4}
+ldexp.grads = {'a':-1.0}
+ldexp.test_vals = {'c':0.3}
+ldexp.test_grads = {'c':-1.0/8}
+basiclist.append(ldexp)
+
+frexp = ClientRequestTestCase("frexp")
+frexp.include = "#include <math.h>"
+frexp.ldflags = '-lm'
+frexp.stmtd = "int e; double c = frexp(a,&e); double ee = e;"
+frexp.stmtf = "int e; float c = frexpf(a,&e); float ee = e;"
+frexp.stmtl = "int e; long double c = frexpl(a,&e); long double ee=e;"
+frexp.stmtp = "c, e = np.frexp(a); ee=1.0*e"
+frexp.vals = {'a':-5.0}
+frexp.grads = {'a':-1.0}
+frexp.test_vals = {'c':-5.0/8, 'ee':3.0}
+frexp.test_grads = {'c':-1.0/8, 'ee':0.0}
+basiclist.append(frexp)
 
 ### Memory operations from string.h ###
 
