@@ -1981,6 +1981,32 @@ typedef
   _argvec[2] = *((unsigned long*)&(arg1)+1);, \
   "subq $128,%%rsp\n\t pushq 16(%%rax)\n\t pushq 8(%%rax)\n\t" )
 
+#define CALL_FN_F_FF(lval, orig, arg1, arg2)                                  \
+  CALL_FN_FP_FP(lval, orig, "=Yz",  \
+  volatile unsigned long _res; \
+  volatile unsigned long _argvec[3];                          \
+  _argvec[1] = (unsigned long) *(unsigned int*)&(arg1);                              \
+  _argvec[2] = (unsigned long) *(unsigned int*)&(arg2);,                              \
+  "subq $128,%%rsp\n\t movss 16(%%rax), %%xmm1\n\t movss 8(%%rax), %%xmm0\n\t"  )
+
+#define CALL_FN_D_DD(lval, orig, arg1, arg2)                                  \
+  CALL_FN_FP_FP(lval, orig, "=Yz",  \
+  volatile unsigned long _res; \
+  volatile unsigned long _argvec[3];                          \
+  _argvec[1] = *(unsigned long*)&(arg1);                              \
+  _argvec[2] = *(unsigned long*)&(arg2);,                              \
+  "subq $128,%%rsp\n\t movsd 16(%%rax), %%xmm1\n\t movsd 8(%%rax), %%xmm0\n\t"  )
+
+#define CALL_FN_L_LL(lval, orig, arg1, arg2)                                  \
+  CALL_FN_FP_FP(lval, orig, "=t", \
+  volatile long double _res; \
+  volatile unsigned long _argvec[5];                          \
+  _argvec[1] = *(unsigned long*)&(arg1);                              \
+  _argvec[2] = *((unsigned long*)&(arg1)+1); \
+  _argvec[3] = *(unsigned long*)&(arg2);                              \
+  _argvec[4] = *((unsigned long*)&(arg2)+1);, \
+  "subq $128,%%rsp\n\t pushq 32(%%rax)\n\t pushq 24(%%rax)\n\t pushq 16(%%rax)\n\t pushq 8(%%rax)\n\t" )
+
 #define CALL_FN_W_WW(lval, orig, arg1,arg2)                            \
    do {                                                                \
       volatile OrigFn        _orig = (orig);                           \
