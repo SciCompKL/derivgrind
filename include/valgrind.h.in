@@ -1369,16 +1369,16 @@ typedef
     "pushl 8(%%eax)\n\t"                                     \
     "pushl 4(%%eax)\n\t"      )
 
-/*-- (fp type, doubleword) -> fp type --*/
+/*-- (fp type, 32-bit type) -> fp type --*/
 
-#define CALL_FN_F_FW(lval, orig, arg1, arg2) \
+#define CALL_FN_F_Fp(lval, orig, arg1, arg2) \
   CALL_FN_FP_FP(lval, orig,  \
     volatile unsigned long _argvec[3];                          \
     _argvec[1] = *(unsigned long*)&(arg1); \
     _argvec[2] = *(unsigned long*)&(arg2);,                  \
     "subl $8, %%esp\n\t pushl 8(%%eax)\n\t pushl 4(%%eax)\n\t"   )
 
-#define CALL_FN_D_DW(lval, orig, arg1, arg2) \
+#define CALL_FN_D_Dp(lval, orig, arg1, arg2) \
   CALL_FN_FP_FP(lval, orig,  \
     volatile unsigned long _argvec[4];                          \
     _argvec[1] = *(unsigned long*)&(arg1); \
@@ -1386,7 +1386,7 @@ typedef
     _argvec[3] = *(unsigned long*)&(arg2);,                  \
     "subl $4, %%esp\n\t pushl 12(%%eax)\n\t pushl 8(%%eax)\n\t pushl 4(%%eax)\n\t"   )
 
-#define CALL_FN_L_LW(lval, orig, arg1, arg2)       \
+#define CALL_FN_L_Lp(lval, orig, arg1, arg2)       \
   CALL_FN_FP_FP(lval, orig, \
     volatile unsigned long _argvec[5]; \
     _argvec[1] = *(unsigned long*)&(arg1);       \
@@ -1394,6 +1394,13 @@ typedef
     _argvec[3] = *( (unsigned long*)&(arg1) + 2 ); \
     _argvec[4] = *(unsigned long*)&(arg2);,       \
     "pushl 16(%%eax)\n\t pushl 12(%%eax)\n\t pushl 8(%%eax)\n\t pushl 4(%%eax)\n\t" )
+
+#define CALL_FN_F_Fi(lval, orig, arg1, arg2) \
+  CALL_FN_F_Fp(lval, orig, arg1, arg2)
+#define CALL_FN_D_Di(lval, orig, arg1, arg2) \
+  CALL_FN_D_Dp(lval, orig, arg1, arg2)
+#define CALL_FN_L_Li(lval, orig, arg1, arg2) \
+  CALL_FN_L_Lp(lval, orig, arg1, arg2)
 
 #define CALL_FN_W_WW(lval, orig, arg1,arg2)                       \
    do {                                                           \
@@ -1958,6 +1965,8 @@ typedef
       lval = *(__typeof__(lval)*)& _res;                                  \
    } while (0)
 
+/*-- (fp type) -> fp type --*/
+
 #define CALL_FN_F_F(lval, orig, arg1)                                  \
   CALL_FN_FP_FP(lval, orig, "=Yz", \
   volatile unsigned long _res; \
@@ -1980,6 +1989,8 @@ typedef
   _argvec[1] = *(unsigned long*)&(arg1);                              \
   _argvec[2] = *((unsigned long*)&(arg1)+1);, \
   "subq $128,%%rsp\n\t pushq 16(%%rax)\n\t pushq 8(%%rax)\n\t" )
+
+/*-- (fp type, fp type) -> fp type --*/
 
 #define CALL_FN_F_FF(lval, orig, arg1, arg2)                                  \
   CALL_FN_FP_FP(lval, orig, "=Yz",  \
@@ -2006,6 +2017,52 @@ typedef
   _argvec[3] = *(unsigned long*)&(arg2);                              \
   _argvec[4] = *((unsigned long*)&(arg2)+1);, \
   "subq $128,%%rsp\n\t pushq 32(%%rax)\n\t pushq 24(%%rax)\n\t pushq 16(%%rax)\n\t pushq 8(%%rax)\n\t" )
+
+/*-- (fp type, 32/64-bit type) -> fp type --*/
+// Naming is e.g. CALL_FN_F_Fi ("int") if the second parameter is 32-bit,
+// and CALL_FN_F_Fp ("pointer") if the second parameter is 64-bit.
+// Both go to %rdi, but the difference is whether we copy 8 byte,
+// or 4 byte preceded by 4 zero bytes.
+
+#define CALL_FN_F_Fx(lval, orig, arg1, arg2, cast)                                  \
+  CALL_FN_FP_FP(lval, orig, "=Yz",  \
+  volatile unsigned long _res; \
+  volatile unsigned long _argvec[3];                          \
+  _argvec[1] = (unsigned long) *(unsigned int*)&(arg1);                              \
+  _argvec[2] = cast (arg2);,                              \
+  "subq $128,%%rsp\n\t movq 16(%%rax), %%rdi\n\t movss 8(%%rax), %%xmm0\n\t"  )
+
+#define CALL_FN_D_Dx(lval, orig, arg1, arg2, cast)                                  \
+  CALL_FN_FP_FP(lval, orig, "=Yz",  \
+  volatile unsigned long _res; \
+  volatile unsigned long _argvec[3];                          \
+  _argvec[1] = *(unsigned long*)&(arg1);                              \
+  _argvec[2] = cast (arg2);,                              \
+  "subq $128,%%rsp\n\t movq 16(%%rax), %%rdi\n\t movsd 8(%%rax), %%xmm0\n\t"  )
+
+#define CALL_FN_L_Lx(lval, orig, arg1, arg2, cast)                                  \
+  CALL_FN_FP_FP(lval, orig, "=t", \
+  volatile long double _res; \
+  volatile unsigned long _argvec[4];                          \
+  _argvec[1] = *(unsigned long*)&(arg1);                              \
+  _argvec[2] = *((unsigned long*)&(arg1)+1); \
+  _argvec[3] = cast (arg2);,                              \
+  "subq $128,%%rsp\n\t movq 24(%%rax), %%rdi\n\t pushq 16(%%rax)\n\t pushq 8(%%rax)\n\t" )
+
+#define CALL_FN_F_Fp(lval, orig, arg1, arg2) \
+  CALL_FN_F_Fx(lval, orig, arg1, arg2, *(unsigned long*)& )
+#define CALL_FN_D_Dp(lval, orig, arg1, arg2) \
+  CALL_FN_D_Dx(lval, orig, arg1, arg2, *(unsigned long*)& )
+#define CALL_FN_L_Lp(lval, orig, arg1, arg2) \
+  CALL_FN_L_Lx(lval, orig, arg1, arg2, *(unsigned long*)& )
+
+#define CALL_FN_F_Fi(lval, orig, arg1, arg2) \
+  CALL_FN_F_Fx(lval, orig, arg1, arg2, (unsigned long) *(unsigned int*)& )
+#define CALL_FN_D_Di(lval, orig, arg1, arg2) \
+  CALL_FN_D_Dx(lval, orig, arg1, arg2, (unsigned long) *(unsigned int*)& )
+#define CALL_FN_L_Li(lval, orig, arg1, arg2) \
+  CALL_FN_L_Lx(lval, orig, arg1, arg2, (unsigned long) *(unsigned int*)& )
+
 
 #define CALL_FN_W_WW(lval, orig, arg1,arg2)                            \
    do {                                                                \
