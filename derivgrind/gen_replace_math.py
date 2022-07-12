@@ -22,7 +22,7 @@ class DERIVGRIND_MATH_FUNCTION_BASE:
       exit(1)
 
 class DERIVGRIND_MATH_FUNCTION(DERIVGRIND_MATH_FUNCTION_BASE):
-  """Wrap a math.h function (type)->type to also handle
+  """Wrap a math.h function (fp type)->fp type to also handle
     the derivative information."""
   def __init__(self,name,deriv,type_):
     super().__init__(name,type_)
@@ -49,7 +49,7 @@ __attribute__((optimize("O0")))
 """
 
 class DERIVGRIND_MATH_FUNCTION2(DERIVGRIND_MATH_FUNCTION_BASE):
-  """Wrap a math.h function (type,type)->type to also handle
+  """Wrap a math.h function (fp type,fp type)->fp type to also handle
     the derivative information."""
   def __init__(self,name,derivX,derivY,type_):
     super().__init__(name,type_)
@@ -77,6 +77,34 @@ __attribute__((optimize("O0")))
 }}
 """
 
+class DERIVGRIND_MATH_FUNCTION2W(DERIVGRIND_MATH_FUNCTION_BASE):
+  """Wrap a math.h function (fp type,extra type)->fp type to also handle
+    the derivative information."""
+  def __init__(self,name,deriv,type_, extratype):
+    super().__init__(name,type_)
+    self.deriv = deriv
+    self.extratype = extratype
+  def c_code(self):
+    return \
+f"""
+__attribute__((optimize("O0")))
+{self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.extratype} e) {{
+  OrigFn fn;
+  VALGRIND_GET_ORIG_FN(fn);
+  {self.type} ret;
+  CALL_FN_{self.T}_{self.T}W(ret, fn, x, e);
+  if(!called_from_within_wrapper) {{
+    {self.type} x_d;
+    VALGRIND_GET_DERIVATIVE(&x, &x_d, {self.size});
+    called_from_within_wrapper = true;
+      {self.type} ret_d = ({self.deriv}) * x_d;
+    called_from_within_wrapper = false;
+    VALGRIND_SET_DERIVATIVE(&ret, &ret_d, {self.size});
+  }}
+  return ret;
+}}
+"""
+
 functions = [
 
   # missing: modf
@@ -97,6 +125,11 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("tan", "1./(cos(x)*cos(x))","double"),
   DERIVGRIND_MATH_FUNCTION("tanh", "1.-tanh(x)*tanh(x)","double"),
   DERIVGRIND_MATH_FUNCTION2("atan2","-y/(x*x+y*y)","x/(x*x+y*y)","double"),
+  DERIVGRIND_MATH_FUNCTION2("fmod", "1.", "- floor(fabs(x/y)) * (x>0.?1.:-1.) * (y>0.?1.:-1.)","double"),
+  DERIVGRIND_MATH_FUNCTION2("pow"," (y==0.||y==-0.)?0.:(y*pow(x,y-1))", "(x<=0.) ? 0. : (pow(x,y)*log(x))","double"), 
+  DERIVGRIND_MATH_FUNCTION2W("frexp","ldexp(1.,-*e)","double","int*"),
+  DERIVGRIND_MATH_FUNCTION2W("ldexp","ldexp(1.,e)","double","int"),
+
 
 
   DERIVGRIND_MATH_FUNCTION("acosf","-1.f/sqrtf(1.f-x*x)","float"),
@@ -116,6 +149,11 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("tanf", "1.f/(cosf(x)*cosf(x))","float"),
   DERIVGRIND_MATH_FUNCTION("tanhf", "1.f-tanhf(x)*tanhf(x)","float"),
   DERIVGRIND_MATH_FUNCTION2("atan2f","-y/(x*x+y*y)","x/(x*x+y*y)","float"),
+  DERIVGRIND_MATH_FUNCTION2("fmodf", "1.f", "- floorf(fabsf(x/y)) * (x>0.f?1.f:-1.f) * (y>0.f?1.f:-1.f)","float"),
+  DERIVGRIND_MATH_FUNCTION2("powf"," (y==0.f||y==-0.f)?0.f:(y*powf(x,y-1))", "(x<=0.f) ? 0.f : (powf(x,y)*logf(x))","float"), 
+  DERIVGRIND_MATH_FUNCTION2W("frexpf","ldexpf(1.f,-*e)","float","int*"),
+  DERIVGRIND_MATH_FUNCTION2W("ldexpf","ldexpf(1.f,e)","float","int"),
+
 
   DERIVGRIND_MATH_FUNCTION("acosl","-1.l/sqrtl(1.l-x*x)","long double"),
   DERIVGRIND_MATH_FUNCTION("asinl","1.l/sqrtl(1.l-x*x)","long double"),
@@ -134,6 +172,10 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("tanl", "1.l/(cosl(x)*cosl(x))","long double"),
   DERIVGRIND_MATH_FUNCTION("tanhl", "1.l-tanhl(x)*tanhl(x)","long double"),
   DERIVGRIND_MATH_FUNCTION2("atan2l","-y/(x*x+y*y)","x/(x*x+y*y)","long double"),
+  DERIVGRIND_MATH_FUNCTION2("fmodl", "1.l", "- floorl(fabsl(x/y)) * (x>0.l?1.l:-1.l) * (y>0.l?1.l:-1.l)","long double"),
+  DERIVGRIND_MATH_FUNCTION2("powl"," (y==0.l||y==-0.l)?0.l:(y*powl(x,y-1))", "(x<=0.l) ? 0.l : (powl(x,y)*logl(x))","long double"), 
+  DERIVGRIND_MATH_FUNCTION2W("frexpl","ldexpl(1.l,-*e)","long double","int*"),
+  DERIVGRIND_MATH_FUNCTION2W("ldexpl","ldexpl(1.l,e)","long double","int"),
 ]
 
 
