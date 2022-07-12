@@ -22,7 +22,7 @@ class DERIVGRIND_MATH_FUNCTION_BASE:
       exit(1)
 
 class DERIVGRIND_MATH_FUNCTION(DERIVGRIND_MATH_FUNCTION_BASE):
-  """Wrap a math.h function to also handle
+  """Wrap a math.h function (type)->type to also handle
     the derivative information."""
   def __init__(self,name,deriv,type_):
     super().__init__(name,type_)
@@ -41,6 +41,35 @@ __attribute__((optimize("O0")))
     VALGRIND_GET_DERIVATIVE(&x, &x_d, {self.size});
     called_from_within_wrapper = true;
       {self.type} ret_d = ({self.deriv}) * x_d;
+    called_from_within_wrapper = false;
+    VALGRIND_SET_DERIVATIVE(&ret, &ret_d, {self.size});
+  }}
+  return ret;
+}}
+"""
+
+class DERIVGRIND_MATH_FUNCTION2(DERIVGRIND_MATH_FUNCTION_BASE):
+  """Wrap a math.h function (type,type)->type to also handle
+    the derivative information."""
+  def __init__(self,name,derivX,derivY,type_):
+    super().__init__(name,type_)
+    self.derivX = derivX
+    self.derivY = derivY
+  def c_code(self):
+    return \
+f"""
+__attribute__((optimize("O0")))
+{self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.type} y) {{
+  OrigFn fn;
+  VALGRIND_GET_ORIG_FN(fn);
+  {self.type} ret;
+  CALL_FN_{self.T}_{self.T}{self.T}(ret, fn, x, y);
+  if(!called_from_within_wrapper) {{
+    {self.type} x_d, y_d;
+    VALGRIND_GET_DERIVATIVE(&x, &x_d, {self.size});
+    VALGRIND_GET_DERIVATIVE(&y, &y_d, {self.size});
+    called_from_within_wrapper = true;
+      {self.type} ret_d = ({self.derivX}) * x_d + ({self.derivY}) * y_d;
     called_from_within_wrapper = false;
     VALGRIND_SET_DERIVATIVE(&ret, &ret_d, {self.size});
   }}
@@ -67,6 +96,8 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("sqrt", "1./(2.*sqrt(x))","double"),
   DERIVGRIND_MATH_FUNCTION("tan", "1./(cos(x)*cos(x))","double"),
   DERIVGRIND_MATH_FUNCTION("tanh", "1.-tanh(x)*tanh(x)","double"),
+  DERIVGRIND_MATH_FUNCTION2("atan2","-y/(x*x+y*y)","x/(x*x+y*y)","double"),
+
 
   DERIVGRIND_MATH_FUNCTION("acosf","-1.f/sqrtf(1.f-x*x)","float"),
   DERIVGRIND_MATH_FUNCTION("asinf","1.f/sqrtf(1.f-x*x)","float"),
@@ -84,6 +115,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("sqrtf", "1.f/(2.f*sqrtf(x))","float"),
   DERIVGRIND_MATH_FUNCTION("tanf", "1.f/(cosf(x)*cosf(x))","float"),
   DERIVGRIND_MATH_FUNCTION("tanhf", "1.f-tanhf(x)*tanhf(x)","float"),
+  DERIVGRIND_MATH_FUNCTION2("atan2f","-y/(x*x+y*y)","x/(x*x+y*y)","float"),
 
   DERIVGRIND_MATH_FUNCTION("acosl","-1.l/sqrtl(1.l-x*x)","long double"),
   DERIVGRIND_MATH_FUNCTION("asinl","1.l/sqrtl(1.l-x*x)","long double"),
@@ -101,6 +133,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION("sqrtl", "1.l/(2.l*sqrtl(x))","long double"),
   DERIVGRIND_MATH_FUNCTION("tanl", "1.l/(cosl(x)*cosl(x))","long double"),
   DERIVGRIND_MATH_FUNCTION("tanhl", "1.l-tanhl(x)*tanhl(x)","long double"),
+  DERIVGRIND_MATH_FUNCTION2("atan2l","-y/(x*x+y*y)","x/(x*x+y*y)","long double"),
 ]
 
 
