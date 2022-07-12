@@ -1285,17 +1285,21 @@ typedef
       lval = (__typeof__(lval)) _res;                             \
    } while (0)
 
-#define CALL_FN_F_F(lval, orig, arg1)                             \
+/*! Pattern for the macros to call unwrapped floating-point functions.
+ * \param lval - Return value
+ * \param orig - Handle to unwrapped function
+ * \param argvec_def - C code forming the array of values that go on the stack.
+ * \param pushes - Assembler instructions pushing values to the stack.
+ */
+#define CALL_FN_FP_FP(lval, orig, argvec_def, pushes) \
    do {                                                           \
       volatile OrigFn        _orig = (orig);                      \
-      volatile unsigned long _argvec[2];                          \
       volatile long double _res;                                \
+      argvec_def                  \
       _argvec[0] = (unsigned long)_orig.nraddr;                   \
-      _argvec[1] = *(unsigned long*)&(arg1);                         \
       __asm__ volatile(                                           \
          VALGRIND_ALIGN_STACK                                     \
-         "subl $12, %%esp\n\t"                                    \
-         "pushl 4(%%eax)\n\t"                                     \
+         pushes \
          "movl (%%eax), %%eax\n\t"  /* target->%eax */            \
          VALGRIND_CALL_NOREDIR_EAX                                \
          VALGRIND_RESTORE_STACK                                   \
@@ -1304,61 +1308,29 @@ typedef
          : /*trash*/ "cc", "memory", __CALLER_SAVED_REGS, "edi",  \
              "st(1)", "st(2)", "st(3)", "st(4)", "st(5)", "st(6)", "st(7)" \
       );                                                          \
-      volatile float res_f = _res; \
-      lval = (__typeof__(lval)) res_f;                             \
+      lval = (__typeof__(lval)) _res;                             \
    } while (0)
+
+#define CALL_FN_F_F(lval, orig, arg1) \
+  CALL_FN_FP_FP(lval, orig,  \
+    volatile unsigned long _argvec[2];                          \
+    _argvec[1] = *(unsigned long*)&(arg1);    ,                  \
+    "subl $12, %%esp\n\t pushl 4(%%eax)\n\t" )
 
 #define CALL_FN_D_D(lval, orig, arg1)                             \
-   do {                                                           \
-      volatile OrigFn        _orig = (orig);                      \
-      volatile unsigned long _argvec[3];                          \
-      volatile long double _res;                                \
-      _argvec[0] = (unsigned long)_orig.nraddr;                   \
-      _argvec[1] = *(unsigned long*)&(arg1);                         \
-      _argvec[2] = *( (unsigned long*)&(arg1) + 1 ); \
-      __asm__ volatile(                                           \
-         VALGRIND_ALIGN_STACK                                     \
-         "subl $8, %%esp\n\t"                                    \
-         "pushl 8(%%eax)\n\t" \
-         "pushl 4(%%eax)\n\t"                                     \
-         "movl (%%eax), %%eax\n\t"  /* target->%eax */            \
-         VALGRIND_CALL_NOREDIR_EAX                                \
-         VALGRIND_RESTORE_STACK                                   \
-         : /*out*/   "=t" (_res)                                  \
-         : /*in*/    "a" (&_argvec[0])                            \
-         : /*trash*/ "cc", "memory", __CALLER_SAVED_REGS, "edi",  \
-             "st(1)", "st(2)", "st(3)", "st(4)", "st(5)", "st(6)", "st(7)" \
-      );                                                          \
-      volatile double res_f = _res; \
-      lval = (__typeof__(lval)) res_f;                             \
-   } while (0)
+  CALL_FN_FP_FP(lval, orig, \
+    volatile unsigned long _argvec[3]; \
+    _argvec[1] = *(unsigned long*)&(arg1);     \
+    _argvec[2] = *( (unsigned long*)&(arg1) + 1 );,  \
+    "subl $8, %%esp\n\t pushl 8(%%eax)\n\t pushl 4(%%eax)\n\t"   )
 
-#define CALL_FN_L_L(lval, orig, arg1)                             \
-   do {                                                           \
-      volatile OrigFn        _orig = (orig);                      \
-      volatile unsigned long _argvec[4];                          \
-      volatile long double _res;                                \
-      _argvec[0] = (unsigned long)_orig.nraddr;                   \
-      _argvec[1] = *(unsigned long*)&(arg1);                         \
-      _argvec[2] = *( (unsigned long*)&(arg1) + 1 ); \
-      _argvec[3] = *( (unsigned long*)&(arg1) + 2 ); \
-      __asm__ volatile(                                           \
-         VALGRIND_ALIGN_STACK                                     \
-         "subl $4, %%esp\n\t"                                    \
-         "pushl 12(%%eax)\n\t" \
-         "pushl 8(%%eax)\n\t" \
-         "pushl 4(%%eax)\n\t"                                     \
-         "movl (%%eax), %%eax\n\t"  /* target->%eax */            \
-         VALGRIND_CALL_NOREDIR_EAX                                \
-         VALGRIND_RESTORE_STACK                                   \
-         : /*out*/   "=t" (_res)                                  \
-         : /*in*/    "a" (&_argvec[0])                            \
-         : /*trash*/ "cc", "memory", __CALLER_SAVED_REGS, "edi",  \
-             "st(1)", "st(2)", "st(3)", "st(4)", "st(5)", "st(6)", "st(7)" \
-      );                                                          \
-      volatile long double res_f = _res; \
-      lval = (__typeof__(lval)) res_f;                             \
-   } while (0)
+#define CALL_FN_L_L(lval, orig, arg1)       \
+  CALL_FN_FP_FP(lval, orig, \
+    volatile unsigned long _argvec[4]; \
+    _argvec[1] = *(unsigned long*)&(arg1);       \
+    _argvec[2] = *( (unsigned long*)&(arg1) + 1 ); \
+    _argvec[3] = *( (unsigned long*)&(arg1) + 2 );, \
+    "subl $4, %%esp\n\t pushl 12(%%eax)\n\t pushl 8(%%eax)\n\t pushl 4(%%eax)\n\t" )
 
 #define CALL_FN_W_WW(lval, orig, arg1,arg2)                       \
    do {                                                           \
