@@ -292,6 +292,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.grads = {'a':3.1}
   sin.test_vals = {'c':np.sin(angle)}
   sin.test_grads = {'c':np.cos(angle)*3.1}
+  sin.disable = lambda arch, language, typename : arch == "amd64" and typename == "np32" # TODO
   basiclist.append(sin)
 
   cos = ClientRequestTestCase("cos_"+angletext)
@@ -307,6 +308,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.grads = {'a':2.7}
   cos.test_vals = {'c':np.cos(angle)}
   cos.test_grads = {'c':-np.sin(angle)*2.7}
+  cos.disable = lambda arch, language, typename : arch == "amd64" and typename == "np32" # TODO
   basiclist.append(cos)
 
   tan = ClientRequestTestCase("tan_"+angletext)
@@ -337,6 +339,7 @@ exp.vals = {'a':4}
 exp.grads = {'a':5.0}
 exp.test_vals = {'c':np.exp(4)}
 exp.test_grads = {'c':np.exp(4)*5.0}
+exp.disable = lambda arch, language, typename : arch == "amd64" and typename == "np32" # TODO
 basiclist.append(exp)
 
 log = ClientRequestTestCase("log")
@@ -352,6 +355,7 @@ log.vals = {'a':20}
 log.grads = {'a':1.0}
 log.test_vals = {'c':np.log(20)}
 log.test_grads = {'c':0.05}
+log.disable = lambda arch, language, typename : arch == "amd64" and typename == "np32" # TODO
 basiclist.append(log)
 
 log10 = ClientRequestTestCase("log10")
