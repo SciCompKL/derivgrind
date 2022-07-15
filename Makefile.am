@@ -4,7 +4,7 @@ AUTOMAKE_OPTIONS = 1.10
 include $(top_srcdir)/Makefile.all.am 
 
 TOOLS = \
-		none
+		derivgrind
 
 EXP_TOOLS = \
 		exp-bbv

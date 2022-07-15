@@ -292,6 +292,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.grads = {'a':3.1}
   sin.test_vals = {'c':np.sin(angle)}
   sin.test_grads = {'c':np.cos(angle)*3.1}
+  sin.disable = lambda arch, language, typename : arch == "amd64" and typename == "np32" # TODO
   basiclist.append(sin)
 
   cos = ClientRequestTestCase("cos_"+angletext)
@@ -307,6 +308,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.grads = {'a':2.7}
   cos.test_vals = {'c':np.cos(angle)}
   cos.test_grads = {'c':-np.sin(angle)*2.7}
+  cos.disable = lambda arch, language, typename : arch == "amd64" and typename == "np32" # TODO
   basiclist.append(cos)
 
   tan = ClientRequestTestCase("tan_"+angletext)
@@ -337,6 +339,7 @@ exp.vals = {'a':4}
 exp.grads = {'a':5.0}
 exp.test_vals = {'c':np.exp(4)}
 exp.test_grads = {'c':np.exp(4)*5.0}
+exp.disable = lambda arch, language, typename : arch == "amd64" and typename == "np32" # TODO
 basiclist.append(exp)
 
 log = ClientRequestTestCase("log")
@@ -352,6 +355,7 @@ log.vals = {'a':20}
 log.grads = {'a':1.0}
 log.test_vals = {'c':np.log(20)}
 log.test_grads = {'c':0.05}
+log.disable = lambda arch, language, typename : arch == "amd64" and typename == "np32" # TODO
 basiclist.append(log)
 
 log10 = ClientRequestTestCase("log10")
@@ -504,6 +508,31 @@ ceil.test_vals = {'c':3.0}
 ceil.test_grads = {'c':0.0}
 basiclist.append(ceil)
 
+ldexp = ClientRequestTestCase("ldexp")
+ldexp.include = "#include <math.h>"
+ldexp.ldflags = '-lm'
+ldexp.stmtd = "double c = ldexp(a,-3);"
+ldexp.stmtf = "float c = ldexpf(a,-3);"
+ldexp.stmtl = "long double c = ldexpl(a,-3);"
+ldexp.stmtp = "c = np.ldexp(a,-3)"
+ldexp.vals = {'a':2.4}
+ldexp.grads = {'a':-1.0}
+ldexp.test_vals = {'c':0.3}
+ldexp.test_grads = {'c':-1.0/8}
+basiclist.append(ldexp)
+
+frexp = ClientRequestTestCase("frexp")
+frexp.include = "#include <math.h>"
+frexp.ldflags = '-lm'
+frexp.stmtd = "int e; double c = frexp(a,&e); double ee = e;"
+frexp.stmtf = "int e; float c = frexpf(a,&e); float ee = e;"
+frexp.stmtl = "int e; long double c = frexpl(a,&e); long double ee=e;"
+frexp.stmtp = "c, e = np.frexp(a); ee=1.0*e"
+frexp.vals = {'a':-5.0}
+frexp.grads = {'a':-1.0}
+frexp.test_vals = {'c':-5.0/8, 'ee':3.0}
+frexp.test_grads = {'c':-1.0/8, 'ee':0.0}
+basiclist.append(frexp)
 
 ### Memory operations from string.h ###
 

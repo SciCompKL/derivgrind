@@ -5378,6 +5378,7 @@ AC_CONFIG_FILES([
    none/tests/amd64-solaris/Makefile
    none/tests/x86-solaris/Makefile
    none/tests/x86-freebsd/Makefile
+   derivgrind/Makefile
    exp-bbv/Makefile
    exp-bbv/tests/Makefile
    exp-bbv/tests/x86/Makefile
