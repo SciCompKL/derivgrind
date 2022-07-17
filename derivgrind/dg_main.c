@@ -90,6 +90,11 @@ static unsigned long stmt_counter = 0; //!< Can be used to tag dg_add_print_stmt
 
 static Bool warn_about_unwrapped_expressions = False; //!< Debugging output.
 
+/*! If True, instead of differentiated expressions, the original expressions
+ *  are evaluated.
+ */
+Bool paragrind = False;
+
 #define DEFAULT_ROUNDING IRExpr_Const(IRConst_U32(Irrm_NEAREST))
 
 static void dg_post_clo_init(void)
@@ -99,6 +104,7 @@ static void dg_post_clo_init(void)
 static Bool dg_process_cmd_line_option(const HChar* arg)
 {
    if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
+   else if VG_BOOL_CLO(arg, "--paragrind", paragrind) {}
    else
       return False;
    return True;
@@ -1263,12 +1269,13 @@ static
 IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const char* operation){
   IRExpr* diff = differentiate_expr(expr,diffenv);
   if(diff){
-    return diff;
+    if(paragrind) return expr;
+    else return diff;
   } else {
     if(warn){
       VG_(printf)("Warning: Expression\n");
       ppIRExpr(expr);
-      VG_(printf)("could not be differentiated, %s'ing zero instead.\n\n", operation);
+      VG_(printf)("\ncould not be differentiated, %s'ing zero instead.\n\n", operation);
     }
     return mkIRConst_zero(typeOfIRExpr(diffenv.sb_out->tyenv,expr));
   }

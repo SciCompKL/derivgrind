@@ -30,6 +30,8 @@
 
 #include "dg_logical.h"
 
+extern Bool paragrind;
+
 /*! \file dg_logical.c
  *  Define functions for AD handling of logical operations.
  */
@@ -79,6 +81,7 @@
 
 #define DG_HANDLE_AND(fptype, inttype, x, y) \
   if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1))-1 ){ /* 0b01..1 */ \
+    if(paragrind) return x & y; \
     fptype y_f = *(fptype*)&y, yd_f = *(fptype*)&y##d; \
     if(y_f<0) yd_f = -yd_f; \
     return *(inttype*)&yd_f; \
@@ -119,6 +122,7 @@ VG_REGPARM(0) ULong dg_logical_and64(ULong x, ULong xd, ULong y, ULong yd){
 // compare with 0b100...0 and 0b00...0
 #define DG_HANDLE_OR(fptype, inttype, x, y) \
   if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) ){ /* 0b10..0 */ \
+    if(paragrind) return x | y; \
     fptype y_f = *(fptype*)&y, yd_f = *(fptype*)&y##d; \
     if(y_f>0) yd_f = -yd_f; \
     return *(inttype*)&yd_f; \
@@ -144,6 +148,7 @@ VG_REGPARM(0) ULong dg_logical_or64(ULong x, ULong xd, ULong y, ULong yd){
 
 #define DG_HANDLE_XOR(fptype, inttype, x, y) \
   if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) ){ \
+    if(paragrind) return x ^ y; \
     fptype yd_f = *(fptype*)&y##d; \
     yd_f = -yd_f; \
     return *(inttype*)&yd_f; \
