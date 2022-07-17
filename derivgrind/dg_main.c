@@ -1,4 +1,4 @@
-
+﻿
 /*--------------------------------------------------------------------*/
 /*--- DerivGrind: Forward-mode algorithmic               dg_main.c ---*/
 /*--- differentiation using Valgrind.                              ---*/
@@ -34,6 +34,7 @@
 #include "pub_tool_libcassert.h"
 #include "pub_tool_gdbserver.h"
 #include "pub_tool_libcbase.h"
+#include "pub_tool_options.h"
 #include "valgrind.h"
 #include "derivgrind.h"
 
@@ -87,16 +88,35 @@ ShadowMap* my_sm = NULL; //!< Gives access to the shadow memory for the tangent 
 
 static unsigned long stmt_counter = 0; //!< Can be used to tag dg_add_print_stmt outputs.
 
-#define DEFAULT_ROUNDING IRExpr_Const(IRConst_U32(Irrm_NEAREST))
+static Bool warn_about_unwrapped_expressions = False; //!< Debugging output.
 
-/*! Condition for writing out unknown expressions.
- */
-#define UNWRAPPED_EXPRESSION_OUTPUT_FILTER False
+#define DEFAULT_ROUNDING IRExpr_Const(IRConst_U32(Irrm_NEAREST))
 
 static void dg_post_clo_init(void)
 {
 }
 
+static Bool dg_process_cmd_line_option(const HChar* arg)
+{
+   if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
+   else
+      return False;
+   return True;
+}
+
+static void dg_print_usage(void)
+{
+   VG_(printf)(
+"    --warn-unwrapped=no|yes   warn about unwrapped expressions\n"
+   );
+}
+
+static void dg_print_debug_usage(void)
+{
+   VG_(printf)(
+"    (none)\n"
+   );
+}
 
 /*! Make zero constant of certain type.
  */
@@ -1323,19 +1343,19 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
     if(st->tag==Ist_WrTmp) {
       IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"WrTmp");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,warn_about_unwrapped_expressions,"WrTmp");
       IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
       addStmtToIRSB(sb_out, sp);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_Put) {
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"Put");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,warn_about_unwrapped_expressions,"Put");
       IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
       addStmtToIRSB(sb_out, sp);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_PutI) {
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"PutI");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,warn_about_unwrapped_expressions,"PutI");
       IRRegArray* descr = st->Ist.PutI.details->descr;
       IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB, descr->elemTy, descr->nElems);
       Int bias = st->Ist.PutI.details->bias;
@@ -1345,13 +1365,13 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_Store){
       IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Store.data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Store.data, diffenv, UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"Store");
+      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Store.data, diffenv, warn_about_unwrapped_expressions,"Store");
       storeShadowMemory(diffenv.sb_out,st->Ist.Store.addr,differentiated_expr,NULL);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_StoreG){
       IRStoreG* det = st->Ist.StoreG.details;
       IRType type = typeOfIRExpr(sb_in->tyenv,det->data);
-      IRExpr* differentiated_expr = differentiate_or_zero(det->data, diffenv, UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"StoreG");
+      IRExpr* differentiated_expr = differentiate_or_zero(det->data, diffenv, warn_about_unwrapped_expressions,"StoreG");
       storeShadowMemory(diffenv.sb_out,det->addr,differentiated_expr,det->guard);
       addStmtToIRSB(sb_out, st_orig);
     } else if(st->tag==Ist_LoadG) {
@@ -1360,7 +1380,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
       // never be interpreted as derivative information
       IRType type = sb_in->tyenv->types[det->dst];
       // differentiate alternative value
-      IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"alternative-LoadG");
+      IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,warn_about_unwrapped_expressions,"alternative-LoadG");
       // depending on the guard, copy either the derivative stored
       // in shadow memory, or the derivative of the alternative value,
       // to the shadow temporary.
@@ -1594,7 +1614,6 @@ static void dg_pre_clo_init(void)
 
 
    /* No needs, no core events to track */
-   VG_(printf)("Allocate shadow memory... ");
    my_sm = (ShadowMap*) VG_(malloc)("allocate_shadow_memory", sizeof(ShadowMap));
    #ifdef BUILD_32BIT
    if(my_sm==NULL) VG_(printf)("Error\n");
@@ -1605,9 +1624,12 @@ static void dg_pre_clo_init(void)
    #else
    shadow_initialize_with_mmap(my_sm);
    #endif
-   VG_(printf)("done\n");
 
    VG_(needs_client_requests)     (dg_handle_client_request);
+
+   VG_(needs_command_line_options)(dg_process_cmd_line_option,
+                                   dg_print_usage,
+                                   dg_print_debug_usage);
 
 }
 
