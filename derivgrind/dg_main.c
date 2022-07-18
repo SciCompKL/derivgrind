@@ -84,11 +84,14 @@ inline void  shadow_out_of_memory() {
  *    another byte for each byte of "original" memory.
  */
 
-ShadowMap* my_sm = NULL; //!< Gives access to the shadow memory for the tangent variables.
+//! Shadow memory for the dot values.
+ShadowMap* sm_dot = NULL;
 
-static unsigned long stmt_counter = 0; //!< Can be used to tag dg_add_print_stmt outputs.
+//! Can be used to tag dg_add_print_stmt outputs.
+static unsigned long stmt_counter = 0;
 
-static Bool warn_about_unwrapped_expressions = False; //!< Debugging output.
+//! Debugging output.
+static Bool warn_about_unwrapped_expressions = False;
 
 /*! If True, instead of differentiated expressions, the original expressions
  *  are evaluated.
@@ -218,7 +221,7 @@ static IRExpr* mkIRConst_zero(IRType type){
 static
 VG_REGPARM(0) void dg_Store_diff(Addr addr, ULong derivative, UChar size){
   for(int i=0; i<size; i++){
-    shadow_set_bits(my_sm,((SM_Addr)addr)+i,  *( ((U8*)&derivative) + i ));
+    shadow_set_bits(sm_dot,((SM_Addr)addr)+i,  *( ((U8*)&derivative) + i ));
   }
 }
 
@@ -237,7 +240,7 @@ static
 VG_REGPARM(0) ULong dg_Load_diff(Addr addr, UChar size){
   ULong derivative=0;
   for(int i=0; i<size; i++){
-    shadow_get_bits(my_sm,((SM_Addr)addr)+i, (U8*)&derivative+i);
+    shadow_get_bits(sm_dot,((SM_Addr)addr)+i, (U8*)&derivative+i);
   }
   for(int i=size; i<8; i++){
     *((U8*)&derivative+i) = 0;
@@ -623,7 +626,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       }
       union {char l[10]; double d; float f;} derivative;
       for(int i=0; i<size; i++){
-        shadow_get_bits(my_sm,(SM_Addr)address+i, (U8*)&derivative+i);
+        shadow_get_bits(sm_dot,(SM_Addr)address+i, (U8*)&derivative+i);
       }
       switch(key){
         case 1:
@@ -669,7 +672,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         }
       }
       for(int i=0; i<size; i++){
-        shadow_set_bits( my_sm,(SM_Addr)address+i, *( (U8*)&derivative+i ) );
+        shadow_set_bits( sm_dot,(SM_Addr)address+i, *( (U8*)&derivative+i ) );
       }
       return True;
     }
@@ -697,7 +700,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
     for(UWord i=0; i<size; i++){
-      shadow_get_bits(my_sm,(SM_Addr)addr+i, (U8*)daddr+i);
+      shadow_get_bits(sm_dot,(SM_Addr)addr+i, (U8*)daddr+i);
     }
     *ret = 1;
     return True;
@@ -706,7 +709,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
     for(UWord i=0; i<size; i++){
-      shadow_set_bits(my_sm,(SM_Addr)addr+i, *((U8*)daddr+i));
+      shadow_set_bits(sm_dot,(SM_Addr)addr+i, *((U8*)daddr+i));
     }
     *ret = 1;
     return True;
@@ -1601,8 +1604,21 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
 
 static void dg_fini(Int exitcode)
 {
-  shadow_destroy_map(my_sm);
-  VG_(free)(my_sm);
+  shadow_destroy_map(sm_dot);
+  VG_(free)(sm_dot);
+}
+
+void initialize_shadow_map(ShadowMap** sm){
+  *sm = (ShadowMap*) VG_(malloc)("allocate_shadow_memory", sizeof(ShadowMap));
+  #ifdef BUILD_32BIT
+  if((*sm)==NULL) VG_(printf)("Error allocating space for ShadowMap.\n");
+  (*sm)->shadow_bits = 1;
+  (*sm)->application_bits = 1;
+  (*sm)->num_distinguished = 1;
+  shadow_initialize_map(*sm);
+  #else
+  shadow_initialize_with_mmap(*sm);
+  #endif
 }
 
 static void dg_pre_clo_init(void)
@@ -1623,17 +1639,7 @@ static void dg_pre_clo_init(void)
                                  dg_fini);
 
 
-   /* No needs, no core events to track */
-   my_sm = (ShadowMap*) VG_(malloc)("allocate_shadow_memory", sizeof(ShadowMap));
-   #ifdef BUILD_32BIT
-   if(my_sm==NULL) VG_(printf)("Error\n");
-   my_sm->shadow_bits = 1;
-   my_sm->application_bits = 1;
-   my_sm->num_distinguished = 1;
-   shadow_initialize_map(my_sm);
-   #else
-   shadow_initialize_with_mmap(my_sm);
-   #endif
+   initialize_shadow_map(&sm_dot);
 
    VG_(needs_client_requests)     (dg_handle_client_request);
 
