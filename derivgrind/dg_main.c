@@ -849,11 +849,15 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
   int i;
   DiffEnv diffenv;
   IRSB* sb_out = deepCopyIRSBExceptStmts(sb_in);
-  // append the "gradient temporaries" to the "value temporaries",
-  // doubling the number of temporaries
+  // append the shadow temporaries to the original temporaries,
   diffenv.t_offset = sb_in->tyenv->types_used;
   for(IRTemp t=0; t<diffenv.t_offset; t++){
     newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
+  }
+  if(paragrind){ // another set of shadow temporaries
+    for(IRTemp t=0; t<diffenv.t_offset; t++){
+      newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
+    }
   }
 
   diffenv.sb_out = sb_out;
@@ -875,10 +879,10 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
     for(int inst=1; inst<4; inst++){
       if(inst==instOrig){
         addStmtToIRSB(sb_out, st_orig);
-        break;
+        continue;
       }
       if(inst==instPara && !paragrind){
-        break;
+        continue;
       }
 
       IRExpr* (*modify_expression)(IRExpr*, DiffEnv, Bool, const char*);
@@ -886,7 +890,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
         modify_expression = &differentiate_or_zero;
         setCurrentShadowMap(sm_dot);
       } else if(inst==instPara){
-        //modify_expression = NULL;
+        modify_expression = NULL;
         //setCurrentShadowMap(sm_values);
       }
       if(st->tag==Ist_WrTmp) {
@@ -936,11 +940,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
         IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
         Bool double_element = (det->expdHi!=NULL);
 
-        // add original statement before AD treatment, because we need to know
-        // if the CAS succeeded
-        addStmtToIRSB(sb_out, st_orig);
-
-        // Now we will add a couple more statements. Note that the complete
+        // As we add some instrumentation now, note that the complete
         // translation of the Ist_CAS is not atomic any more, so it's
         // possible that we create a race condition here.
         // This issue also exists in do_shadow_CAS in mc_translate.c.
@@ -985,14 +985,6 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
           }
         }
 
-        // Load derivatives of oldLo.
-        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
-          det->oldLo + diffenv.t_offset*inst, loadShadowMemory(diffenv.sb_out,addr_Lo,type)));
-        // Possibly load derivatives of oldHi.
-        if(double_element){
-            addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
-              det->oldHi + diffenv.t_offset*inst, loadShadowMemory(diffenv.sb_out,addr_Hi,type)));
-        }
         // Find out if CAS succeeded.
         IROp cmp;
         switch(type){
@@ -1002,18 +994,38 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
           case Ity_I64: cmp = Iop_CmpEQ64; break;
           default: VG_(printf)("Unhandled type in translation of Ist_CAS.\n"); tl_assert(False); break;
         }
-        IRTemp cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
-        addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
+        IRTemp cas_succeeded_Lo = newIRTemp(sb_out->tyenv, Ity_I1);
+        addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded_Lo,
           IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_1Uto32,
-            IRExpr_Binop(cmp,IRExpr_RdTmp(det->oldLo), det->expdLo)
+            IRExpr_Binop(cmp,det->expdLo,IRExpr_Load(det->end,type,addr_Lo))
         ))));
+        IRTemp cas_succeeded = cas_succeeded_Lo;
+        if(double_element){
+          IRTemp cas_succeeded_Hi = newIRTemp(sb_out->tyenv, Ity_I1);
+          addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded_Hi,
+            IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_1Uto32,
+              IRExpr_Binop(cmp,det->expdHi,IRExpr_Load(det->end,type,addr_Hi))
+          ))));
+          cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
+          addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
+            IRExpr_Binop(Iop_And1,
+              IRExpr_RdTmp(cas_succeeded_Lo),
+              IRExpr_RdTmp(cas_succeeded_Hi) )));
+        }
+        // Set shadows of oldLo and possibly oldHi.
+        addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo+diffenv.t_offset*inst,
+          loadShadowMemory(sb_out,addr_Lo,type)));
+        if(double_element){
+          addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi+diffenv.t_offset*inst,
+            loadShadowMemory(sb_out,addr_Hi,type)));
+        }
         // Guarded write of Lo part to shadow memory.
-        IRExpr* modified_expdLo = modify_expression(det->expdLo,diffenv,False,"");
-        storeShadowMemory(sb_out,addr_Lo,modified_expdLo,IRExpr_RdTmp(cas_succeeded));
+        IRExpr* modified_dataLo = modify_expression(det->dataLo,diffenv,False,"");
+        storeShadowMemory(sb_out,addr_Lo,modified_dataLo,IRExpr_RdTmp(cas_succeeded));
         // Possibly guarded write of Hi part to shadow memory.
         if(double_element){
-          IRExpr* modified_expdHi =  modify_expression(det->expdHi,diffenv,False,"");
-          storeShadowMemory(sb_out,addr_Hi,modified_expdHi,IRExpr_RdTmp(cas_succeeded));
+          IRExpr* modified_dataHi =  modify_expression(det->dataHi,diffenv,False,"");
+          storeShadowMemory(sb_out,addr_Hi,modified_dataHi,IRExpr_RdTmp(cas_succeeded));
         }
       } else if(st->tag==Ist_LLSC) {
         VG_(printf)("Did not instrument Ist_LLSC statement.\n");
