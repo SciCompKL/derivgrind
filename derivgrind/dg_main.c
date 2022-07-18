@@ -870,248 +870,252 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
     IRStmt* st_orig = sb_in->stmts[i]; // will be added to sb_out in the end
     const IRStmt* st = st_orig; // const version for differentiation
     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
-    if(st->tag==Ist_WrTmp) {
-      IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,warn_about_unwrapped_expressions,"WrTmp");
-      IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
-      addStmtToIRSB(sb_out, sp);
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_Put) {
-      IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,warn_about_unwrapped_expressions,"Put");
-      IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
-      addStmtToIRSB(sb_out, sp);
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_PutI) {
-      IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,warn_about_unwrapped_expressions,"PutI");
-      IRRegArray* descr = st->Ist.PutI.details->descr;
-      IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB, descr->elemTy, descr->nElems);
-      Int bias = st->Ist.PutI.details->bias;
-      IRExpr* ix = st->Ist.PutI.details->ix;
-      IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv.layout->total_sizeB,differentiated_expr));
-      addStmtToIRSB(sb_out, sp);
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_Store){
-      IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Store.data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Store.data, diffenv, warn_about_unwrapped_expressions,"Store");
-      storeShadowMemory(diffenv.sb_out,st->Ist.Store.addr,differentiated_expr,NULL);
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_StoreG){
-      IRStoreG* det = st->Ist.StoreG.details;
-      IRType type = typeOfIRExpr(sb_in->tyenv,det->data);
-      IRExpr* differentiated_expr = differentiate_or_zero(det->data, diffenv, warn_about_unwrapped_expressions,"StoreG");
-      storeShadowMemory(diffenv.sb_out,det->addr,differentiated_expr,det->guard);
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_LoadG) {
-      IRLoadG* det = st->Ist.LoadG.details;
-      // discard det->cvt; extra bits for widening should
-      // never be interpreted as derivative information
-      IRType type = sb_in->tyenv->types[det->dst];
-      // differentiate alternative value
-      IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,warn_about_unwrapped_expressions,"alternative-LoadG");
-      // depending on the guard, copy either the derivative stored
-      // in shadow memory, or the derivative of the alternative value,
-      // to the shadow temporary.
-      addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(det->dst+diffenv.t_offset,
-        IRExpr_ITE(det->guard,loadShadowMemory(diffenv.sb_out,det->addr,type),differentiated_expr_alt)
-      ));
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_CAS) {
 
-      IRCAS* det = st->Ist.CAS.details;
-      IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
-      Bool double_element = (det->expdHi!=NULL);
-
-      // add original statement before AD treatment, because we need to know
-      // if the CAS succeeded
-      addStmtToIRSB(sb_out, st_orig);
-
-      // Now we will add a couple more statements. Note that the complete
-      // translation of the Ist_CAS is not atomic any more, so it's
-      // possible that we create a race condition here.
-      // This issue also exists in do_shadow_CAS in mc_translate.c.
-      // There, the comment states that because Valgrind runs only one
-      // thread at a time and there are no context switches within a
-      // single IRSB, this is not a problem.
-
-      // Find addresses of Hi and Lo part.
-      IRExpr* offset; // offset between Hi and Lo part of addr
-      IRExpr* addr_Lo; // one of addr_Lo, addr_Hi is det->addr,
-      IRExpr* addr_Hi; // the other one is det->addr + offset
-      IROp add; // operation to add addresses
-      switch(typeOfIRExpr(diffenv.sb_out->tyenv,det->addr)){
-        case Ity_I32:
-          add = Iop_Add32;
-          offset = IRExpr_Const(IRConst_U32(sizeofIRType(type)));
-          break;
-        case Ity_I64:
-          add = Iop_Add64;
-          offset = IRExpr_Const(IRConst_U64(sizeofIRType(type)));
-          break;
-        default:
-          VG_(printf)("Unhandled type for address in translation of Ist_CAS.\n");
-          tl_assert(False);
-          break;
+    const int instDeriv=1, instPara=2, instOrig=3;
+    for(int inst=1; inst<4; inst++){
+      if(inst==instOrig){
+        addStmtToIRSB(sb_out, st_orig);
+        break;
       }
-      if(det->end==Iend_LE){
+      void* modify_expression;
+      if(inst==instDeriv){
+        modify_expression = &differentiate_or_zero;
+        setCurrentShadowMap(sm_dot);
+      } else if(inst==instPara){
+        modify_expression = &para_or_zero;
+        setCurrentShadowMap(sm_values);
+      }
+      if(st->tag==Ist_WrTmp) {
+        IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
+        IRExpr* modified_expr = modify_expression(st->Ist.WrTmp.data, diffenv,warn_about_unwrapped_expressions,"WrTmp");
+        IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset*inst, modified_expr);
+        addStmtToIRSB(sb_out, sp);
+      } else if(st->tag==Ist_Put) {
+        IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
+        IRExpr* modified_expr = modify_expression(st->Ist.Put.data, diffenv,warn_about_unwrapped_expressions,"Put");
+        IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB*inst, modified_expr);
+        addStmtToIRSB(sb_out, sp);
+      } else if(st->tag==Ist_PutI) {
+        IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
+        IRExpr* modified_expr = modify_expression(st->Ist.PutI.details->data, diffenv,warn_about_unwrapped_expressions,"PutI");
+        IRRegArray* descr = st->Ist.PutI.details->descr;
+        IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB*inst, descr->elemTy, descr->nElems);
+        Int bias = st->Ist.PutI.details->bias;
+        IRExpr* ix = st->Ist.PutI.details->ix;
+        IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv.layout->total_sizeB*inst,modified_expr));
+        addStmtToIRSB(sb_out, sp);
+      } else if(st->tag==Ist_Store){
+        IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Store.data);
+        IRExpr* modified_expr = modify_expression(st->Ist.Store.data, diffenv, warn_about_unwrapped_expressions,"Store");
+        storeShadowMemory(diffenv.sb_out,st->Ist.Store.addr,modified_expr,NULL);
+      } else if(st->tag==Ist_StoreG){
+        IRStoreG* det = st->Ist.StoreG.details;
+        IRType type = typeOfIRExpr(sb_in->tyenv,det->data);
+        IRExpr* modified_expr = modify_expression(det->data, diffenv, warn_about_unwrapped_expressions,"StoreG");
+        storeShadowMemory(diffenv.sb_out,det->addr,modified_expr,det->guard);
+      } else if(st->tag==Ist_LoadG) {
+        IRLoadG* det = st->Ist.LoadG.details;
+        // discard det->cvt; extra bits for widening should
+        // never be interpreted as derivative information
+        IRType type = sb_in->tyenv->types[det->dst];
+        // differentiate alternative value
+        IRExpr* modified_expr_alt = modify_expression(det->alt,diffenv,warn_about_unwrapped_expressions,"alternative-LoadG");
+        // depending on the guard, copy either the derivative stored
+        // in shadow memory, or the derivative of the alternative value,
+        // to the shadow temporary.
+        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(det->dst+diffenv.t_offset*inst,
+          IRExpr_ITE(det->guard,loadShadowMemory(diffenv.sb_out,det->addr,type),modified_expr_alt)
+        ));
+      } else if(st->tag==Ist_CAS) { // TODO
+
+        IRCAS* det = st->Ist.CAS.details;
+        IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
+        Bool double_element = (det->expdHi!=NULL);
+
+        // add original statement before AD treatment, because we need to know
+        // if the CAS succeeded
+        addStmtToIRSB(sb_out, st_orig);
+
+        // Now we will add a couple more statements. Note that the complete
+        // translation of the Ist_CAS is not atomic any more, so it's
+        // possible that we create a race condition here.
+        // This issue also exists in do_shadow_CAS in mc_translate.c.
+        // There, the comment states that because Valgrind runs only one
+        // thread at a time and there are no context switches within a
+        // single IRSB, this is not a problem.
+
+        // Find addresses of Hi and Lo part.
+        IRExpr* offset; // offset between Hi and Lo part of addr
+        IRExpr* addr_Lo; // one of addr_Lo, addr_Hi is det->addr,
+        IRExpr* addr_Hi; // the other one is det->addr + offset
+        IROp add; // operation to add addresses
+        switch(typeOfIRExpr(diffenv.sb_out->tyenv,det->addr)){
+          case Ity_I32:
+            add = Iop_Add32;
+            offset = IRExpr_Const(IRConst_U32(sizeofIRType(type)));
+            break;
+          case Ity_I64:
+            add = Iop_Add64;
+            offset = IRExpr_Const(IRConst_U64(sizeofIRType(type)));
+            break;
+          default:
+            VG_(printf)("Unhandled type for address in translation of Ist_CAS.\n");
+            tl_assert(False);
+            break;
+        }
+        if(det->end==Iend_LE){
+          if(double_element){
+            addr_Lo = det->addr;
+            addr_Hi = IRExpr_Binop(add,det->addr,offset);
+          } else {
+            addr_Lo = det->addr;
+            addr_Hi = NULL;
+          }
+        } else { // Iend_BE
+          if(double_element){
+            addr_Lo = IRExpr_Binop(add,det->addr,offset);
+            addr_Hi = det->addr;
+          } else {
+            addr_Lo = det->addr;
+            addr_Hi = NULL;
+          }
+        }
+
+        // Load derivatives of oldLo.
+        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
+          det->oldLo + diffenv.t_offset, loadShadowMemory(diffenv.sb_out,addr_Lo,type)));
+        // Possibly load derivatives of oldHi.
         if(double_element){
-          addr_Lo = det->addr;
-          addr_Hi = IRExpr_Binop(add,det->addr,offset);
-        } else {
-          addr_Lo = det->addr;
-          addr_Hi = NULL;
+            addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
+              det->oldHi + diffenv.t_offset, loadShadowMemory(diffenv.sb_out,addr_Hi,type)));
         }
-      } else { // Iend_BE
+        // Find out if CAS succeeded.
+        IROp cmp;
+        switch(type){
+          case Ity_I8: cmp = Iop_CmpEQ8; break;
+          case Ity_I16: cmp = Iop_CmpEQ16; break;
+          case Ity_I32: cmp = Iop_CmpEQ32; break;
+          case Ity_I64: cmp = Iop_CmpEQ64; break;
+          default: VG_(printf)("Unhandled type in translation of Ist_CAS.\n"); tl_assert(False); break;
+        }
+        IRTemp cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
+        addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
+          IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_1Uto32,
+            IRExpr_Binop(cmp,IRExpr_RdTmp(det->oldLo), det->expdLo)
+        ))));
+        // Guarded write of Lo part to shadow memory.
+        IRExpr* differentiated_expdLo = differentiate_or_zero(det->expdLo,diffenv,False,"");
+        storeShadowMemory(sb_out,addr_Lo,differentiated_expdLo,IRExpr_RdTmp(cas_succeeded));
+        // Possibly guarded write of Hi part to shadow memory.
         if(double_element){
-          addr_Lo = IRExpr_Binop(add,det->addr,offset);
-          addr_Hi = det->addr;
-        } else {
-          addr_Lo = det->addr;
-          addr_Hi = NULL;
+          IRExpr* differentiated_expdHi =  differentiate_or_zero(det->expdHi,diffenv,False,"");
+          storeShadowMemory(sb_out,addr_Hi,differentiated_expdHi,IRExpr_RdTmp(cas_succeeded));
         }
-      }
+      } else if(st->tag==Ist_LLSC) {
+        VG_(printf)("Did not instrument Ist_LLSC statement.\n");
+      } else if(st->tag==Ist_Dirty) {
+        // We should have a look at all Ist_Dirty statements that
+        // are added to the VEX IR in guest_x86_to_IR.c. Maybe
+        // some of them need AD treatment.
 
-      // Load derivatives of oldLo.
-      addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
-        det->oldLo + diffenv.t_offset, loadShadowMemory(diffenv.sb_out,addr_Lo,type)));
-      // Possibly load derivatives of oldHi.
-      if(double_element){
-          addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
-            det->oldHi + diffenv.t_offset, loadShadowMemory(diffenv.sb_out,addr_Hi,type)));
-      }
-      // Find out if CAS succeeded.
-      IROp cmp;
-      switch(type){
-        case Ity_I8: cmp = Iop_CmpEQ8; break;
-        case Ity_I16: cmp = Iop_CmpEQ16; break;
-        case Ity_I32: cmp = Iop_CmpEQ32; break;
-        case Ity_I64: cmp = Iop_CmpEQ64; break;
-        default: VG_(printf)("Unhandled type in translation of Ist_CAS.\n"); tl_assert(False); break;
-      }
-      IRTemp cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
-      addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
-        IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_1Uto32,
-          IRExpr_Binop(cmp,IRExpr_RdTmp(det->oldLo), det->expdLo)
-      ))));
-      // Guarded write of Lo part to shadow memory.
-      IRExpr* differentiated_expdLo = differentiate_or_zero(det->expdLo,diffenv,False,"");
-      storeShadowMemory(sb_out,addr_Lo,differentiated_expdLo,IRExpr_RdTmp(cas_succeeded));
-      // Possibly guarded write of Hi part to shadow memory.
-      if(double_element){
-        IRExpr* differentiated_expdHi =  differentiate_or_zero(det->expdHi,diffenv,False,"");
-        storeShadowMemory(sb_out,addr_Hi,differentiated_expdHi,IRExpr_RdTmp(cas_succeeded));
-      }
-    } else if(st->tag==Ist_LLSC) {
-      addStmtToIRSB(sb_out, st_orig);
-      VG_(printf)("Did not instrument Ist_LLSC statement.\n");
-    } else if(st->tag==Ist_Dirty) {
-      // We should have a look at all Ist_Dirty statements that
-      // are added to the VEX IR in guest_x86_to_IR.c. Maybe
-      // some of them need AD treatment.
+        IRDirty* det = st->Ist.Dirty.details;
+        const HChar* name = det->cee->name;
 
-      IRDirty* det = st->Ist.Dirty.details;
-      const HChar* name = det->cee->name;
-
-      // The x86g_dirtyhelper_storeF80le dirty call converts a 64-bit
-      // floating-point register to a 80-bit x87 extended double and
-      // stores it in 10 bytes of guest memory.
-      // We have to convert the 64-bit derivative information to 80 bit
-      // and store them in 10 bytes of shadow memory.
-      // The same applies on amd64.
-      if(!VG_(strcmp)(name, "x86g_dirtyhelper_storeF80le") ||
-         !VG_(strcmp)(name, "amd64g_dirtyhelper_storeF80le") ){
-        IRExpr** args = det->args;
-        IRExpr* addr = args[0];
-        IRExpr* expr = args[1];
-        IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,False,"");
-        IRDirty* dd = unsafeIRDirty_0_N(
-              0,
-              "x86g_amd64g_diff_dirtyhelper_storeF80le",
-              &x86g_amd64g_diff_dirtyhelper_storeF80le,
-              mkIRExprVec_2(addr, differentiated_expr));
-        addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
-        addStmtToIRSB(sb_out, st_orig);
-      }
-      // The x86g_dirtyhelper_loadF80le dirty call loads 80 bit from
-      // memory, converts them to a 64 bit double and stores it in a
-      // Ity_I64 temporary. We have to do the same with the derivative
-      // information in the shadow memory.
-      // The temporary will later be reinterpreted as float and likely
-      // stored in a register, but the AD logic for this part is
-      // as usual.
-      // The same applies on amd64.
-      else if(!VG_(strcmp)(name, "x86g_dirtyhelper_loadF80le") ||
-              !VG_(strcmp)(name, "amd64g_dirtyhelper_loadF80le") ){
-        IRExpr** args = det->args;
-        IRExpr* addr = args[0];
-        IRTemp t = det->tmp;
-        IRDirty* dd = unsafeIRDirty_1_N(
-              t + diffenv.t_offset,
-              0,
-              "x86g_amd64g_diff_dirtyhelper_loadF80le",
-              &x86g_amd64g_diff_dirtyhelper_loadF80le,
-              mkIRExprVec_1(addr));
-        addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
-        addStmtToIRSB(sb_out, st_orig);
-      }
-      /*! \page dirty_calls_no_ad Dirty calls without relevance for AD
-       *  The following dirty calls do not handle AD-active bytes,
-       *  therefore no specific AD instrumentation is necessary. If
-       *  there is an output temporary, we set the shadow temporary to
-       *  zero in case it is further copied around.
-       * - The CPUID dirty calls set some registers in the guest state.
-       *   As these should never end up as floating-point data, we don't
-       *   need to do anything about AD.
-       * - The RDTSC instruction loads a 64-bit time-stamp counter into
-       *   the (lower 32 bit of the) guest registers EAX and EDX (and
-       *   clears the higher 32 bit on amd64). The dirty call just
-       *   stores an Ity_I64 in its return temporary. We put a zero in
-       *   the shadow temporary.
-       * - The XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS, XSAVE_.. dirty calls
-       *   (re)store a SSE state, this seems to be a completely discrete thing.
-       * - The PCMPxSTRx dirty calls account for SSE 4.2 string instructions,
-       *   also a purely discrete thing.
-       * - amd64g_dirtyhelper_FSTENV and amd64g_dirtyhelper_FLDENV save status,
-       *   pointers and the like, but not the content of the x87 registers.
-       *
-       * For other dirty calls, a warning is emitted.
-       */
-      else {
-        if(det->tmp!=IRTemp_INVALID){
-          IRTemp shadow_tmp = det->tmp+diffenv.t_offset;
-          IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,det->tmp);
-          IRExpr* zero = mkIRConst_zero(type);
-          addStmtToIRSB(sb_out,IRStmt_WrTmp(shadow_tmp,zero));
+        // The x86g_dirtyhelper_storeF80le dirty call converts a 64-bit
+        // floating-point register to a 80-bit x87 extended double and
+        // stores it in 10 bytes of guest memory.
+        // We have to convert the 64-bit derivative information to 80 bit
+        // and store them in 10 bytes of shadow memory.
+        // The same applies on amd64.
+        if(!VG_(strcmp)(name, "x86g_dirtyhelper_storeF80le") ||
+           !VG_(strcmp)(name, "amd64g_dirtyhelper_storeF80le") ){
+          IRExpr** args = det->args;
+          IRExpr* addr = args[0];
+          IRExpr* expr = args[1];
+          IRExpr* modified_expr = modify_expr(expr,diffenv,False,"");
+          IRDirty* dd = unsafeIRDirty_0_N(
+                0,
+                "x86g_amd64g_diff_dirtyhelper_storeF80le",
+                &x86g_amd64g_diff_dirtyhelper_storeF80le,
+                mkIRExprVec_2(addr, modified_expr));
+          addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         }
-        addStmtToIRSB(sb_out, st_orig);
-
-        // warn if dirty call is unknown
-        if(VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23)) &&
-           VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) &&
-           VG_(strcmp(name, "amd64g_dirtyhelper_XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS")) &&
-           VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) &&
-           VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") &&
-           VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") &&
-           VG_(strcmp)(name,"amd64g_dirtyhelper_PCMPxSTRx") &&
-           VG_(strcmp)(name,"amd64g_dirtyhelper_FSTENV") &&
-           VG_(strcmp)(name,"amd64g_dirtyhelper_FLDENV")
-        ){
-          VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
-          ppIRStmt(st);
-          VG_(printf)("\n");
+        // The x86g_dirtyhelper_loadF80le dirty call loads 80 bit from
+        // memory, converts them to a 64 bit double and stores it in a
+        // Ity_I64 temporary. We have to do the same with the derivative
+        // information in the shadow memory.
+        // The temporary will later be reinterpreted as float and likely
+        // stored in a register, but the AD logic for this part is
+        // as usual.
+        // The same applies on amd64.
+        else if(!VG_(strcmp)(name, "x86g_dirtyhelper_loadF80le") ||
+                !VG_(strcmp)(name, "amd64g_dirtyhelper_loadF80le") ){
+          IRExpr** args = det->args;
+          IRExpr* addr = args[0];
+          IRTemp t = det->tmp;
+          IRDirty* dd = unsafeIRDirty_1_N(
+                t + diffenv.t_offset*inst,
+                0,
+                "x86g_amd64g_diff_dirtyhelper_loadF80le",
+                &x86g_amd64g_diff_dirtyhelper_loadF80le,
+                mkIRExprVec_1(addr));
+          addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         }
-      }
-    } else if(st->tag==Ist_NoOp || st->tag==Ist_IMark || st->tag==Ist_AbiHint){
-      addStmtToIRSB(sb_out, st_orig);
-      // no relevance for any tool, do nothing
-    } else if(st->tag==Ist_Exit || st->tag==Ist_MBE) {
-      addStmtToIRSB(sb_out, st_orig);
-      // no relevance for AD, do nothing
-    } else {
-      tl_assert(False);
-    }
+        /*! \page dirty_calls_no_ad Dirty calls without relevance for AD
+         *  The following dirty calls do not handle AD-active bytes,
+         *  therefore no specific AD instrumentation is necessary. If
+         *  there is an output temporary, we set the shadow temporary to
+         *  zero in case it is further copied around.
+         * - The CPUID dirty calls set some registers in the guest state.
+         *   As these should never end up as floating-point data, we don't
+         *   need to do anything about AD.
+         * - The RDTSC instruction loads a 64-bit time-stamp counter into
+         *   the (lower 32 bit of the) guest registers EAX and EDX (and
+         *   clears the higher 32 bit on amd64). The dirty call just
+         *   stores an Ity_I64 in its return temporary. We put a zero in
+         *   the shadow temporary.
+         * - The XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS, XSAVE_.. dirty calls
+         *   (re)store a SSE state, this seems to be a completely discrete thing.
+         * - The PCMPxSTRx dirty calls account for SSE 4.2 string instructions,
+         *   also a purely discrete thing.
+         * - amd64g_dirtyhelper_FSTENV and amd64g_dirtyhelper_FLDENV save status,
+         *   pointers and the like, but not the content of the x87 registers.
+         *
+         * For other dirty calls, a warning is emitted.
+         */
+        else {
+          if(det->tmp!=IRTemp_INVALID){
+            IRTemp shadow_tmp = det->tmp+diffenv.t_offset*inst;
+            IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,det->tmp);
+            IRExpr* zero = mkIRConst_zero(type);
+            addStmtToIRSB(sb_out,IRStmt_WrTmp(shadow_tmp,zero));
+          }
 
+          // warn if dirty call is unknown
+          if(VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23)) &&
+             VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) &&
+             VG_(strcmp(name, "amd64g_dirtyhelper_XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS")) &&
+             VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) &&
+             VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") &&
+             VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") &&
+             VG_(strcmp)(name,"amd64g_dirtyhelper_PCMPxSTRx") &&
+             VG_(strcmp)(name,"amd64g_dirtyhelper_FSTENV") &&
+             VG_(strcmp)(name,"amd64g_dirtyhelper_FLDENV")
+          ){
+            VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
+            ppIRStmt(st);
+            VG_(printf)("\n");
+          }
+        }
+      } else if(st->tag==Ist_NoOp || st->tag==Ist_IMark || st->tag==Ist_AbiHint){
+        // no relevance for any tool, do nothing
+      } else if(st->tag==Ist_Exit || st->tag==Ist_MBE) {
+        // no relevance for AD, do nothing
+      } else {
+        tl_assert(False);
+      }
+
+    } // end for loop over instrumentations
 
   }
 
