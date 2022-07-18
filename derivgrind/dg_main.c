@@ -996,16 +996,14 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
         }
         IRTemp cas_succeeded_Lo = newIRTemp(sb_out->tyenv, Ity_I1);
         addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded_Lo,
-          IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_1Uto32,
             IRExpr_Binop(cmp,det->expdLo,IRExpr_Load(det->end,type,addr_Lo))
-        ))));
+        ));
         IRTemp cas_succeeded = cas_succeeded_Lo;
         if(double_element){
           IRTemp cas_succeeded_Hi = newIRTemp(sb_out->tyenv, Ity_I1);
           addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded_Hi,
-            IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_1Uto32,
               IRExpr_Binop(cmp,det->expdHi,IRExpr_Load(det->end,type,addr_Hi))
-          ))));
+          ));
           cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
           addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
             IRExpr_Binop(Iop_And1,
