@@ -877,13 +877,17 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
         addStmtToIRSB(sb_out, st_orig);
         break;
       }
-      void* modify_expression;
+      if(inst==instPara && !paragrind){
+        break;
+      }
+
+      IRExpr* (*modify_expression)(IRExpr*, DiffEnv, Bool, const char*);
       if(inst==instDeriv){
         modify_expression = &differentiate_or_zero;
         setCurrentShadowMap(sm_dot);
       } else if(inst==instPara){
-        modify_expression = &para_or_zero;
-        setCurrentShadowMap(sm_values);
+        //modify_expression = NULL;
+        //setCurrentShadowMap(sm_values);
       }
       if(st->tag==Ist_WrTmp) {
         IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
@@ -983,11 +987,11 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
 
         // Load derivatives of oldLo.
         addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
-          det->oldLo + diffenv.t_offset, loadShadowMemory(diffenv.sb_out,addr_Lo,type)));
+          det->oldLo + diffenv.t_offset*inst, loadShadowMemory(diffenv.sb_out,addr_Lo,type)));
         // Possibly load derivatives of oldHi.
         if(double_element){
             addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
-              det->oldHi + diffenv.t_offset, loadShadowMemory(diffenv.sb_out,addr_Hi,type)));
+              det->oldHi + diffenv.t_offset*inst, loadShadowMemory(diffenv.sb_out,addr_Hi,type)));
         }
         // Find out if CAS succeeded.
         IROp cmp;
@@ -1004,12 +1008,12 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
             IRExpr_Binop(cmp,IRExpr_RdTmp(det->oldLo), det->expdLo)
         ))));
         // Guarded write of Lo part to shadow memory.
-        IRExpr* differentiated_expdLo = differentiate_or_zero(det->expdLo,diffenv,False,"");
-        storeShadowMemory(sb_out,addr_Lo,differentiated_expdLo,IRExpr_RdTmp(cas_succeeded));
+        IRExpr* modified_expdLo = modify_expression(det->expdLo,diffenv,False,"");
+        storeShadowMemory(sb_out,addr_Lo,modified_expdLo,IRExpr_RdTmp(cas_succeeded));
         // Possibly guarded write of Hi part to shadow memory.
         if(double_element){
-          IRExpr* differentiated_expdHi =  differentiate_or_zero(det->expdHi,diffenv,False,"");
-          storeShadowMemory(sb_out,addr_Hi,differentiated_expdHi,IRExpr_RdTmp(cas_succeeded));
+          IRExpr* modified_expdHi =  modify_expression(det->expdHi,diffenv,False,"");
+          storeShadowMemory(sb_out,addr_Hi,modified_expdHi,IRExpr_RdTmp(cas_succeeded));
         }
       } else if(st->tag==Ist_LLSC) {
         VG_(printf)("Did not instrument Ist_LLSC statement.\n");
@@ -1032,7 +1036,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
           IRExpr** args = det->args;
           IRExpr* addr = args[0];
           IRExpr* expr = args[1];
-          IRExpr* modified_expr = modify_expr(expr,diffenv,False,"");
+          IRExpr* modified_expr = modify_expression(expr,diffenv,False,"");
           IRDirty* dd = unsafeIRDirty_0_N(
                 0,
                 "x86g_amd64g_diff_dirtyhelper_storeF80le",
