@@ -775,7 +775,7 @@ for (name, cfun, ffun, c_val, c_grad) in [
   for type_ in cfun_suffix:
     autovectorization_stmtbody_c[type_] = f"""
     for(int i=0; i<16; i++) {{ a_arr[i] = i*a * pow(-1,i) + 1; }}
-    for(int i=0; i<16; i++) {{ c_arr[i] = {cfun}{cfun_suffix[type_]}(a_arr[i]); }}
+    for(int i=0; i<16; i++) {{ c_arr[i] = {cfun}{cfun_suffix[type_] if name=="abs" else ""}(a_arr[i]); }}
     for(int i=0; i<16; i++) {{ c += c_arr[i]; }}
     """
   autovectorization_stmtbody_fortran = f"""
