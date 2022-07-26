@@ -937,8 +937,8 @@ basiclist.append(sin_100_interactive)
 ### Take "cross product" with other configuation options ###
 testlist = []
 for test_arch in ["x86", "amd64"]:
-  for test_language in ["gcc", "g++", "gfortran", "python"]:
-    if test_language in ["gcc", "g++"]:
+  for test_language in ["gcc", "g++", "clang", "clang++", "gfortran", "python"]:
+    if test_language in ["gcc", "g++","clang","clang++"]:
       test_type_list = ["double", "float", "longdouble"]
     elif test_language in ["gfortran"]:
       test_type_list = ["real4", "real8"]
@@ -968,7 +968,7 @@ for test_arch in ["x86", "amd64"]:
         if test_type == "double":
           test.stmt = test.stmtd
           test.type = TYPE_DOUBLE
-        elif test_language in ["gcc","g++"] and test_type == "float":
+        elif test_language in ["gcc","g++","clang","clang++"] and test_type == "float":
           test.stmt = test.stmtf
           test.type = TYPE_FLOAT
         elif test_type == "longdouble":
