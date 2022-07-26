@@ -770,20 +770,23 @@ for (name, cfun, ffun, c_val, c_grad) in [
   ("negative", "-", "-", 64.,16.),
   ]:
   autovectorization = ClientRequestTestCase(name+"_autovectorization")
-  autovectorization_stmtbody_c = f"""
-  for(int i=0; i<16; i++) {{ a_arr[i] = i*a * pow(-1,i) + 1; }}
-  for(int i=0; i<16; i++) {{ c_arr[i] = {cfun}(a_arr[i]); }}
-  for(int i=0; i<16; i++) {{ c += c_arr[i]; }}
-  """
+  cfun_suffix = {"d":"","f":"f","l":"l"}
+  autovectorization_stmtbody_c = {}
+  for type_ in cfun_suffix:
+    autovectorization_stmtbody_c[type_] = f"""
+    for(int i=0; i<16; i++) {{ a_arr[i] = i*a * pow(-1,i) + 1; }}
+    for(int i=0; i<16; i++) {{ c_arr[i] = {cfun}{cfun_suffix[type_]}(a_arr[i]); }}
+    for(int i=0; i<16; i++) {{ c += c_arr[i]; }}
+    """
   autovectorization_stmtbody_fortran = f"""
   integer :: i
   do i=1,16; a_arr(i) = (i-1)*a*(-1)**(i-1) + 1; end do
   do i=1,16; c_arr(i) = {ffun}(a_arr(i)) ; end do
   do i=1,16; c = c + c_arr(i); end do
   """
-  autovectorization.stmtd = "double a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
-  autovectorization.stmtf = "float a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
-  autovectorization.stmtl = "long double a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c
+  autovectorization.stmtd = "double a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c["d"]
+  autovectorization.stmtf = "float a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c["f"]
+  autovectorization.stmtl = "long double a_arr[16], c_arr[16], c = 0;"+autovectorization_stmtbody_c["l"]
   autovectorization.stmtr4 = "real, dimension(16) :: a_arr, c_arr; real, target :: c = 0; "+autovectorization_stmtbody_fortran
   autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, c_arr; double precision, target :: c = 0; "+autovectorization_stmtbody_fortran
   autovectorization.ldflags = "-lm"
@@ -802,6 +805,7 @@ for (name, cfun, ffun, c_val, c_grad) in [
 # directive.
 omp = ClientRequestTestCase("omp")
 omp.cflags = "-fopenmp -lm"
+omp.cflags_clang = "-fopenmp=libgomp -lm"
 omp.include = "#include <omp.h>\n#include <math.h>"
 omp.stmtd = """
 double sum=0;
@@ -875,7 +879,8 @@ class A {
 template<typename T>
 class B : public A<T> {
   public:
-  using A<T>::t1, A<T>::t2;
+  using A<T>::t1;
+  using A<T>::t2;
   B(T t1, T t2): A<T>(t1,t2) {}
   void operator=(A<T> const& other) override {
     t2 = other.t1; t1 = other.t2;

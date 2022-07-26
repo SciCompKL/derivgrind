@@ -52,6 +52,7 @@ class TestCase:
     self.test_grads = {} # Expected gradients of output variables computed by stmt
     self.timeout = 10 # Timeout for execution in Valgrind, in seconds
     self.cflags = "" # Additional flags for the C compiler
+    self.cflags_clang = None # Additional flags for the C compiler, if clang is used
     self.fflags = "" # Additional flags for the Fortran compiler
     self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
     self.type = TYPE_DOUBLE # TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE (for C/C++), TYPE_REAL4, TYPE_REAL8 (for Fortran)
@@ -114,12 +115,12 @@ class InteractiveTestCase(TestCase):
       self.source_filename = "TestCase_src.c"
       with open(self.source_filename, "w") as f:
         f.write(self.code)
-      compile_process = subprocess.run(['gcc', "-g", "-O0", self.source_filename, "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+      compile_process = subprocess.run(['gcc', "-g", "-O0", self.source_filename, "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler=='clang' else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
     elif self.compiler in ['g++','clang++']:
       self.source_filename = "TestCase_src.cpp"
       with open(self.source_filename, "w") as f:
         f.write(self.code)
-      compile_process = subprocess.run(['g++', "-g", "-O0", self.source_filename, "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+      compile_process = subprocess.run(['g++', "-g", "-O0", self.source_filename, "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler=='clang++' else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
     elif self.compiler=='gfortran':
       self.source_filename = "TestCase_src.f90"
       with open(self.source_filename, "w") as f:
@@ -368,7 +369,7 @@ class ClientRequestTestCase(TestCase):
     with open(self.source_filename, "w") as f:
       f.write(self.code)
     if self.compiler in ['gcc','g++','clang','clang++']:
-      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
+      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler in ['clang','clang++'] else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
     elif self.compiler=='gfortran':
       compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "fortran/derivgrind_clientrequests.c", "-o", "TestCase_exec", "-I../../install/include", "-Ifortran"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() ,universal_newlines=True)
     elif self.compiler=='python':
