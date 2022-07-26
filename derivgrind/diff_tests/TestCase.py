@@ -57,7 +57,7 @@ class TestCase:
     self.type = TYPE_DOUBLE # TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE (for C/C++), TYPE_REAL4, TYPE_REAL8 (for Fortran)
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
     self.disable = lambda arch, language, typename : False # if True, test will not be run
-    self.compiler = "gcc" # gcc, g++ or gfortran
+    self.compiler = "gcc" # gcc, g++, gfortran, python
 
 class InteractiveTestCase(TestCase):
   """Methods to run a DerivGrind test case interactively in VGDB."""
@@ -70,7 +70,7 @@ class InteractiveTestCase(TestCase):
     # to find the lines where breakpoints should be added.
     self.line_before_stmt = 0
     self.line_after_stmt = 0
-    if self.compiler=='gcc' or self.compiler=='g++':
+    if self.compiler in ['gcc','g++','clang','clang++']:
       self.code = f"""
         {self.include}
         int main(){{
@@ -110,12 +110,12 @@ class InteractiveTestCase(TestCase):
 
   def compile_code(self):
     # write C or Fortran code into file
-    if self.compiler=='gcc':
+    if self.compiler in ['gcc','clang']:
       self.source_filename = "TestCase_src.c"
       with open(self.source_filename, "w") as f:
         f.write(self.code)
       compile_process = subprocess.run(['gcc', "-g", "-O0", self.source_filename, "-o", "TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
-    elif self.compiler=='g++':
+    elif self.compiler in ['g++','clang++']:
       self.source_filename = "TestCase_src.cpp"
       with open(self.source_filename, "w") as f:
         f.write(self.code)
@@ -229,9 +229,9 @@ class ClientRequestTestCase(TestCase):
 
   def produce_code(self):
     # Insert testcase data into C, Fortran or Python code template. 
-    if self.compiler=='gcc' or self.compiler=='g++':
-      gcc = self.compiler=='gcc'
-      self.code = "#include <stdio.h>\n" if gcc else "#include <iostream>\n"
+    if self.compiler in ['gcc','g++','clang','clang++']:
+      c = (self.compiler in ['gcc','clang'])
+      self.code = "#include <stdio.h>\n" if c else "#include <iostream>\n"
       self.code += "#include <valgrind/derivgrind.h>\n"
       self.code += self.include + "\n"
       self.code += "int main(){\n  int ret=0;\n"
@@ -247,7 +247,7 @@ class ClientRequestTestCase(TestCase):
           if({var} < {self.test_vals[var]-self.type["tol"]} 
             || {var} > {self.test_vals[var]+self.type["tol"]}) {{
         """
-        if gcc:
+        if c:
           self.code += f"""
             printf("VALUES DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_vals[var]},{var}); ret = 1; 
           """
@@ -264,7 +264,7 @@ class ClientRequestTestCase(TestCase):
           if(_derivative_of_{var} < {self.test_grads[var]-self.type["tol"]} 
               || _derivative_of_{var} > {self.test_grads[var]+self.type["tol"]}) {{
         """ 
-        if gcc:
+        if c:
           self.code += f"""
             printf("GRADIENTS DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_grads[var]}, _derivative_of_{var}); ret = 1; 
           """
@@ -357,9 +357,9 @@ class ClientRequestTestCase(TestCase):
 
   def compile_code(self):
     # write C/C++ code into file
-    if self.compiler=='gcc':
+    if self.compiler in ['gcc','clang']:
       self.source_filename = "TestCase_src.c"
-    elif self.compiler=='g++':
+    elif self.compiler in ['g++','clang++']:
       self.source_filename = "TestCase_src.cpp"
     elif self.compiler=='gfortran':
       self.source_filename = "TestCase_src.f90"
@@ -367,7 +367,7 @@ class ClientRequestTestCase(TestCase):
       self.source_filename = "TestCase_src.py"
     with open(self.source_filename, "w") as f:
       f.write(self.code)
-    if self.compiler=='gcc' or self.compiler=='g++':
+    if self.compiler in ['gcc','g++','clang','clang++']:
       compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + self.cflags.split() + self.ldflags.split(),universal_newlines=True)
     elif self.compiler=='gfortran':
       compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "fortran/derivgrind_clientrequests.c", "-o", "TestCase_exec", "-I../../install/include", "-Ifortran"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() ,universal_newlines=True)
