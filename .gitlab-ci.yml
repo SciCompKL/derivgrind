@@ -21,7 +21,7 @@ test_x86:
   script:
     - export DEBIAN_FRONTEND=noninteractive
     - apt-get update
-    - apt-get install -y build-essential gfortran gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg git
+    - apt-get install -y build-essential gfortran gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg git clang libomp-dev
     - dpkg --add-architecture i386
     - apt-get update
     - apt-get install -y python3:i386 python3-numpy:i386 python3-dev:i386
@@ -33,6 +33,6 @@ test_x86:
   script:
     - export DEBIAN_FRONTEND=noninteractive
     - apt-get update
-    - apt-get install -y build-essential gfortran python3 python3-numpy python3-dev gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg git
+    - apt-get install -y build-essential gfortran python3 python3-numpy python3-dev gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg git clang libomp-dev
     - cd derivgrind/diff_tests && ./setup.sh && cd - 
     - cd derivgrind/diff_tests && python3 run_tests.py amd64*

@@ -123,7 +123,7 @@ VG_REGPARM(0) ULong dg_logical_and64(ULong x, ULong xd, ULong y, ULong yd){
     if(y_f>0) yd_f = -yd_f; \
     return *(inttype*)&yd_f; \
   } \
-  else if( x == 0 ){ /* 0b0..0 */ \
+  else if( x == 0 && x##d==0 ){ /* 0b0..0 */ \
     return y##d; \
   }
 
