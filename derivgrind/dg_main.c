@@ -922,7 +922,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
     const IRStmt* st = st_orig; // const version for differentiation
     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
 
-    IRTemp cas_succeeded; // test success of CAS instruction in instDeriv, and reuse in instPara and instOrig.
+    IRTemp cas_succeeded = IRTemp_INVALID; // test success of CAS instruction in instDeriv, and reuse in instPara and instOrig.
 
     const int instDeriv=1, instPara=2, instOrig=3;
     for(int inst=1; inst<4; inst++){
@@ -943,9 +943,14 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
             addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi,IRExpr_Load(det->end,type,addr_Hi)));
           }
           // Guarded write of Lo part, and possibly Hi part.
-          addStmtToIRSB(sb_out, IRStmt_StoreG(det->end,addr_Lo,det->dataLo,IRExpr_RdTmp(cas_succeeded)));
+          // As Ist_StoreG causes an isel error on x86, we use an if-then-else construct.
+          IRExpr* store_Lo = IRExpr_ITE(IRExpr_RdTmp(cas_succeeded),
+            det->dataLo, IRExpr_Load(det->end,type,addr_Lo));
+          addStmtToIRSB(sb_out, IRStmt_Store(det->end,addr_Lo,store_Lo));
           if(double_element){
-            addStmtToIRSB(sb_out, IRStmt_StoreG(det->end,addr_Hi,det->dataHi,IRExpr_RdTmp(cas_succeeded)));
+            IRExpr* store_Hi = IRExpr_ITE(IRExpr_RdTmp(cas_succeeded),
+              det->dataHi, IRExpr_Load(det->end,type,addr_Hi));
+            addStmtToIRSB(sb_out, IRStmt_Store(det->end,addr_Hi,store_Hi));
           }
         } else { // for all other IRStmt's, just copy them
           addStmtToIRSB(sb_out, st_orig);
