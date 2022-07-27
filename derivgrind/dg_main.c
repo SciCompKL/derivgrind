@@ -836,6 +836,53 @@ void x86g_amd64g_diff_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
    shadowSet((void*)addrU,(void*)f128,10);
 }
 
+/*! Helper to extract high/low addresses of CAS statement.
+ *
+ *  One of addr_Lo, addr_Hi is det->addr,
+ *  the other one is det->addr + offset.
+ *  \param[in] det - CAS statement details.
+ *  \param[in] diffenv - Differentiation environment.
+ *  \param[out] addr_Lo - Low address.
+ *  \param[out] addr_Hi - High address.
+ */
+static void addressesOfCAS(IRCAS const* det, DiffEnv diffenv, IRExpr** addr_Lo, IRExpr** addr_Hi){
+  IRType type = typeOfIRExpr(diffenv.sb_out->tyenv,det->expdLo);
+  Bool double_element = (det->expdHi!=NULL);
+  IRExpr* offset; // offset between Hi and Lo part of addr
+  IROp add; // operation to add addresses
+  switch(typeOfIRExpr(diffenv.sb_out->tyenv,det->addr)){
+    case Ity_I32:
+      add = Iop_Add32;
+      offset = IRExpr_Const(IRConst_U32(sizeofIRType(type)));
+      break;
+    case Ity_I64:
+      add = Iop_Add64;
+      offset = IRExpr_Const(IRConst_U64(sizeofIRType(type)));
+      break;
+    default:
+      VG_(printf)("Unhandled type for address in translation of Ist_CAS.\n");
+      tl_assert(False);
+      break;
+  }
+  if(det->end==Iend_LE){
+    if(double_element){
+      *addr_Lo = det->addr;
+      *addr_Hi = IRExpr_Binop(add,det->addr,offset);
+    } else {
+      *addr_Lo = det->addr;
+      *addr_Hi = NULL;
+    }
+  } else { // Iend_BE
+    if(double_element){
+      *addr_Lo = IRExpr_Binop(add,det->addr,offset);
+      *addr_Hi = det->addr;
+    } else {
+      *addr_Lo = det->addr;
+      *addr_Hi = NULL;
+    }
+  }
+}
+
 /*! Instrument an IRSB.
  */
 static
@@ -875,10 +922,34 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
     const IRStmt* st = st_orig; // const version for differentiation
     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
 
+    IRTemp cas_succeeded; // test success of CAS instruction in instDeriv, and reuse in instPara and instOrig.
+
     const int instDeriv=1, instPara=2, instOrig=3;
     for(int inst=1; inst<4; inst++){
       if(inst==instOrig){
-        addStmtToIRSB(sb_out, st_orig);
+        if(st->tag==Ist_CAS){ // needs special treatment:
+          // Test success of CAS instruction in instDeriv,
+          // perform operations on the shadow memory in instDeriv and instPara,
+          // and perform operations on the original memory in instOrig.
+          IRCAS* det = st->Ist.CAS.details;
+          IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
+          Bool double_element = (det->expdHi!=NULL);
+          IRExpr* addr_Lo;
+          IRExpr* addr_Hi;
+          addressesOfCAS(det,diffenv,&addr_Lo,&addr_Hi);
+          // Set oldLo and possibly oldHi.
+          addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo,IRExpr_Load(det->end,type,addr_Lo)));
+          if(double_element){
+            addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi,IRExpr_Load(det->end,type,addr_Hi)));
+          }
+          // Guarded write of Lo part, and possibly Hi part.
+          addStmtToIRSB(sb_out, IRStmt_StoreG(det->end,addr_Lo,det->dataLo,IRExpr_RdTmp(cas_succeeded)));
+          if(double_element){
+            addStmtToIRSB(sb_out, IRStmt_StoreG(det->end,addr_Hi,det->dataHi,IRExpr_RdTmp(cas_succeeded)));
+          }
+        } else { // for all other IRStmt's, just copy them
+          addStmtToIRSB(sb_out, st_orig);
+        }
         continue;
       }
       if(inst==instPara && !paragrind){
@@ -949,41 +1020,9 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
         // single IRSB, this is not a problem.
 
         // Find addresses of Hi and Lo part.
-        IRExpr* offset; // offset between Hi and Lo part of addr
-        IRExpr* addr_Lo; // one of addr_Lo, addr_Hi is det->addr,
-        IRExpr* addr_Hi; // the other one is det->addr + offset
-        IROp add; // operation to add addresses
-        switch(typeOfIRExpr(diffenv.sb_out->tyenv,det->addr)){
-          case Ity_I32:
-            add = Iop_Add32;
-            offset = IRExpr_Const(IRConst_U32(sizeofIRType(type)));
-            break;
-          case Ity_I64:
-            add = Iop_Add64;
-            offset = IRExpr_Const(IRConst_U64(sizeofIRType(type)));
-            break;
-          default:
-            VG_(printf)("Unhandled type for address in translation of Ist_CAS.\n");
-            tl_assert(False);
-            break;
-        }
-        if(det->end==Iend_LE){
-          if(double_element){
-            addr_Lo = det->addr;
-            addr_Hi = IRExpr_Binop(add,det->addr,offset);
-          } else {
-            addr_Lo = det->addr;
-            addr_Hi = NULL;
-          }
-        } else { // Iend_BE
-          if(double_element){
-            addr_Lo = IRExpr_Binop(add,det->addr,offset);
-            addr_Hi = det->addr;
-          } else {
-            addr_Lo = det->addr;
-            addr_Hi = NULL;
-          }
-        }
+        IRExpr* addr_Lo;
+        IRExpr* addr_Hi;
+        addressesOfCAS(det,diffenv,&addr_Lo,&addr_Hi);
 
         // Find out if CAS succeeded.
         IROp cmp;
@@ -994,22 +1033,25 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
           case Ity_I64: cmp = Iop_CmpEQ64; break;
           default: VG_(printf)("Unhandled type in translation of Ist_CAS.\n"); tl_assert(False); break;
         }
-        IRTemp cas_succeeded_Lo = newIRTemp(sb_out->tyenv, Ity_I1);
-        addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded_Lo,
-            IRExpr_Binop(cmp,det->expdLo,IRExpr_Load(det->end,type,addr_Lo))
-        ));
-        IRTemp cas_succeeded = cas_succeeded_Lo;
+        // Check whether expected low values and shadow values agree.
+        // We assume that the shadow expression can always be formed,
+        // otherways the CAS will never succeed with the current implementation.
+        IRExpr* equal_values_Lo = IRExpr_Binop(cmp,det->expdLo,IRExpr_Load(det->end,type,addr_Lo));
+        IRExpr* modified_expdLo = modify_expression(det->expdLo,diffenv,False,"");
+        IRExpr* equal_modifiedvalues_Lo = IRExpr_Binop(cmp,modified_expdLo,loadShadowMemory(sb_out,addr_Lo,type));
+        IRExpr* equal_Lo = IRExpr_Binop(Iop_And1,equal_values_Lo,equal_modifiedvalues_Lo);
+        IRExpr* equal_Hi = IRExpr_Const(IRConst_U1(1));
         if(double_element){
-          IRTemp cas_succeeded_Hi = newIRTemp(sb_out->tyenv, Ity_I1);
-          addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded_Hi,
-              IRExpr_Binop(cmp,det->expdHi,IRExpr_Load(det->end,type,addr_Hi))
-          ));
-          cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
-          addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
-            IRExpr_Binop(Iop_And1,
-              IRExpr_RdTmp(cas_succeeded_Lo),
-              IRExpr_RdTmp(cas_succeeded_Hi) )));
+          IRExpr* equal_values_Hi = IRExpr_Binop(cmp,det->expdHi,IRExpr_Load(det->end,type,addr_Hi));
+          IRExpr* modified_expdHi = modify_expression(det->expdHi,diffenv,False,"");
+          IRExpr* equal_modifiedvalues_Hi = IRExpr_Binop(cmp,modified_expdHi,loadShadowMemory(sb_out,addr_Hi,type));
+          equal_Hi = IRExpr_Binop(Iop_And1,equal_values_Hi,equal_modifiedvalues_Hi);
         }
+        cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
+        addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
+          IRExpr_Binop(Iop_And1, equal_Lo, equal_Hi)
+        ));
+
         // Set shadows of oldLo and possibly oldHi.
         addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo+diffenv.t_offset*inst,
           loadShadowMemory(sb_out,addr_Lo,type)));
