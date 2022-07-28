@@ -197,12 +197,21 @@ negative.test_vals = {'c':-1.0}
 negative.test_grads = {'c':-2.0}
 basiclist.append(negative)
 
+negative_0 = ClientRequestTestCase("negative_0")
+negative_0.include = "__attribute__((noinline)) double minus(double x){ return -x; }"
+negative_0.stmtd = "double c = minus(minus(a));" # the outer minus() computes -(-0.0) i.e. (0x80.. xor 0x80..)
+negative_0.vals = {'a':0.0}
+negative_0.grads = {'a':1.0}
+negative_0.test_vals = {'c':0.0}
+negative_0.test_grads = {'c':1.0}
+basiclist.append(negative_0)
+
 ### Advances arithmetic and trigonometric operations ###
 
 abs_plus = ClientRequestTestCase("abs_plus")
 abs_plus.include = "#include <math.h>"
 abs_plus.ldflags = '-lm'
-#abs_minus.cflags = '-fno-builtin' # might be advisable because the builtin fabs is difficult to differentiate
+#abs_plus.cflags = '-fno-builtin' # might be advisable because the builtin fabs is difficult to differentiate
 abs_plus.stmtd = "double c = fabs(a);"
 abs_plus.stmtf = "float c = fabsf(a);"
 abs_plus.stmtl = "long double c = fabsl(a);"
