@@ -1,12 +1,11 @@
-﻿
-/*--------------------------------------------------------------------*/
+﻿/*--------------------------------------------------------------------*/
 /*--- DerivGrind: Forward-mode algorithmic               dg_main.c ---*/
 /*--- differentiation using Valgrind.                              ---*/
 /*--------------------------------------------------------------------*/
 
 /*
    This file is part of DerivGrind, a tool performing forward-mode
-   algorithmic differentiation of compiled programs implemented
+   algorithmic differentiation of compiled programs, implemented
    in the Valgrind framework.
 
    Copyright (C) 2022 Max Aehle
