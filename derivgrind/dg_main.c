@@ -8,8 +8,11 @@
    algorithmic differentiation of compiled programs, implemented
    in the Valgrind framework.
 
-   Copyright (C) 2022 Max Aehle
-      max.aehle@scicomp.uni-kl.de
+   Copyright (C) 2022 Chair for Scientific Computing (SciComp), TU Kaiserslautern
+   Homepage: https://www.scicomp.uni-kl.de
+   Contact: Prof. Nicolas R. Gauger (derivgrind@scicomp.uni-kl.de)
+
+   Lead developer: Max Aehle (SciComp, TU Kaiserslautern)
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -1195,8 +1198,9 @@ static void dg_pre_clo_init(void)
    VG_(details_version)         (NULL);
    VG_(details_description)     ("a tool for forward-mode AD of compiled programs.");
    VG_(details_copyright_author)(
-      "Copyright (C) 2022, and GNU GPL'd, by Max Aehle.");
-   VG_(details_bug_reports_to)  ("max.aehle@scicomp.uni-kl.de");
+      "Copyright (C) 2022, and GNU GPL'd, by the \n"
+      "Chair for Scientific Computing at TU Kaiserslautern.");
+   VG_(details_bug_reports_to)  ("derivgrind@scicomp.uni-kl.de");
 
    VG_(details_avg_translation_sizeB) ( 275 );
 

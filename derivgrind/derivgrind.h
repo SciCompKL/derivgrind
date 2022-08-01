@@ -1,4 +1,3 @@
-
 /*
    ----------------------------------------------------------------
 
@@ -13,7 +12,11 @@
    This file is part of DerivGrind, a Valgrind tool for automatic 
    differentiation in forward mode.
 
-   Copyright (C) 2022 Max Aehle
+   Copyright (C) 2022 Chair for Scientific Computing (SciComp), TU Kaiserslautern
+   Homepage: https://www.scicomp.uni-kl.de
+   Contact: Prof. Nicolas R. Gauger (derivgrind@scicomp.uni-kl.de)
+
+   Lead developer: Max Aehle (SciComp, TU Kaiserslautern)
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions
