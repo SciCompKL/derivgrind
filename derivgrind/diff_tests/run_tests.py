@@ -812,11 +812,11 @@ for (name, cfun, ffun, c_val, c_grad) in [
 # it fail. E.g. you cannot put a reduction clause or
 # an  atomic directive instead of the critical 
 # directive.
-omp = ClientRequestTestCase("omp")
-omp.cflags = "-fopenmp -lm"
-omp.cflags_clang = "-fopenmp=libgomp -lm"
-omp.include = "#include <omp.h>\n#include <math.h>"
-omp.stmtd = """
+omp_critical = ClientRequestTestCase("omp_critical")
+omp_critical.cflags = "-fopenmp -lm"
+omp_critical.cflags_clang = "-fopenmp=libgomp -lm"
+omp_critical.include = "#include <omp.h>\n#include <math.h>"
+omp_critical.stmtd = """
 double sum=0;
 #pragma omp parallel for
 for(int i=0; i<100; i++){
@@ -827,18 +827,71 @@ for(int i=0; i<100; i++){
   }
 }
 """
-omp.stmtf = None
-omp.stmtl = None
-omp.vals = {'a':1.0}
-omp.grads = {'a':3.0}
+omp_critical.stmtf = None
+omp_critical.stmtl = None
+omp_critical.vals = {'a':1.0}
+omp_critical.grads = {'a':3.0}
 omp_test_sum_val=0
 omp_test_sum_grad=0
 for i in range(100):
   omp_test_sum_val += np.sin(i*1.0)
   omp_test_sum_grad += np.cos(i*1.0)*i*3.0
-omp.test_vals = {'sum':omp_test_sum_val}
-omp.test_grads = {'sum':omp_test_sum_grad}
-basiclist.append(omp)
+omp_critical.test_vals = {'sum':omp_test_sum_val}
+omp_critical.test_grads = {'sum':omp_test_sum_grad}
+basiclist.append(omp_critical)
+
+omp_atomic = ClientRequestTestCase("omp_atomic")
+omp_atomic.cflags = "-fopenmp -lm"
+omp_atomic.cflags_clang = "-fopenmp=libgomp -lm"
+omp_atomic.include = "#include <omp.h>\n#include <math.h>"
+omp_atomic.stmtd = """
+double sum=0;
+#pragma omp parallel for
+for(int i=0; i<100; i++){
+  double s = sin(i*a);
+  #pragma omp atomic
+    sum += s;
+}
+"""
+omp_atomic.stmtf = None
+omp_atomic.stmtl = None
+omp_atomic.vals = {'a':1.0}
+omp_atomic.grads = {'a':3.0}
+omp_test_sum_val=0
+omp_test_sum_grad=0
+for i in range(100):
+  omp_test_sum_val += np.sin(i*1.0)
+  omp_test_sum_grad += np.cos(i*1.0)*i*3.0
+omp_atomic.test_vals = {'sum':omp_test_sum_val}
+omp_atomic.test_grads = {'sum':omp_test_sum_grad}
+omp_atomic.disable = lambda arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
+basiclist.append(omp_atomic)
+
+omp_reduction = ClientRequestTestCase("omp_reduction")
+omp_reduction.cflags = "-fopenmp -lm"
+omp_reduction.cflags_clang = "-fopenmp=libgomp -lm"
+omp_reduction.include = "#include <omp.h>\n#include <math.h>"
+omp_reduction.stmtd = """
+double sum=0;
+#pragma omp parallel for reduction(+: sum)
+for(int i=0; i<100; i++){
+  double s = sin(i*a);
+  sum += s;
+}
+"""
+omp_reduction.stmtf = None
+omp_reduction.stmtl = None
+omp_reduction.vals = {'a':1.0}
+omp_reduction.grads = {'a':3.0}
+omp_test_sum_val=0
+omp_test_sum_grad=0
+for i in range(100):
+  omp_test_sum_val += np.sin(i*1.0)
+  omp_test_sum_grad += np.cos(i*1.0)*i*3.0
+omp_reduction.test_vals = {'sum':omp_test_sum_val}
+omp_reduction.test_grads = {'sum':omp_test_sum_grad}
+omp_reduction.disable = lambda arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
+basiclist.append(omp_reduction)
 
 ### Misusing integer and logic operations for floating-point arithmetics ###
 exponentadd = ClientRequestTestCase("exponentadd")
