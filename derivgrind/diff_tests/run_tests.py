@@ -1,3 +1,34 @@
+# -------------------------------------------------------------------- #
+# --- Define and run unit tests for DerivGrind.      run_tests .py --- #
+# -------------------------------------------------------------------- #
+
+#
+#  This file is part of DerivGrind, a tool performing forward-mode
+#  algorithmic differentiation of compiled programs, implemented
+#  in the Valgrind framework.
+#
+#  Copyright (C) 2022 Chair for Scientific Computing (SciComp), TU Kaiserslautern
+#  Homepage: https://www.scicomp.uni-kl.de
+#  Contact: Prof. Nicolas R. Gauger (derivgrind@scicomp.uni-kl.de)
+#
+#  Lead developer: Max Aehle (SciComp, TU Kaiserslautern)
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License as
+#  published by the Free Software Foundation; either version 2 of the
+#  License, or (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+#  The GNU General Public License is contained in the file COPYING.
+#
+
 import numpy as np
 import copy
 from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHONFLOAT, TYPE_NUMPYFLOAT64, TYPE_NUMPYFLOAT32
@@ -197,12 +228,21 @@ negative.test_vals = {'c':-1.0}
 negative.test_grads = {'c':-2.0}
 basiclist.append(negative)
 
+negative_0 = ClientRequestTestCase("negative_0")
+negative_0.include = "__attribute__((noinline)) double minus(double x){ return -x; }"
+negative_0.stmtd = "double c = minus(minus(a));" # the outer minus() computes -(-0.0) i.e. (0x80.. xor 0x80..)
+negative_0.vals = {'a':0.0}
+negative_0.grads = {'a':1.0}
+negative_0.test_vals = {'c':0.0}
+negative_0.test_grads = {'c':1.0}
+basiclist.append(negative_0)
+
 ### Advances arithmetic and trigonometric operations ###
 
 abs_plus = ClientRequestTestCase("abs_plus")
 abs_plus.include = "#include <math.h>"
 abs_plus.ldflags = '-lm'
-#abs_minus.cflags = '-fno-builtin' # might be advisable because the builtin fabs is difficult to differentiate
+#abs_plus.cflags = '-fno-builtin' # might be advisable because the builtin fabs is difficult to differentiate
 abs_plus.stmtd = "double c = fabs(a);"
 abs_plus.stmtf = "float c = fabsf(a);"
 abs_plus.stmtl = "long double c = fabsl(a);"
@@ -803,11 +843,11 @@ for (name, cfun, ffun, c_val, c_grad) in [
 # it fail. E.g. you cannot put a reduction clause or
 # an  atomic directive instead of the critical 
 # directive.
-omp = ClientRequestTestCase("omp")
-omp.cflags = "-fopenmp -lm"
-omp.cflags_clang = "-fopenmp=libgomp -lm"
-omp.include = "#include <omp.h>\n#include <math.h>"
-omp.stmtd = """
+omp_critical = ClientRequestTestCase("omp_critical")
+omp_critical.cflags = "-fopenmp -lm"
+omp_critical.cflags_clang = "-fopenmp=libgomp -lm"
+omp_critical.include = "#include <omp.h>\n#include <math.h>"
+omp_critical.stmtd = """
 double sum=0;
 #pragma omp parallel for
 for(int i=0; i<100; i++){
@@ -818,18 +858,71 @@ for(int i=0; i<100; i++){
   }
 }
 """
-omp.stmtf = None
-omp.stmtl = None
-omp.vals = {'a':1.0}
-omp.grads = {'a':3.0}
+omp_critical.stmtf = None
+omp_critical.stmtl = None
+omp_critical.vals = {'a':1.0}
+omp_critical.grads = {'a':3.0}
 omp_test_sum_val=0
 omp_test_sum_grad=0
 for i in range(100):
   omp_test_sum_val += np.sin(i*1.0)
   omp_test_sum_grad += np.cos(i*1.0)*i*3.0
-omp.test_vals = {'sum':omp_test_sum_val}
-omp.test_grads = {'sum':omp_test_sum_grad}
-basiclist.append(omp)
+omp_critical.test_vals = {'sum':omp_test_sum_val}
+omp_critical.test_grads = {'sum':omp_test_sum_grad}
+basiclist.append(omp_critical)
+
+omp_atomic = ClientRequestTestCase("omp_atomic")
+omp_atomic.cflags = "-fopenmp -lm"
+omp_atomic.cflags_clang = "-fopenmp=libgomp -lm"
+omp_atomic.include = "#include <omp.h>\n#include <math.h>"
+omp_atomic.stmtd = """
+double sum=0;
+#pragma omp parallel for
+for(int i=0; i<100; i++){
+  double s = sin(i*a);
+  #pragma omp atomic
+    sum += s;
+}
+"""
+omp_atomic.stmtf = None
+omp_atomic.stmtl = None
+omp_atomic.vals = {'a':1.0}
+omp_atomic.grads = {'a':3.0}
+omp_test_sum_val=0
+omp_test_sum_grad=0
+for i in range(100):
+  omp_test_sum_val += np.sin(i*1.0)
+  omp_test_sum_grad += np.cos(i*1.0)*i*3.0
+omp_atomic.test_vals = {'sum':omp_test_sum_val}
+omp_atomic.test_grads = {'sum':omp_test_sum_grad}
+omp_atomic.disable = lambda arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
+basiclist.append(omp_atomic)
+
+omp_reduction = ClientRequestTestCase("omp_reduction")
+omp_reduction.cflags = "-fopenmp -lm"
+omp_reduction.cflags_clang = "-fopenmp=libgomp -lm"
+omp_reduction.include = "#include <omp.h>\n#include <math.h>"
+omp_reduction.stmtd = """
+double sum=0;
+#pragma omp parallel for reduction(+: sum)
+for(int i=0; i<100; i++){
+  double s = sin(i*a);
+  sum += s;
+}
+"""
+omp_reduction.stmtf = None
+omp_reduction.stmtl = None
+omp_reduction.vals = {'a':1.0}
+omp_reduction.grads = {'a':3.0}
+omp_test_sum_val=0
+omp_test_sum_grad=0
+for i in range(100):
+  omp_test_sum_val += np.sin(i*1.0)
+  omp_test_sum_grad += np.cos(i*1.0)*i*3.0
+omp_reduction.test_vals = {'sum':omp_test_sum_val}
+omp_reduction.test_grads = {'sum':omp_test_sum_grad}
+omp_reduction.disable = lambda arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
+basiclist.append(omp_reduction)
 
 ### Misusing integer and logic operations for floating-point arithmetics ###
 exponentadd = ClientRequestTestCase("exponentadd")

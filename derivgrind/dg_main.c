@@ -1,16 +1,18 @@
-
-/*--------------------------------------------------------------------*/
+﻿/*--------------------------------------------------------------------*/
 /*--- DerivGrind: Forward-mode algorithmic               dg_main.c ---*/
 /*--- differentiation using Valgrind.                              ---*/
 /*--------------------------------------------------------------------*/
 
 /*
    This file is part of DerivGrind, a tool performing forward-mode
-   algorithmic differentiation of compiled programs implemented
+   algorithmic differentiation of compiled programs, implemented
    in the Valgrind framework.
 
-   Copyright (C) 2022 Max Aehle
-      max.aehle@scicomp.uni-kl.de
+   Copyright (C) 2022 Chair for Scientific Computing (SciComp), TU Kaiserslautern
+   Homepage: https://www.scicomp.uni-kl.de
+   Contact: Prof. Nicolas R. Gauger (derivgrind@scicomp.uni-kl.de)
+
+   Lead developer: Max Aehle (SciComp, TU Kaiserslautern)
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -34,34 +36,13 @@
 #include "pub_tool_libcassert.h"
 #include "pub_tool_gdbserver.h"
 #include "pub_tool_libcbase.h"
+#include "pub_tool_options.h"
 #include "valgrind.h"
 #include "derivgrind.h"
 
 #include "dg_logical.h"
 
-#ifndef __GNUC__
-  #error "Only tested with GCC."
-#endif
-
-#if __x86_64__
-#else
-#define BUILD_32BIT
-#endif
-
-#ifdef BUILD_32BIT
-#include "shadow-memory/src/shadow.h"
-#else
-#include "shadow-memory/src/shadow-64.h"
-#endif
-
-inline void  shadow_free(void* addr) { VG_(free)(addr); }
-inline void *shadow_malloc(size_t size) { return VG_(malloc)("Test",size); }
-inline void *shadow_calloc(size_t nmemb, size_t size) { return VG_(calloc)("test", nmemb, size); }
-inline void  shadow_memcpy(void* dst, void* src, size_t size) { VG_(memcpy)(dst,src,size); }
-inline void  shadow_out_of_memory() {
-  VG_(printf)("ERROR: Ran out of memory while allocating shadow memory.\n");
-	VG_(exit)(1);
-}
+#include "dg_shadow.h"
 
 /*! \page storage_convention Storage convention for shadow memory
  *
@@ -83,473 +64,45 @@ inline void  shadow_out_of_memory() {
  *    another byte for each byte of "original" memory.
  */
 
-ShadowMap* my_sm = NULL; //!< Gives access to the shadow memory for the tangent variables.
+//! Shadow memory for the dot values.
+void* sm_dot = NULL;
 
-static unsigned long stmt_counter = 0; //!< Can be used to tag dg_add_print_stmt outputs.
+//! Can be used to tag dg_add_print_stmt outputs.
+static unsigned long stmt_counter = 0;
 
-#define DEFAULT_ROUNDING IRExpr_Const(IRConst_U32(Irrm_NEAREST))
+//! Debugging output.
+static Bool warn_about_unwrapped_expressions = False;
 
-/*! Condition for writing out unknown expressions.
+/*! If True, instead of differentiated expressions, the original expressions
+ *  are evaluated.
  */
-#define UNWRAPPED_EXPRESSION_OUTPUT_FILTER False
+Bool paragrind = False;
 
 static void dg_post_clo_init(void)
 {
 }
 
-
-/*! Make zero constant of certain type.
- */
-static IRExpr* mkIRConst_zero(IRType type){
-  IRExpr* zeroF = IRExpr_Const(IRConst_F64(0.));
-  IRExpr* zeroU = IRExpr_Const(IRConst_U64(0));
-  switch(type){
-    case Ity_INVALID: tl_assert(False); return NULL;
-    case Ity_I1: return IRExpr_Const(IRConst_U1(0));
-    case Ity_I8: return IRExpr_Const(IRConst_U8(0));
-    case Ity_I16: return IRExpr_Const(IRConst_U16(0));
-    case Ity_I32: return IRExpr_Const(IRConst_U32(0));
-    case Ity_I64: return zeroU;
-    case Ity_I128: return IRExpr_Const(IRConst_U128(0));
-    case Ity_F16: return IRExpr_Binop(Iop_F64toF16,DEFAULT_ROUNDING,zeroF);
-    case Ity_F32: return IRExpr_Const(IRConst_F32(0.));
-    case Ity_F64: return zeroF;
-    case Ity_D32: return IRExpr_Binop(Iop_F64toD32,DEFAULT_ROUNDING,zeroF);
-    case Ity_D64: return IRExpr_Binop(Iop_F64toD64,DEFAULT_ROUNDING,zeroF);
-    case Ity_D128: return IRExpr_Binop(Iop_F64toD128,DEFAULT_ROUNDING,zeroF);
-    case Ity_F128: return IRExpr_Unop(Iop_F64toF128,zeroF);
-    case Ity_V128: return IRExpr_Binop(Iop_64HLtoV128,zeroU,zeroU);
-    case Ity_V256: return IRExpr_Qop(Iop_64x4toV256,zeroU,zeroU,zeroU,zeroU);
-    default: tl_assert(False); return NULL;
-  }
+static Bool dg_process_cmd_line_option(const HChar* arg)
+{
+   if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
+   else if VG_BOOL_CLO(arg, "--paragrind", paragrind) {}
+   else
+      return False;
+   return True;
 }
 
-/*! \page loading_and_storing Loading and storing tangent values in memory
- *
- *  When translating
- *  - an Ist_Store or Ist_StoreG statement to store data in memory, or
- *  - an Iex_Load expression or Iex_LoadG statements to load data from memory,
- *
- *  we emit Ist_Dirty statements. When those are executed, the call the
- *  functions dg_Store_diffN, dg_Load_diffN which access the shadow memory.
- *
- *  These dg_Store_diffN and dg_Load_diffN functions can only accept and
- *  return 4- and 8-byte integers arguments. Therefore we have to "encode" all
- *  types, including floating-point and SIMD types, by up to four 8-byte
- *  integers (Ity_I64 on the VEX side, ULong on the C side).
- *
- *  Storing derivative information
- *  ------------------------------
- *  During translation, we call convertToInteger on the IRExpr for the
- *  derivative. This wraps some instructions around the IRExpr, giving
- *  an array of four IRExpr's that evaluate to the type Ity_I64. These
- *  are used to create up to four Ist_Dirty statements for dg_Store_diffN.
- *
- *  When the translated IRSB is executed, the wrapper
- *  VEX instructions encode the value on the simulated CPU and then the
- *  Ist_Dirty mechanism calls dg_Store_diffN with the encoded values of
- *  type ULong. Inside dg_Store_diffN we decode the data and store it in
- *  shadow memory.
- *
- *  Loading derivative information
- *  ------------------------------
- *  Ist_Dirty statements calling dg_Load_diffN are added during translation.
- *  When the translated IRSB is executed, the Ist_Dirty mechanism calls
- *  dg_Load_diffN, which reads the gradient information from shadow memory,
- *  encodes it, and returns a ULong which is stored as Ity_I64 in a temporary.
- *  In the transation phase we also wrap these up to four temporaries by
- *  convertFromInteger, which adds VEX instructions that convert the Ity_I64
- *  data back to the original type.
- *
- *  How the encoding works
- *  ----------------------
- *  For most types, this "encoding" is a binary reinterpretation, and padding
- *  by zeros. On the VEX side, this is accomplished by instructions like
- *  Iop_ReinterpF64asI64, Iop_32HLto64, Iop_128to64. On the C side, no explicit
- *  conversion is required because the gradient information is anyways accessed
- *  per byte.
- *
- *  For the types Ity_F16 and Ity_D32, we miss the corresponding VEX
- *  reinterpretation instructions. One way to circumvent this could be
- *  to encode them in a different way, e.g. first cast Ity_D32 to Ity_D64
- *  and then reinterpret this as Ity_I64. However, in order to revert this
- *  on the C side, Valgrind must be compiled with a compiler that supports
- *  the C type _Decimal32. To avoid this restriction, we just drop any gradient
- *  information associated to such expressions when they are stored in memory.
- *
- *  Issues
- *  ------
- *  Not properly tested yet. Maybe error for big-endian storage order.
- *
- */
-
-/*! Store an 8-byte tangent value in shadow memory. Invoked by an Ist_Dirty during execution
- *  of the generated code.
- *  \param[in] addr - Address of the variable.
- *  \param[in] derivative - Tangent value, reinterpreted as 8-byte integer.
- *  \param[in] size - Original size of the variable.
- */
-static
-VG_REGPARM(0) void dg_Store_diff(Addr addr, ULong derivative, UChar size){
-  for(int i=0; i<size; i++){
-    shadow_set_bits(my_sm,((SM_Addr)addr)+i,  *( ((U8*)&derivative) + i ));
-  }
+static void dg_print_usage(void)
+{
+   VG_(printf)(
+"    --warn-unwrapped=no|yes   warn about unwrapped expressions\n"
+   );
 }
 
-static VG_REGPARM(0) void dg_Store_diff1(Addr addr, ULong derivative){dg_Store_diff(addr,derivative,1);}
-static VG_REGPARM(0) void dg_Store_diff2(Addr addr, ULong derivative){dg_Store_diff(addr,derivative,2);}
-static VG_REGPARM(0) void dg_Store_diff4(Addr addr, ULong derivative){dg_Store_diff(addr,derivative,4);}
-static VG_REGPARM(0) void dg_Store_diff8(Addr addr, ULong derivative){dg_Store_diff(addr,derivative,8);}
-
-/*! Load a tangent value from shadow memory. Invokes by an Ist_Dirty during execution
- *  of the generated code.
- *  \param[in] addr - Address of the variable.
- *  \param[in] size - Original size of the variable
- *  \returns Tangent value, reinterpreted as 8-byte integer.
- */
-static
-VG_REGPARM(0) ULong dg_Load_diff(Addr addr, UChar size){
-  ULong derivative=0;
-  for(int i=0; i<size; i++){
-    shadow_get_bits(my_sm,((SM_Addr)addr)+i, (U8*)&derivative+i);
-  }
-  for(int i=size; i<8; i++){
-    *((U8*)&derivative+i) = 0;
-  }
-  return derivative;
-}
-
-static VG_REGPARM(0) ULong dg_Load_diff1(Addr addr){return dg_Load_diff(addr,1);}
-static VG_REGPARM(0) ULong dg_Load_diff2(Addr addr){return dg_Load_diff(addr,2);}
-static VG_REGPARM(0) ULong dg_Load_diff4(Addr addr){return dg_Load_diff(addr,4);}
-static VG_REGPARM(0) ULong dg_Load_diff8(Addr addr){return dg_Load_diff(addr,8);}
-
-/*! Reinterpret given expression as 4xI64 in VEX.
- *  This function complements convertFromInteger.
- *  \param[in] expr - Expression whose value should be reinterpreted as 4xI64.
- *  \param[out] converted - 4xI64 reinterpreted expressions.
- *    Unnecessary expressions can be NULL.
- *  \param[in] type - Type of expr.
- *  \returns Expression reinterpreted as 4xI64.
- */
-static void convertToInteger(IRExpr* expr, IRExpr** converted, IRType type){
-  converted[0] = converted[1] = converted[2] = converted[3] = NULL;
-  IRExpr* zero8 = IRExpr_Const(IRConst_U8(0));
-  IRExpr* zero16 = IRExpr_Const(IRConst_U16(0));
-  IRExpr* zero32 = IRExpr_Const(IRConst_U32(0));
-  switch(type){
-    case Ity_INVALID:
-      VG_(printf)("Ity_INVALID encountered in convertToInteger.\n");
-      tl_assert(False); break;
-    case Ity_I1:
-      // It would be very strange if this type transfers parts of an
-      // active variable, but let's still treat it.
-      converted[0] = IRExpr_Binop(Iop_32HLto64, zero32,
-               IRExpr_Binop(Iop_16HLto32, zero16,
-                 IRExpr_Binop(Iop_8HLto16, zero8,
-                   IRExpr_Unop(Iop_1Uto8, expr)
-             )));
-      break;
-    case Ity_F32:
-      converted[0] = IRExpr_Binop(Iop_32HLto64, zero32, IRExpr_Unop(Iop_ReinterpF32asI32, expr));
-      break;
-    case Ity_F64:
-      converted[0] = IRExpr_Unop(Iop_ReinterpF64asI64, expr);
-      break;
-    case Ity_I8:
-      converted[0] = IRExpr_Binop(Iop_32HLto64, zero32,
-               IRExpr_Binop(Iop_16HLto32, zero16,
-                 IRExpr_Binop(Iop_8HLto16, zero8,
-                   expr
-             )));
-      break;
-    case Ity_I16:
-      converted[0] = IRExpr_Binop(Iop_32HLto64, zero32,
-               IRExpr_Binop(Iop_16HLto32, zero16,
-                 expr
-             ));
-      break;
-    case Ity_I32:
-      converted[0] = IRExpr_Binop(Iop_32HLto64, zero32,
-               expr
-             );
-      break;
-    case Ity_I64:
-      converted[0] = expr;
-      break;
-    case Ity_I128:
-      converted[0] = IRExpr_Unop(Iop_128HIto64, expr);
-      converted[1] = IRExpr_Unop(Iop_128to64, expr);
-      break;
-    case Ity_V128:
-      converted[0] = IRExpr_Unop(Iop_V128to64, expr);
-      converted[1] = IRExpr_Unop(Iop_V128HIto64, expr);
-      break;
-    case Ity_V256:
-      converted[0] = IRExpr_Unop(Iop_V256to64_0, expr);
-      converted[1] = IRExpr_Unop(Iop_V256to64_1, expr);
-      converted[2] = IRExpr_Unop(Iop_V256to64_2, expr);
-      converted[3] = IRExpr_Unop(Iop_V256to64_3, expr);
-      break;
-    case Ity_D64:
-      converted[0] = IRExpr_Unop(Iop_ReinterpD64asI64, expr);
-      break;
-    case Ity_D32:
-      // We're missing the appropriate VEX instruction
-      // for reinterpretation.
-      converted[0] = IRExpr_Const(IRConst_U64(0));
-      break;
-    case Ity_D128:
-      // no idea if this is correct
-      converted[0] = IRExpr_Unop(Iop_ReinterpD64asI64, IRExpr_Unop(Iop_D128HItoD64, expr));
-      converted[1] = IRExpr_Unop(Iop_ReinterpD64asI64, IRExpr_Unop(Iop_D128toD64, expr));
-      break;
-    case Ity_F16:
-      // We're missing the appropriate VEX instruction
-      // for reinterpretation
-      converted[0] = IRExpr_Const(IRConst_U64(0));
-      break;
-    case Ity_F128:
-      converted[0] = IRExpr_Unop(Iop_128HIto64, IRExpr_Unop(Iop_ReinterpF128asI128, expr));
-      converted[1] = IRExpr_Unop(Iop_128to64, IRExpr_Unop(Iop_ReinterpF128asI128, expr));
-      break;
-    default:
-      VG_(printf)("Bad type encountered in convertToInteger.\n");
-      tl_assert(False);
-      break;
-  }
-}
-
-/*! Reinterpret 4xI64 as expression of a given type in VEX.
- *  This function complements convertToInteger.
- *  \param[in] expr - 4xI64 expressions whose value should be reinterpreted.
- *     Unnecessary expressions can be NULL.
- *  \param[in] type - Type to convert to.
- *  \returns 4xI64 expression reinterpreted in another type.
- */
-static IRExpr* convertFromInteger(IRExpr** expr, IRType type){
-  switch(type){
-    case Ity_INVALID:
-      VG_(printf)("Ity_INVALID encountered in convertFromInteger.\n");
-      tl_assert(False); break;
-    case Ity_I1:
-      return IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_64to32,expr[0]));
-    case Ity_F32:
-      return IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32,expr[0]));
-    case Ity_F64:
-      return IRExpr_Unop(Iop_ReinterpI64asF64, expr[0]);
-    case Ity_I8:
-      return IRExpr_Unop(Iop_16to8,
-               IRExpr_Unop(Iop_32to16,
-                 IRExpr_Unop(Iop_64to32,
-                   expr[0]
-             )));
-    case Ity_I16:
-      return IRExpr_Unop(Iop_32to16,
-               IRExpr_Unop(Iop_64to32,
-                 expr[0]
-             ));
-    case Ity_I32:
-      return IRExpr_Unop(Iop_64to32,
-               expr[0]
-             );
-    case Ity_I64:
-      return expr[0];
-    case Ity_I128:
-      return IRExpr_Binop(Iop_64HLto128,expr[0], expr[1]);
-    case Ity_V128:
-      return IRExpr_Binop(Iop_64HLtoV128,expr[1],expr[0]);
-    case Ity_V256:
-      return IRExpr_Qop(Iop_64x4toV256,expr[3],expr[2],expr[1],expr[0]);
-    case Ity_D64:
-      return IRExpr_Unop(Iop_ReinterpI64asD64, expr[0]);
-    case Ity_D32:
-      // Ity_D32 and Ity_F16 lose gradient information.
-      // See convertToInteger.
-      return mkIRConst_zero(Ity_D32);
-    case Ity_D128:
-      // no idea whether this is correct
-      return IRExpr_Binop(Iop_D64HLtoD128, IRExpr_Unop(Iop_ReinterpI64asD64,expr[0]), IRExpr_Unop(Iop_ReinterpI64asD64,expr[1]));
-    case Ity_F16:
-      // Ity_D32 and Ity_F16 lose gradient information.
-      // See convertToInteger.
-      return mkIRConst_zero(Ity_F16);
-    case Ity_F128:
-      return IRExpr_Unop(Iop_ReinterpI128asF128, IRExpr_Binop(Iop_64HLtoV128,expr[0],expr[1]));
-    default:
-      VG_(printf)("Bad type encountered in convertFromInteger.\n");
-      tl_assert(False);
-      return NULL;
-  }
-}
-
-/*! Add VEX instructions to read the shadow memory at a given address.
- *  \param[in,out] sb_out - IRSB where VEX instruction can be added.
- *  \param[in] addr - Address to be read from.
- *  \param[in] type - Type of the variable stored at addr.
- *  \returns IRExpr that evaluates to the content of the shadow memory.
- */
-static IRExpr* loadShadowMemory(IRSB* sb_out, IRExpr* addr, IRType type){
-
-  UChar n64Blocks; // necessary number of loads of Ity_I64: 1, 2 or 4
-  const char* fname; // name of function that Ist_Dirty will call
-  void* fn; // pointer to function that Ist_Dirty will call
-  switch(sizeofIRType(type)){
-    case 1:  n64Blocks=1; fname="dg_Load_diff1"; fn=dg_Load_diff1; break;
-    case 2:  n64Blocks=1; fname="dg_Load_diff2"; fn=dg_Load_diff2; break;
-    case 4:  n64Blocks=1; fname="dg_Load_diff4"; fn=dg_Load_diff4; break;
-    case 8:  n64Blocks=1; fname="dg_Load_diff8"; fn=dg_Load_diff8; break;
-    case 16: n64Blocks=2; fname="dg_Load_diff8"; fn=dg_Load_diff8; break;
-    case 32: n64Blocks=4; fname="dg_Load_diff8"; fn=dg_Load_diff8; break;
-    default: tl_assert(False);
-  }
-  // reserve Ity_I64 temporaries to load into
-  IRTemp loadAddr[4];
-  loadAddr[1] = loadAddr[2] = loadAddr[3] = IRTemp_INVALID;
-  loadAddr[0] = newIRTemp(sb_out->tyenv, Ity_I64);
-  if(n64Blocks>=2){
-    loadAddr[1] = newIRTemp(sb_out->tyenv, Ity_I64);
-    if(n64Blocks==4){
-      loadAddr[2] = newIRTemp(sb_out->tyenv, Ity_I64);
-      loadAddr[3] = newIRTemp(sb_out->tyenv, Ity_I64);
-    }
-  }
-  // find Iop and offsets to shift address
-  IROp add;
-  IRExpr* offsets[4];
-  switch(typeOfIRExpr(sb_out->tyenv,addr)){
-    case Ity_I32:
-      add = Iop_Add32;
-      for(int i=0; i<4; i++) offsets[i] = IRExpr_Const(IRConst_U32(i*8));
-      break;
-    case Ity_I64:
-      add = Iop_Add64;
-      for(int i=0; i<4; i++) offsets[i] = IRExpr_Const(IRConst_U64(i*8));
-      break;
-    default:
-      VG_(printf)("Unhandled type for address in loadShadowMemory.\n");
-      tl_assert(False);
-      break;
-  }
-  // load via Ist_Dirty
-  for(UChar i64Block=0; i64Block<n64Blocks; i64Block++){
-    IRDirty* di = unsafeIRDirty_1_N(
-      loadAddr[i64Block],
-      0,
-      fname, VG_(fnptr_to_fnentry)(fn),
-      mkIRExprVec_1(IRExpr_Binop(add,addr,offsets[i64Block])));
-    addStmtToIRSB(sb_out, IRStmt_Dirty(di));
-  }
-  // prepare IRExpr's that read from these
-  IRExpr* loadAddr_RdTmp[4];
-  for(int i=0; i<4; i++){
-    if(loadAddr[i]!=IRTemp_INVALID)
-      loadAddr_RdTmp[i] = IRExpr_RdTmp(loadAddr[i]);
-    else
-      loadAddr_RdTmp[i] = NULL;
-  }
-  // decode
-  return convertFromInteger(loadAddr_RdTmp,type);
-}
-
-
-/*! Add VEX instructions to store the shadow memory at a given address.
- *  \param[in,out] sb_out - IRSB where VEX instruction can be added.
- *  \param[in] addr - Address to store to.
- *  \param[in] expr - Expression whose value is to be stored.
- *  \param[in] guard - Store guard, can be NULL.
- */
-static void storeShadowMemory(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
-  IRType type = typeOfIRExpr(sb_out->tyenv,expr);
-  UChar n64Blocks; // necessary number of stores of Ity_I64: 1, 2 or 4
-  const char* fname; // name of function that Ist_Dirty will call
-  void* fn; // pointer to function that Ist_Dirty will call
-  switch(sizeofIRType(type)){
-    case 1:  n64Blocks=1; fname="dg_Store_diff1"; fn=dg_Store_diff1; break;
-    case 2:  n64Blocks=1; fname="dg_Store_diff2"; fn=dg_Store_diff2; break;
-    case 4:  n64Blocks=1; fname="dg_Store_diff4"; fn=dg_Store_diff4; break;
-    case 8:  n64Blocks=1; fname="dg_Store_diff8"; fn=dg_Store_diff8; break;
-    case 16: n64Blocks=2; fname="dg_Store_diff8"; fn=dg_Store_diff8; break;
-    case 32: n64Blocks=4; fname="dg_Store_diff8"; fn=dg_Store_diff8; break;
-    default: tl_assert(False);
-  }
-  // convert to up to four expressions of type Ity_I64
-  IRExpr* converted[4];
-  convertToInteger(expr,converted,type);
-  // find Iop and offsets to shift address
-  IROp add;
-  IRExpr* offsets[4];
-  switch(typeOfIRExpr(sb_out->tyenv,addr)){
-    case Ity_I32:
-      add = Iop_Add32;
-      for(int i=0; i<4; i++) offsets[i] = IRExpr_Const(IRConst_U32(i*8));
-      break;
-    case Ity_I64:
-      add = Iop_Add64;
-      for(int i=0; i<4; i++) offsets[i] = IRExpr_Const(IRConst_U64(i*8));
-      break;
-    default:
-      VG_(printf)("Unhandled type for address in storeShadowMemory.\n");
-      tl_assert(False);
-      break;
-  }
-  // store via Ist_Dirty
-  for(UChar i64Block=0; i64Block<n64Blocks; i64Block++){
-    IRDirty* di = unsafeIRDirty_0_N(
-      0,
-      fname, VG_(fnptr_to_fnentry)(fn),
-      mkIRExprVec_2(IRExpr_Binop(add,addr,offsets[i64Block]), converted[i64Block]));
-    if(guard)
-      di->guard = guard;
-    addStmtToIRSB(sb_out, IRStmt_Dirty(di));
-  }
-}
-
-/*! Print a double value during execution of the generated code, for debugging purposes.
- *  The Ist_Dirty calling this function is produced by dg_add_print_stmt.
- *  \param[in] tag - Tag that is also printed.
- *  \param[in] value - Printed value.
- */
-static VG_REGPARM(0) void dg_Print_double(ULong tag, ULong value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%lf\n", *(double*)&value); }
-static VG_REGPARM(0) void dg_Print_unsignedlong(ULong tag, ULong value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%p\n", (void*)value); }
-static VG_REGPARM(0) void dg_Print_unsignedint(ULong tag, Int value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%p\n", (void*)value); }
-
-/*! Debugging help. Add a dirty statement to IRSB that prints the value of expr whenever it is run.
- *  \param[in] tag - Tag of your choice, will be printed alongside.
- *  \param[in] sb_out - IRSB to which the dirty statement is added.
- *  \param[in] expr - Expression.
- */
-static
-void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
-  IRType type = typeOfIRExpr(sb_out->tyenv, expr);
-  char* fname;
-  void* fptr;
-  IRExpr* expr_to_print;
-  switch(type){
-    case Ity_F64:
-      fname = "dg_Print_double";
-      fptr = dg_Print_double;
-      expr_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,expr);
-      break;
-    case Ity_I64:
-      fname = "dg_Print_unsignedlong";
-      fptr = dg_Print_unsignedlong;
-      expr_to_print = expr;
-      break;
-    case Ity_I32:
-      fname = "dg_Print_unsignedint";
-      fptr = dg_Print_unsignedint;
-      expr_to_print = expr;
-      break;
-    default:
-      VG_(printf)("Bad type in dg_add_print_stmt.\n");
-      return;
-  }
-  IRDirty* di = unsafeIRDirty_0_N(
-        0,
-        fname, VG_(fnptr_to_fnentry)(fptr),
-        mkIRExprVec_2(IRExpr_Const(IRConst_U64(tag)), expr_to_print));
-  addStmtToIRSB(sb_out, IRStmt_Dirty(di));
+static void dg_print_debug_usage(void)
+{
+   VG_(printf)(
+"    (none)\n"
+   );
 }
 
 #include <VEX/priv/guest_generic_x87.h>
@@ -596,9 +149,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         case 5: size = 10; break;
       }
       union {char l[10]; double d; float f;} derivative;
-      for(int i=0; i<size; i++){
-        shadow_get_bits(my_sm,(SM_Addr)address+i, (U8*)&derivative+i);
-      }
+      shadowGet((void*)address, (void*)&derivative, size);
       switch(key){
         case 1:
           VG_(gdb_printf)("Derivative: %.16lf\n", derivative.d);
@@ -643,7 +194,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         }
       }
       for(int i=0; i<size; i++){
-        shadow_set_bits( my_sm,(SM_Addr)address+i, *( (U8*)&derivative+i ) );
+        shadow_set_bits( sm_dot,(SM_Addr)address+i, *( (U8*)&derivative+i ) );
       }
       return True;
     }
@@ -670,9 +221,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
-    for(UWord i=0; i<size; i++){
-      shadow_get_bits(my_sm,(SM_Addr)addr+i, (U8*)daddr+i);
-    }
+    shadowGet((void*)addr,(void*)daddr,size);
     *ret = 1;
     return True;
   } else if(arg[0]==VG_USERREQ__SET_DERIVATIVE) {
@@ -680,7 +229,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
     for(UWord i=0; i<size; i++){
-      shadow_set_bits(my_sm,(SM_Addr)addr+i, *((U8*)daddr+i));
+      shadow_set_bits(sm_dot,(SM_Addr)addr+i, *((U8*)daddr+i));
     }
     *ret = 1;
     return True;
@@ -1028,21 +577,24 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
             IRExpr_Binop(Iop_2xm1F64,arg1,arg2)
         ));
       case Iop_Mul64F0x2: {
-        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        if(!d1) return NULL;
         return IRExpr_Binop(Iop_Add64F0x2,
           IRExpr_Binop(Iop_Mul64F0x2,d1,arg2), // the order is important here
           IRExpr_Binop(Iop_Mul64F0x2,arg1,d2)
         );
       }
       case Iop_Mul32F0x4: {
-        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        if(!d1) return NULL;
         return IRExpr_Binop(Iop_Add32F0x4,
           IRExpr_Binop(Iop_Mul32F0x4,d1,arg2), // the order is important here
           IRExpr_Binop(Iop_Mul32F0x4,arg1,d2)
         );
       }
       case Iop_Div64F0x2: {
-        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        if(!d1) return NULL;
         return IRExpr_Binop(Iop_Div64F0x2,
           IRExpr_Binop(Iop_Sub64F0x2,
             IRExpr_Binop(Iop_Mul64F0x2,d1,arg2), // the order is important here
@@ -1052,7 +604,8 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         );
       }
       case Iop_Div32F0x4: {
-        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        if(!d1) return NULL;
         return IRExpr_Binop(Iop_Div32F0x4,
           IRExpr_Binop(Iop_Sub32F0x4,
             IRExpr_Binop(Iop_Mul32F0x4,d1,arg2), // the order is important here
@@ -1062,7 +615,8 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
         );
       }
       case Iop_Min64F0x2: {
-        IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
+        IRExpr* d1 = differentiate_expr(arg1,diffenv);
+        if(!d1) return NULL;
         IRExpr* d1_lo = IRExpr_Unop(Iop_V128to64, d1);
         IRExpr* d2_lo = IRExpr_Unop(Iop_V128to64, d2);
         IRExpr* d1_hi = IRExpr_Unop(Iop_V128HIto64, d1);
@@ -1098,11 +652,9 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv diffenv ){
       case Iop_InterleaveLO8x16: case Iop_InterleaveLO16x8:
       case Iop_InterleaveLO32x4: case Iop_InterleaveLO64x2:
         {
-          IRExpr* d1 = differentiate_or_zero(arg1,diffenv,False,"");
-          if(d1)
-            return IRExpr_Binop(op, d1,d2);
-          else
-            return NULL;
+          IRExpr* d1 = differentiate_expr(arg1,diffenv);
+          if(!d1) return NULL;
+          else return IRExpr_Binop(op, d1,d2);
         }
       default:
         return NULL;
@@ -1243,12 +795,13 @@ static
 IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const char* operation){
   IRExpr* diff = differentiate_expr(expr,diffenv);
   if(diff){
-    return diff;
+    if(paragrind) return expr;
+    else return diff;
   } else {
     if(warn){
       VG_(printf)("Warning: Expression\n");
       ppIRExpr(expr);
-      VG_(printf)("could not be differentiated, %s'ing zero instead.\n\n", operation);
+      VG_(printf)("\ncould not be differentiated, %s'ing zero instead.\n\n", operation);
     }
     return mkIRConst_zero(typeOfIRExpr(diffenv.sb_out->tyenv,expr));
   }
@@ -1268,8 +821,7 @@ IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv diffenv, Bool warn, const ch
 ULong x86g_amd64g_diff_dirtyhelper_loadF80le ( Addr addrU )
 {
    ULong f64, f128[2];
-   f128[0] = dg_Load_diff8(addrU);
-   f128[1] = dg_Load_diff2(addrU+8);
+   shadowGet((void*)addrU, (void*)f128, 10);
    convert_f80le_to_f64le ( (UChar*)f128, (UChar*)&f64 );
    return f64;
 }
@@ -1283,8 +835,54 @@ void x86g_amd64g_diff_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
 {
    ULong f128[2];
    convert_f64le_to_f80le( (UChar*)&f64, (UChar*)f128 );
-   dg_Store_diff8(addrU,f128[0]);
-   dg_Store_diff2(addrU+8,f128[1]);
+   shadowSet((void*)addrU,(void*)f128,10);
+}
+
+/*! Helper to extract high/low addresses of CAS statement.
+ *
+ *  One of addr_Lo, addr_Hi is det->addr,
+ *  the other one is det->addr + offset.
+ *  \param[in] det - CAS statement details.
+ *  \param[in] diffenv - Differentiation environment.
+ *  \param[out] addr_Lo - Low address.
+ *  \param[out] addr_Hi - High address.
+ */
+static void addressesOfCAS(IRCAS const* det, DiffEnv diffenv, IRExpr** addr_Lo, IRExpr** addr_Hi){
+  IRType type = typeOfIRExpr(diffenv.sb_out->tyenv,det->expdLo);
+  Bool double_element = (det->expdHi!=NULL);
+  IRExpr* offset; // offset between Hi and Lo part of addr
+  IROp add; // operation to add addresses
+  switch(typeOfIRExpr(diffenv.sb_out->tyenv,det->addr)){
+    case Ity_I32:
+      add = Iop_Add32;
+      offset = IRExpr_Const(IRConst_U32(sizeofIRType(type)));
+      break;
+    case Ity_I64:
+      add = Iop_Add64;
+      offset = IRExpr_Const(IRConst_U64(sizeofIRType(type)));
+      break;
+    default:
+      VG_(printf)("Unhandled type for address in translation of Ist_CAS.\n");
+      tl_assert(False);
+      break;
+  }
+  if(det->end==Iend_LE){
+    if(double_element){
+      *addr_Lo = det->addr;
+      *addr_Hi = IRExpr_Binop(add,det->addr,offset);
+    } else {
+      *addr_Lo = det->addr;
+      *addr_Hi = NULL;
+    }
+  } else { // Iend_BE
+    if(double_element){
+      *addr_Lo = IRExpr_Binop(add,det->addr,offset);
+      *addr_Hi = det->addr;
+    } else {
+      *addr_Lo = det->addr;
+      *addr_Hi = NULL;
+    }
+  }
 }
 
 /*! Instrument an IRSB.
@@ -1300,11 +898,15 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
   int i;
   DiffEnv diffenv;
   IRSB* sb_out = deepCopyIRSBExceptStmts(sb_in);
-  // append the "gradient temporaries" to the "value temporaries",
-  // doubling the number of temporaries
+  // append the shadow temporaries to the original temporaries,
   diffenv.t_offset = sb_in->tyenv->types_used;
   for(IRTemp t=0; t<diffenv.t_offset; t++){
     newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
+  }
+  if(paragrind){ // another set of shadow temporaries
+    for(IRTemp t=0; t<diffenv.t_offset; t++){
+      newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
+    }
   }
 
   diffenv.sb_out = sb_out;
@@ -1321,248 +923,262 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
     IRStmt* st_orig = sb_in->stmts[i]; // will be added to sb_out in the end
     const IRStmt* st = st_orig; // const version for differentiation
     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
-    if(st->tag==Ist_WrTmp) {
-      IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.WrTmp.data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"WrTmp");
-      IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset, differentiated_expr);
-      addStmtToIRSB(sb_out, sp);
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_Put) {
-      IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Put.data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"Put");
-      IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB, differentiated_expr);
-      addStmtToIRSB(sb_out, sp);
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_PutI) {
-      IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.PutI.details->data, diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"PutI");
-      IRRegArray* descr = st->Ist.PutI.details->descr;
-      IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB, descr->elemTy, descr->nElems);
-      Int bias = st->Ist.PutI.details->bias;
-      IRExpr* ix = st->Ist.PutI.details->ix;
-      IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv.layout->total_sizeB,differentiated_expr));
-      addStmtToIRSB(sb_out, sp);
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_Store){
-      IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Store.data);
-      IRExpr* differentiated_expr = differentiate_or_zero(st->Ist.Store.data, diffenv, UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"Store");
-      storeShadowMemory(diffenv.sb_out,st->Ist.Store.addr,differentiated_expr,NULL);
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_StoreG){
-      IRStoreG* det = st->Ist.StoreG.details;
-      IRType type = typeOfIRExpr(sb_in->tyenv,det->data);
-      IRExpr* differentiated_expr = differentiate_or_zero(det->data, diffenv, UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"StoreG");
-      storeShadowMemory(diffenv.sb_out,det->addr,differentiated_expr,det->guard);
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_LoadG) {
-      IRLoadG* det = st->Ist.LoadG.details;
-      // discard det->cvt; extra bits for widening should
-      // never be interpreted as derivative information
-      IRType type = sb_in->tyenv->types[det->dst];
-      // differentiate alternative value
-      IRExpr* differentiated_expr_alt = differentiate_or_zero(det->alt,diffenv,UNWRAPPED_EXPRESSION_OUTPUT_FILTER,"alternative-LoadG");
-      // depending on the guard, copy either the derivative stored
-      // in shadow memory, or the derivative of the alternative value,
-      // to the shadow temporary.
-      addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(det->dst+diffenv.t_offset,
-        IRExpr_ITE(det->guard,loadShadowMemory(diffenv.sb_out,det->addr,type),differentiated_expr_alt)
-      ));
-      addStmtToIRSB(sb_out, st_orig);
-    } else if(st->tag==Ist_CAS) {
 
-      IRCAS* det = st->Ist.CAS.details;
-      IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
-      Bool double_element = (det->expdHi!=NULL);
+    IRTemp cas_succeeded = IRTemp_INVALID; // test success of CAS instruction in instDeriv, and reuse in instPara and instOrig.
 
-      // add original statement before AD treatment, because we need to know
-      // if the CAS succeeded
-      addStmtToIRSB(sb_out, st_orig);
-
-      // Now we will add a couple more statements. Note that the complete
-      // translation of the Ist_CAS is not atomic any more, so it's
-      // possible that we create a race condition here.
-      // This issue also exists in do_shadow_CAS in mc_translate.c.
-      // There, the comment states that because Valgrind runs only one
-      // thread at a time and there are no context switches within a
-      // single IRSB, this is not a problem.
-
-      // Find addresses of Hi and Lo part.
-      IRExpr* offset; // offset between Hi and Lo part of addr
-      IRExpr* addr_Lo; // one of addr_Lo, addr_Hi is det->addr,
-      IRExpr* addr_Hi; // the other one is det->addr + offset
-      IROp add; // operation to add addresses
-      switch(typeOfIRExpr(diffenv.sb_out->tyenv,det->addr)){
-        case Ity_I32:
-          add = Iop_Add32;
-          offset = IRExpr_Const(IRConst_U32(sizeofIRType(type)));
-          break;
-        case Ity_I64:
-          add = Iop_Add64;
-          offset = IRExpr_Const(IRConst_U64(sizeofIRType(type)));
-          break;
-        default:
-          VG_(printf)("Unhandled type for address in translation of Ist_CAS.\n");
-          tl_assert(False);
-          break;
+    const int instDeriv=1, instPara=2, instOrig=3;
+    for(int inst=1; inst<4; inst++){
+      if(inst==instOrig){
+        if(st->tag==Ist_CAS){ // needs special treatment:
+          // Test success of CAS instruction in instDeriv,
+          // perform operations on the shadow memory in instDeriv and instPara,
+          // and perform operations on the original memory in instOrig.
+          IRCAS* det = st->Ist.CAS.details;
+          IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
+          Bool double_element = (det->expdHi!=NULL);
+          IRExpr* addr_Lo;
+          IRExpr* addr_Hi;
+          addressesOfCAS(det,diffenv,&addr_Lo,&addr_Hi);
+          // Set oldLo and possibly oldHi.
+          addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo,IRExpr_Load(det->end,type,addr_Lo)));
+          if(double_element){
+            addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi,IRExpr_Load(det->end,type,addr_Hi)));
+          }
+          // Guarded write of Lo part, and possibly Hi part.
+          // As Ist_StoreG causes an isel error on x86, we use an if-then-else construct.
+          IRExpr* store_Lo = IRExpr_ITE(IRExpr_RdTmp(cas_succeeded),
+            det->dataLo, IRExpr_Load(det->end,type,addr_Lo));
+          addStmtToIRSB(sb_out, IRStmt_Store(det->end,addr_Lo,store_Lo));
+          if(double_element){
+            IRExpr* store_Hi = IRExpr_ITE(IRExpr_RdTmp(cas_succeeded),
+              det->dataHi, IRExpr_Load(det->end,type,addr_Hi));
+            addStmtToIRSB(sb_out, IRStmt_Store(det->end,addr_Hi,store_Hi));
+          }
+        } else { // for all other IRStmt's, just copy them
+          addStmtToIRSB(sb_out, st_orig);
+        }
+        continue;
       }
-      if(det->end==Iend_LE){
+      if(inst==instPara && !paragrind){
+        continue;
+      }
+
+      IRExpr* (*modify_expression)(IRExpr*, DiffEnv, Bool, const char*);
+      if(inst==instDeriv){
+        modify_expression = &differentiate_or_zero;
+        setCurrentShadowMap(sm_dot);
+      } else if(inst==instPara){
+        modify_expression = NULL;
+        //setCurrentShadowMap(sm_values);
+      }
+      if(st->tag==Ist_WrTmp) {
+        IRType type = sb_in->tyenv->types[st->Ist.WrTmp.tmp];
+        IRExpr* modified_expr = modify_expression(st->Ist.WrTmp.data, diffenv,warn_about_unwrapped_expressions,"WrTmp");
+        IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv.t_offset*inst, modified_expr);
+        addStmtToIRSB(sb_out, sp);
+      } else if(st->tag==Ist_Put) {
+        IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Put.data);
+        IRExpr* modified_expr = modify_expression(st->Ist.Put.data, diffenv,warn_about_unwrapped_expressions,"Put");
+        IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv.layout->total_sizeB*inst, modified_expr);
+        addStmtToIRSB(sb_out, sp);
+      } else if(st->tag==Ist_PutI) {
+        IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.PutI.details->data);
+        IRExpr* modified_expr = modify_expression(st->Ist.PutI.details->data, diffenv,warn_about_unwrapped_expressions,"PutI");
+        IRRegArray* descr = st->Ist.PutI.details->descr;
+        IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv.layout->total_sizeB*inst, descr->elemTy, descr->nElems);
+        Int bias = st->Ist.PutI.details->bias;
+        IRExpr* ix = st->Ist.PutI.details->ix;
+        IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv.layout->total_sizeB*inst,modified_expr));
+        addStmtToIRSB(sb_out, sp);
+      } else if(st->tag==Ist_Store){
+        IRType type = typeOfIRExpr(sb_in->tyenv,st->Ist.Store.data);
+        IRExpr* modified_expr = modify_expression(st->Ist.Store.data, diffenv, warn_about_unwrapped_expressions,"Store");
+        storeShadowMemory(diffenv.sb_out,st->Ist.Store.addr,modified_expr,NULL);
+      } else if(st->tag==Ist_StoreG){
+        IRStoreG* det = st->Ist.StoreG.details;
+        IRType type = typeOfIRExpr(sb_in->tyenv,det->data);
+        IRExpr* modified_expr = modify_expression(det->data, diffenv, warn_about_unwrapped_expressions,"StoreG");
+        storeShadowMemory(diffenv.sb_out,det->addr,modified_expr,det->guard);
+      } else if(st->tag==Ist_LoadG) {
+        IRLoadG* det = st->Ist.LoadG.details;
+        // discard det->cvt; extra bits for widening should
+        // never be interpreted as derivative information
+        IRType type = sb_in->tyenv->types[det->dst];
+        // differentiate alternative value
+        IRExpr* modified_expr_alt = modify_expression(det->alt,diffenv,warn_about_unwrapped_expressions,"alternative-LoadG");
+        // depending on the guard, copy either the derivative stored
+        // in shadow memory, or the derivative of the alternative value,
+        // to the shadow temporary.
+        addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(det->dst+diffenv.t_offset*inst,
+          IRExpr_ITE(det->guard,loadShadowMemory(diffenv.sb_out,det->addr,type),modified_expr_alt)
+        ));
+      } else if(st->tag==Ist_CAS) { // TODO
+
+        IRCAS* det = st->Ist.CAS.details;
+        IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
+        Bool double_element = (det->expdHi!=NULL);
+
+        // As we add some instrumentation now, note that the complete
+        // translation of the Ist_CAS is not atomic any more, so it's
+        // possible that we create a race condition here.
+        // This issue also exists in do_shadow_CAS in mc_translate.c.
+        // There, the comment states that because Valgrind runs only one
+        // thread at a time and there are no context switches within a
+        // single IRSB, this is not a problem.
+
+        // Find addresses of Hi and Lo part.
+        IRExpr* addr_Lo;
+        IRExpr* addr_Hi;
+        addressesOfCAS(det,diffenv,&addr_Lo,&addr_Hi);
+
+        // Find out if CAS succeeded.
+        IROp cmp;
+        switch(type){
+          case Ity_I8: cmp = Iop_CmpEQ8; break;
+          case Ity_I16: cmp = Iop_CmpEQ16; break;
+          case Ity_I32: cmp = Iop_CmpEQ32; break;
+          case Ity_I64: cmp = Iop_CmpEQ64; break;
+          default: VG_(printf)("Unhandled type in translation of Ist_CAS.\n"); tl_assert(False); break;
+        }
+        // Check whether expected low values and shadow values agree.
+        // We assume that the shadow expression can always be formed,
+        // otherways the CAS will never succeed with the current implementation.
+        IRExpr* equal_values_Lo = IRExpr_Binop(cmp,det->expdLo,IRExpr_Load(det->end,type,addr_Lo));
+        IRExpr* modified_expdLo = modify_expression(det->expdLo,diffenv,False,"");
+        IRExpr* equal_modifiedvalues_Lo = IRExpr_Binop(cmp,modified_expdLo,loadShadowMemory(sb_out,addr_Lo,type));
+        IRExpr* equal_Lo = IRExpr_Binop(Iop_And1,equal_values_Lo,equal_modifiedvalues_Lo);
+        IRExpr* equal_Hi = IRExpr_Const(IRConst_U1(1));
         if(double_element){
-          addr_Lo = det->addr;
-          addr_Hi = IRExpr_Binop(add,det->addr,offset);
-        } else {
-          addr_Lo = det->addr;
-          addr_Hi = NULL;
+          IRExpr* equal_values_Hi = IRExpr_Binop(cmp,det->expdHi,IRExpr_Load(det->end,type,addr_Hi));
+          IRExpr* modified_expdHi = modify_expression(det->expdHi,diffenv,False,"");
+          IRExpr* equal_modifiedvalues_Hi = IRExpr_Binop(cmp,modified_expdHi,loadShadowMemory(sb_out,addr_Hi,type));
+          equal_Hi = IRExpr_Binop(Iop_And1,equal_values_Hi,equal_modifiedvalues_Hi);
         }
-      } else { // Iend_BE
+        cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
+        addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
+          IRExpr_Binop(Iop_And1, equal_Lo, equal_Hi)
+        ));
+
+        // Set shadows of oldLo and possibly oldHi.
+        addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo+diffenv.t_offset*inst,
+          loadShadowMemory(sb_out,addr_Lo,type)));
         if(double_element){
-          addr_Lo = IRExpr_Binop(add,det->addr,offset);
-          addr_Hi = det->addr;
-        } else {
-          addr_Lo = det->addr;
-          addr_Hi = NULL;
+          addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi+diffenv.t_offset*inst,
+            loadShadowMemory(sb_out,addr_Hi,type)));
         }
-      }
-
-      // Load derivatives of oldLo.
-      addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
-        det->oldLo + diffenv.t_offset, loadShadowMemory(diffenv.sb_out,addr_Lo,type)));
-      // Possibly load derivatives of oldHi.
-      if(double_element){
-          addStmtToIRSB(diffenv.sb_out, IRStmt_WrTmp(
-            det->oldHi + diffenv.t_offset, loadShadowMemory(diffenv.sb_out,addr_Hi,type)));
-      }
-      // Find out if CAS succeeded.
-      IROp cmp;
-      switch(type){
-        case Ity_I8: cmp = Iop_CmpEQ8; break;
-        case Ity_I16: cmp = Iop_CmpEQ16; break;
-        case Ity_I32: cmp = Iop_CmpEQ32; break;
-        case Ity_I64: cmp = Iop_CmpEQ64; break;
-        default: VG_(printf)("Unhandled type in translation of Ist_CAS.\n"); tl_assert(False); break;
-      }
-      IRTemp cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
-      addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
-        IRExpr_Unop(Iop_32to1, IRExpr_Unop(Iop_1Uto32,
-          IRExpr_Binop(cmp,IRExpr_RdTmp(det->oldLo), det->expdLo)
-      ))));
-      // Guarded write of Lo part to shadow memory.
-      IRExpr* differentiated_expdLo = differentiate_or_zero(det->expdLo,diffenv,False,"");
-      storeShadowMemory(sb_out,addr_Lo,differentiated_expdLo,IRExpr_RdTmp(cas_succeeded));
-      // Possibly guarded write of Hi part to shadow memory.
-      if(double_element){
-        IRExpr* differentiated_expdHi =  differentiate_or_zero(det->expdHi,diffenv,False,"");
-        storeShadowMemory(sb_out,addr_Hi,differentiated_expdHi,IRExpr_RdTmp(cas_succeeded));
-      }
-    } else if(st->tag==Ist_LLSC) {
-      addStmtToIRSB(sb_out, st_orig);
-      VG_(printf)("Did not instrument Ist_LLSC statement.\n");
-    } else if(st->tag==Ist_Dirty) {
-      // We should have a look at all Ist_Dirty statements that
-      // are added to the VEX IR in guest_x86_to_IR.c. Maybe
-      // some of them need AD treatment.
-
-      IRDirty* det = st->Ist.Dirty.details;
-      const HChar* name = det->cee->name;
-
-      // The x86g_dirtyhelper_storeF80le dirty call converts a 64-bit
-      // floating-point register to a 80-bit x87 extended double and
-      // stores it in 10 bytes of guest memory.
-      // We have to convert the 64-bit derivative information to 80 bit
-      // and store them in 10 bytes of shadow memory.
-      // The same applies on amd64.
-      if(!VG_(strcmp)(name, "x86g_dirtyhelper_storeF80le") ||
-         !VG_(strcmp)(name, "amd64g_dirtyhelper_storeF80le") ){
-        IRExpr** args = det->args;
-        IRExpr* addr = args[0];
-        IRExpr* expr = args[1];
-        IRExpr* differentiated_expr = differentiate_or_zero(expr,diffenv,False,"");
-        IRDirty* dd = unsafeIRDirty_0_N(
-              0,
-              "x86g_amd64g_diff_dirtyhelper_storeF80le",
-              &x86g_amd64g_diff_dirtyhelper_storeF80le,
-              mkIRExprVec_2(addr, differentiated_expr));
-        addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
-        addStmtToIRSB(sb_out, st_orig);
-      }
-      // The x86g_dirtyhelper_loadF80le dirty call loads 80 bit from
-      // memory, converts them to a 64 bit double and stores it in a
-      // Ity_I64 temporary. We have to do the same with the derivative
-      // information in the shadow memory.
-      // The temporary will later be reinterpreted as float and likely
-      // stored in a register, but the AD logic for this part is
-      // as usual.
-      // The same applies on amd64.
-      else if(!VG_(strcmp)(name, "x86g_dirtyhelper_loadF80le") ||
-              !VG_(strcmp)(name, "amd64g_dirtyhelper_loadF80le") ){
-        IRExpr** args = det->args;
-        IRExpr* addr = args[0];
-        IRTemp t = det->tmp;
-        IRDirty* dd = unsafeIRDirty_1_N(
-              t + diffenv.t_offset,
-              0,
-              "x86g_amd64g_diff_dirtyhelper_loadF80le",
-              &x86g_amd64g_diff_dirtyhelper_loadF80le,
-              mkIRExprVec_1(addr));
-        addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
-        addStmtToIRSB(sb_out, st_orig);
-      }
-      /*! \page dirty_calls_no_ad Dirty calls without relevance for AD
-       *  The following dirty calls do not handle AD-active bytes,
-       *  therefore no specific AD instrumentation is necessary. If
-       *  there is an output temporary, we set the shadow temporary to
-       *  zero in case it is further copied around.
-       * - The CPUID dirty calls set some registers in the guest state.
-       *   As these should never end up as floating-point data, we don't
-       *   need to do anything about AD.
-       * - The RDTSC instruction loads a 64-bit time-stamp counter into
-       *   the (lower 32 bit of the) guest registers EAX and EDX (and
-       *   clears the higher 32 bit on amd64). The dirty call just
-       *   stores an Ity_I64 in its return temporary. We put a zero in
-       *   the shadow temporary.
-       * - The XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS, XSAVE_.. dirty calls
-       *   (re)store a SSE state, this seems to be a completely discrete thing.
-       * - The PCMPxSTRx dirty calls account for SSE 4.2 string instructions,
-       *   also a purely discrete thing.
-       * - amd64g_dirtyhelper_FSTENV and amd64g_dirtyhelper_FLDENV save status,
-       *   pointers and the like, but not the content of the x87 registers.
-       *
-       * For other dirty calls, a warning is emitted.
-       */
-      else {
-        if(det->tmp!=IRTemp_INVALID){
-          IRTemp shadow_tmp = det->tmp+diffenv.t_offset;
-          IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,det->tmp);
-          IRExpr* zero = mkIRConst_zero(type);
-          addStmtToIRSB(sb_out,IRStmt_WrTmp(shadow_tmp,zero));
+        // Guarded write of Lo part to shadow memory.
+        IRExpr* modified_dataLo = modify_expression(det->dataLo,diffenv,False,"");
+        storeShadowMemory(sb_out,addr_Lo,modified_dataLo,IRExpr_RdTmp(cas_succeeded));
+        // Possibly guarded write of Hi part to shadow memory.
+        if(double_element){
+          IRExpr* modified_dataHi =  modify_expression(det->dataHi,diffenv,False,"");
+          storeShadowMemory(sb_out,addr_Hi,modified_dataHi,IRExpr_RdTmp(cas_succeeded));
         }
-        addStmtToIRSB(sb_out, st_orig);
+      } else if(st->tag==Ist_LLSC) {
+        VG_(printf)("Did not instrument Ist_LLSC statement.\n");
+      } else if(st->tag==Ist_Dirty) {
+        // We should have a look at all Ist_Dirty statements that
+        // are added to the VEX IR in guest_x86_to_IR.c. Maybe
+        // some of them need AD treatment.
 
-        // warn if dirty call is unknown
-        if(VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23)) &&
-           VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) &&
-           VG_(strcmp(name, "amd64g_dirtyhelper_XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS")) &&
-           VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) &&
-           VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") &&
-           VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") &&
-           VG_(strcmp)(name,"amd64g_dirtyhelper_PCMPxSTRx") &&
-           VG_(strcmp)(name,"amd64g_dirtyhelper_FSTENV") &&
-           VG_(strcmp)(name,"amd64g_dirtyhelper_FLDENV")
-        ){
-          VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
-          ppIRStmt(st);
-          VG_(printf)("\n");
+        IRDirty* det = st->Ist.Dirty.details;
+        const HChar* name = det->cee->name;
+
+        // The x86g_dirtyhelper_storeF80le dirty call converts a 64-bit
+        // floating-point register to a 80-bit x87 extended double and
+        // stores it in 10 bytes of guest memory.
+        // We have to convert the 64-bit derivative information to 80 bit
+        // and store them in 10 bytes of shadow memory.
+        // The same applies on amd64.
+        if(!VG_(strcmp)(name, "x86g_dirtyhelper_storeF80le") ||
+           !VG_(strcmp)(name, "amd64g_dirtyhelper_storeF80le") ){
+          IRExpr** args = det->args;
+          IRExpr* addr = args[0];
+          IRExpr* expr = args[1];
+          IRExpr* modified_expr = modify_expression(expr,diffenv,False,"");
+          IRDirty* dd = unsafeIRDirty_0_N(
+                0,
+                "x86g_amd64g_diff_dirtyhelper_storeF80le",
+                &x86g_amd64g_diff_dirtyhelper_storeF80le,
+                mkIRExprVec_2(addr, modified_expr));
+          addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
         }
-      }
-    } else if(st->tag==Ist_NoOp || st->tag==Ist_IMark || st->tag==Ist_AbiHint){
-      addStmtToIRSB(sb_out, st_orig);
-      // no relevance for any tool, do nothing
-    } else if(st->tag==Ist_Exit || st->tag==Ist_MBE) {
-      addStmtToIRSB(sb_out, st_orig);
-      // no relevance for AD, do nothing
-    } else {
-      tl_assert(False);
-    }
+        // The x86g_dirtyhelper_loadF80le dirty call loads 80 bit from
+        // memory, converts them to a 64 bit double and stores it in a
+        // Ity_I64 temporary. We have to do the same with the derivative
+        // information in the shadow memory.
+        // The temporary will later be reinterpreted as float and likely
+        // stored in a register, but the AD logic for this part is
+        // as usual.
+        // The same applies on amd64.
+        else if(!VG_(strcmp)(name, "x86g_dirtyhelper_loadF80le") ||
+                !VG_(strcmp)(name, "amd64g_dirtyhelper_loadF80le") ){
+          IRExpr** args = det->args;
+          IRExpr* addr = args[0];
+          IRTemp t = det->tmp;
+          IRDirty* dd = unsafeIRDirty_1_N(
+                t + diffenv.t_offset*inst,
+                0,
+                "x86g_amd64g_diff_dirtyhelper_loadF80le",
+                &x86g_amd64g_diff_dirtyhelper_loadF80le,
+                mkIRExprVec_1(addr));
+          addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
+        }
+        /*! \page dirty_calls_no_ad Dirty calls without relevance for AD
+         *  The following dirty calls do not handle AD-active bytes,
+         *  therefore no specific AD instrumentation is necessary. If
+         *  there is an output temporary, we set the shadow temporary to
+         *  zero in case it is further copied around.
+         * - The CPUID dirty calls set some registers in the guest state.
+         *   As these should never end up as floating-point data, we don't
+         *   need to do anything about AD.
+         * - The RDTSC instruction loads a 64-bit time-stamp counter into
+         *   the (lower 32 bit of the) guest registers EAX and EDX (and
+         *   clears the higher 32 bit on amd64). The dirty call just
+         *   stores an Ity_I64 in its return temporary. We put a zero in
+         *   the shadow temporary.
+         * - The XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS, XSAVE_.. dirty calls
+         *   (re)store a SSE state, this seems to be a completely discrete thing.
+         * - The PCMPxSTRx dirty calls account for SSE 4.2 string instructions,
+         *   also a purely discrete thing.
+         * - amd64g_dirtyhelper_FSTENV and amd64g_dirtyhelper_FLDENV save status,
+         *   pointers and the like, but not the content of the x87 registers.
+         *
+         * For other dirty calls, a warning is emitted.
+         */
+        else {
+          if(det->tmp!=IRTemp_INVALID){
+            IRTemp shadow_tmp = det->tmp+diffenv.t_offset*inst;
+            IRType type = typeOfIRTemp(diffenv.sb_out->tyenv,det->tmp);
+            IRExpr* zero = mkIRConst_zero(type);
+            addStmtToIRSB(sb_out,IRStmt_WrTmp(shadow_tmp,zero));
+          }
 
+          // warn if dirty call is unknown
+          if(VG_(strncmp(name, "x86g_dirtyhelper_CPUID_",23)) &&
+             VG_(strncmp(name, "amd64g_dirtyhelper_CPUID_",25)) &&
+             VG_(strcmp(name, "amd64g_dirtyhelper_XRSTOR_COMPONENT_1_EXCLUDING_XMMREGS")) &&
+             VG_(strcmp(name, "amd64g_dirtyhelper_XSAVE_COMPONENT_1_EXCLUDING_XMMREGS")) &&
+             VG_(strcmp)(name,"x86g_dirtyhelper_RDTSC") &&
+             VG_(strcmp)(name,"amd64g_dirtyhelper_RDTSC") &&
+             VG_(strcmp)(name,"amd64g_dirtyhelper_PCMPxSTRx") &&
+             VG_(strcmp)(name,"amd64g_dirtyhelper_FSTENV") &&
+             VG_(strcmp)(name,"amd64g_dirtyhelper_FLDENV")
+          ){
+            VG_(printf)("Cannot instrument Ist_Dirty statement:\n");
+            ppIRStmt(st);
+            VG_(printf)("\n");
+          }
+        }
+      } else if(st->tag==Ist_NoOp || st->tag==Ist_IMark || st->tag==Ist_AbiHint){
+        // no relevance for any tool, do nothing
+      } else if(st->tag==Ist_Exit || st->tag==Ist_MBE) {
+        // no relevance for AD, do nothing
+      } else {
+        tl_assert(False);
+      }
+
+    } // end for loop over instrumentations
 
   }
 
@@ -1571,8 +1187,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
 
 static void dg_fini(Int exitcode)
 {
-  shadow_destroy_map(my_sm);
-  VG_(free)(my_sm);
+  destroyShadowMap(sm_dot);
 }
 
 static void dg_pre_clo_init(void)
@@ -1583,8 +1198,9 @@ static void dg_pre_clo_init(void)
    VG_(details_version)         (NULL);
    VG_(details_description)     ("a tool for forward-mode AD of compiled programs.");
    VG_(details_copyright_author)(
-      "Copyright (C) 2022, and GNU GPL'd, by Max Aehle.");
-   VG_(details_bug_reports_to)  ("max.aehle@scicomp.uni-kl.de");
+      "Copyright (C) 2022, and GNU GPL'd, by the \n"
+      "Chair for Scientific Computing at TU Kaiserslautern.");
+   VG_(details_bug_reports_to)  ("derivgrind@scicomp.uni-kl.de");
 
    VG_(details_avg_translation_sizeB) ( 275 );
 
@@ -1593,21 +1209,14 @@ static void dg_pre_clo_init(void)
                                  dg_fini);
 
 
-   /* No needs, no core events to track */
-   VG_(printf)("Allocate shadow memory... ");
-   my_sm = (ShadowMap*) VG_(malloc)("allocate_shadow_memory", sizeof(ShadowMap));
-   #ifdef BUILD_32BIT
-   if(my_sm==NULL) VG_(printf)("Error\n");
-   my_sm->shadow_bits = 1;
-   my_sm->application_bits = 1;
-   my_sm->num_distinguished = 1;
-   shadow_initialize_map(my_sm);
-   #else
-   shadow_initialize_with_mmap(my_sm);
-   #endif
-   VG_(printf)("done\n");
+   sm_dot = initializeShadowMap();
+   setCurrentShadowMap(sm_dot);
 
    VG_(needs_client_requests)     (dg_handle_client_request);
+
+   VG_(needs_command_line_options)(dg_process_cmd_line_option,
+                                   dg_print_usage,
+                                   dg_print_debug_usage);
 
 }
 

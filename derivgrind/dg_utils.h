@@ -1,6 +1,5 @@
 /*--------------------------------------------------------------------*/
-/*--- Wrap client request            derivgrind_clientrequests.cpp ---*/
-/*--- functions for Python.                                        ---*/
+/*--- Utilities.                                        dg_utils.h ---*/
 /*--------------------------------------------------------------------*/
 
 /*
@@ -30,32 +29,25 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#include <pybind11/pybind11.h>
-#include <valgrind/derivgrind.h>
+#ifndef DG_UTILS_H
+#define DG_UTILS_H
 
-namespace py = pybind11;
+#include "pub_tool_basics.h"
+#include "pub_tool_tooliface.h"
 
-PYBIND11_MODULE(derivgrind, m){
-  m.doc() = "Wrapper for DerivGrind client requests.";
+#ifndef __GNUC__
+  #error "Only tested with GCC."
+#endif
 
-  m.def( "set_derivative", [](double val, double grad)->double { 
-    double ret = val; 
-    VALGRIND_SET_DERIVATIVE(&ret, &grad, 8);
-    return ret; 
-  });
-  m.def( "get_derivative", [](double val)->double { 
-    double grad; 
-    VALGRIND_GET_DERIVATIVE(&val, &grad, 8);
-    return grad; 
-  });
-  m.def( "set_derivative", [](float val, float grad)->float { 
-    float ret = val; 
-    VALGRIND_SET_DERIVATIVE(&ret, &grad, 4);
-    return ret; 
-  });
-  m.def( "get_derivative", [](float val)->float { 
-    float grad; 
-    VALGRIND_GET_DERIVATIVE(&val, &grad, 4);
-    return grad; 
-  });
-}
+#if __x86_64__
+#else
+#define BUILD_32BIT
+#endif
+
+#define DEFAULT_ROUNDING IRExpr_Const(IRConst_U32(Irrm_NEAREST))
+
+/*! Make zero constant of certain type.
+ */
+IRExpr* mkIRConst_zero(IRType type);
+
+#endif // DG_UTILS_H
