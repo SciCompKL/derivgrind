@@ -929,6 +929,14 @@ static void add_statement_original(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
   }
 }
 
+/*! Add statement with modified expressions to output IRSB.
+ *  \param[in,out] sb_out - Output IRSB.
+ *  \param[in] st_orig - Original statement.
+ *  \param[in] diffenv - Additional data.
+ *  \param[in] modify_expression - Function that modifies expressions.
+ *  \param[in] inst - Used to compute shifts of temporary indices
+ *     and guest state offsets.
+ */
 static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffenv, IRExpr* (*modify_expression)(IRExpr*, DiffEnv*, Bool, const char*), int inst){
   const IRStmt* st = st_orig;
   if(st->tag==Ist_WrTmp) {
@@ -1199,31 +1207,11 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
 
     diffenv.cas_succeeded = IRTemp_INVALID;
 
-    const int instDeriv=1, instPara=2, instOrig=3;
-    for(int inst=1; inst<4; inst++){
-      if(inst==instOrig){
-        add_statement_original(sb_out,st_orig, &diffenv);
-        continue;
-      }
-      if(inst==instPara && !paragrind){
-        continue;
-      }
-
-      IRExpr* (*modify_expression)(IRExpr*, DiffEnv, Bool, const char*);
-      if(inst==instDeriv){
-        modify_expression = &differentiate_or_zero;
-        setCurrentShadowMap(sm_dot);
-      } else if(inst==instPara){
-        modify_expression = NULL;
-        //setCurrentShadowMap(sm_values);
-      }
-      add_statement_forward(sb_out,st_orig,&diffenv);
-
-    } // end for loop over instrumentations
-
+    add_statement_forward(sb_out,st_orig,&diffenv);
+    if(paragrind) add_statement_paragrind(sb_out,st_orig,&diffenv);
+    add_statement_original(sb_out,st_orig, &diffenv);
   }
-
-   return sb_out;
+  return sb_out;
 }
 
 static void dg_fini(Int exitcode)
