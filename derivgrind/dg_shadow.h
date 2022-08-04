@@ -65,13 +65,12 @@ typedef unsigned char U8;
  *  \returns Initialized shadow map pointer.
  */
 
-void* initializeShadowMap();
+void* initializeShadowMap(void);
 
 /*! Destroy a shadow map.
  *  \param[in] sm - Shadow map.
  */
 void destroyShadowMap(void* sm);
-
 /*! Set the shadow map.
  *  \param[in] sm - New shadow map.
  */

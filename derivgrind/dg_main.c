@@ -136,8 +136,9 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       return True;
     case 1: case 3: case 5: { // get, fget, lget
       HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      HChar const* address_str_const = address_str;
       Addr address;
-      if(!VG_(parse_Addr)(&address_str, &address)){
+      if(!VG_(parse_Addr)(&address_str_const, &address)){
         VG_(gdb_printf)("Usage: get  <addr>\n"
                         "       fget <addr>\n"
                         "       lget <addr>\n");
@@ -149,7 +150,8 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         case 3: size = 4; break;
         case 5: size = 10; break;
       }
-      union {char l[10]; double d; float f;} derivative;
+      union {unsigned char l[10]; double d; float f;} derivative;
+      setCurrentShadowMap(sm_dot);
       shadowGet((void*)address, (void*)&derivative, size);
       switch(key){
         case 1:
@@ -162,7 +164,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
           // convert x87 double extended to 64-bit double
           // so we can use the ordinary I/O.
           double tmp;
-          convert_f80le_to_f64le(derivative.l,&tmp);
+          convert_f80le_to_f64le(derivative.l,(unsigned char*)&tmp);
           VG_(gdb_printf)("Derivative: %.16lf\n", (double)tmp);
           break;
         }
@@ -171,15 +173,16 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
     }
     case 2: case 4: case 6: { // set, fset, lset
       HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      HChar const* address_str_const = address_str;
       Addr address;
-      if(!VG_(parse_Addr)(&address_str, &address)){
+      if(!VG_(parse_Addr)(&address_str_const, &address)){
         VG_(gdb_printf)("Usage: set  <addr> <derivative>\n"
                         "       fset <addr> <derivative>\n"
                         "       lset <addr> <derivative>\n");
         return False;
       }
       HChar* derivative_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
-      union {char l[10]; double d; float f;} derivative;
+      union {unsigned char l[10]; double d; float f;} derivative;
       derivative.d = VG_(strtod)(derivative_str, NULL);
       int size;
       switch(key){
@@ -190,13 +193,12 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
           // so we can use the ordinary I/O
           size = 10;
           double tmp = derivative.d;
-          convert_f64le_to_f80le(&tmp,derivative.l);
+          convert_f64le_to_f80le((unsigned char*)&tmp,derivative.l);
           break;
         }
       }
-      for(int i=0; i<size; i++){
-        shadow_set_bits( sm_dot,(SM_Addr)address+i, *( (U8*)&derivative+i ) );
-      }
+      setCurrentShadowMap(sm_dot);
+      shadowSet((void*)address,(void*)&derivative,size);
       return True;
     }
     default:
@@ -222,6 +224,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
+    setCurrentShadowMap(sm_dot);
     shadowGet((void*)addr,(void*)daddr,size);
     *ret = 1;
     return True;
@@ -229,9 +232,8 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
-    for(UWord i=0; i<size; i++){
-      shadow_set_bits(sm_dot,(SM_Addr)addr+i, *((U8*)daddr+i));
-    }
+    setCurrentShadowMap(sm_dot);
+    shadowSet(addr,daddr,size);
     *ret = 1;
     return True;
   } else {

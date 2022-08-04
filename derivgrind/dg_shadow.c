@@ -107,7 +107,7 @@ inline void  shadow_free(void* addr) { VG_(free)(addr); }
 inline void *shadow_malloc(size_t size) { return VG_(malloc)("Test",size); }
 inline void *shadow_calloc(size_t nmemb, size_t size) { return VG_(calloc)("test", nmemb, size); }
 inline void  shadow_memcpy(void* dst, void* src, size_t size) { VG_(memcpy)(dst,src,size); }
-inline void  shadow_out_of_memory() {
+inline void  shadow_out_of_memory(void) {
   VG_(printf)("ERROR: Ran out of memory while allocating shadow memory.\n");
         VG_(exit)(1);
 }
@@ -119,7 +119,7 @@ void setCurrentShadowMap(void* sm){
   sm_current = sm;
 }
 
-void* initializeShadowMap(){
+void* initializeShadowMap(void){
   ShadowMap* sm = (ShadowMap*) VG_(malloc)("allocate_shadow_memory", sizeof(ShadowMap));
   #ifdef BUILD_32BIT
   if(sm==NULL) VG_(printf)("Error allocating space for ShadowMap.\n");

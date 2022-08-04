@@ -30,6 +30,7 @@
 #define __PUB_TOOL_OPTIONS_H
 
 #include "pub_tool_basics.h"     // for VG_ macro
+#include "pub_tool_libcprint.h"  // for VG_(fmsg_bad_option)
 #include "libvex.h"              // for VexControl
 
 // Command line option parsing happens in the following modes:
