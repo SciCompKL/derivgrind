@@ -885,12 +885,28 @@ static void addressesOfCAS(IRCAS const* det, IRSB* sb_out, IRExpr** addr_Lo, IRE
   }
 }
 
-static void add_statement_original(IRSB* sb_out, IRStmt* st_orig, IRTemp cas_succeeded){
-  const IRStmt* st = st_orig; // const version for differentiation
-  if(st->tag==Ist_CAS){ // needs special treatment:
-    // Test success of CAS instruction in instDeriv,
-    // perform operations on the shadow memory in instDeriv and instPara,
-    // and perform operations on the original memory in instOrig.
+/*! Data passed to add_statement_original.
+ */
+typedef struct {
+  /*! If success of a CAS operation has already
+   *  been tested in previous instrumentations,
+   *  use the result of this test.
+   */
+  IRTemp cas_succeeded;
+} OriginalEnv;
+
+/*! Add what the original statement did, to output IRSB.
+ *
+ *  CAS needs special treatment: If success has already been
+ *  tested in the DerivGrind instrumentation, use the result
+ *  of this test.
+ *  \param[in,out] sb_out - Output IRSB.
+ *  \param[in] st_orig - Original statement.
+ *  \param[in] cas_succeeded - Special data.
+ */
+static void add_statement_original(IRSB* sb_out, IRStmt* st_orig, OriginalEnv originalenv){
+  const IRStmt* st = st_orig;
+  if(st->tag==Ist_CAS && originalenv.cas_succeeded != IRTemp_INVALID){
     IRCAS* det = st->Ist.CAS.details;
     IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
     Bool double_element = (det->expdHi!=NULL);
@@ -904,11 +920,11 @@ static void add_statement_original(IRSB* sb_out, IRStmt* st_orig, IRTemp cas_suc
     }
     // Guarded write of Lo part, and possibly Hi part.
     // As Ist_StoreG causes an isel error on x86, we use an if-then-else construct.
-    IRExpr* store_Lo = IRExpr_ITE(IRExpr_RdTmp(cas_succeeded),
+    IRExpr* store_Lo = IRExpr_ITE(IRExpr_RdTmp(originalenv.cas_succeeded),
       det->dataLo, IRExpr_Load(det->end,type,addr_Lo));
     addStmtToIRSB(sb_out, IRStmt_Store(det->end,addr_Lo,store_Lo));
     if(double_element){
-      IRExpr* store_Hi = IRExpr_ITE(IRExpr_RdTmp(cas_succeeded),
+      IRExpr* store_Hi = IRExpr_ITE(IRExpr_RdTmp(originalenv.cas_succeeded),
         det->dataHi, IRExpr_Load(det->end,type,addr_Hi));
       addStmtToIRSB(sb_out, IRStmt_Store(det->end,addr_Hi,store_Hi));
     }
@@ -941,6 +957,8 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
     }
   }
 
+  OriginalEnv originalenv;
+
   diffenv.sb_out = sb_out;
   diffenv.layout = layout;
 
@@ -956,12 +974,12 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
     const IRStmt* st = st_orig; // const version for differentiation
     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
 
-    IRTemp cas_succeeded = IRTemp_INVALID; // test success of CAS instruction in instDeriv, and reuse in instPara and instOrig.
+    originalenv.cas_succeeded = IRTemp_INVALID;
 
     const int instDeriv=1, instPara=2, instOrig=3;
     for(int inst=1; inst<4; inst++){
       if(inst==instOrig){
-        add_statement_original(sb_out,st_orig, cas_succeeded);
+        add_statement_original(sb_out,st_orig, originalenv);
         continue;
       }
       if(inst==instPara && !paragrind){
@@ -1059,8 +1077,8 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
           IRExpr* equal_modifiedvalues_Hi = IRExpr_Binop(cmp,modified_expdHi,loadShadowMemory(sb_out,addr_Hi,type));
           equal_Hi = IRExpr_Binop(Iop_And1,equal_values_Hi,equal_modifiedvalues_Hi);
         }
-        cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
-        addStmtToIRSB(sb_out, IRStmt_WrTmp(cas_succeeded,
+        originalenv.cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
+        addStmtToIRSB(sb_out, IRStmt_WrTmp(originalenv.cas_succeeded,
           IRExpr_Binop(Iop_And1, equal_Lo, equal_Hi)
         ));
 
@@ -1073,11 +1091,11 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
         }
         // Guarded write of Lo part to shadow memory.
         IRExpr* modified_dataLo = modify_expression(det->dataLo,diffenv,False,"");
-        storeShadowMemory(sb_out,addr_Lo,modified_dataLo,IRExpr_RdTmp(cas_succeeded));
+        storeShadowMemory(sb_out,addr_Lo,modified_dataLo,IRExpr_RdTmp(originalenv.cas_succeeded));
         // Possibly guarded write of Hi part to shadow memory.
         if(double_element){
           IRExpr* modified_dataHi =  modify_expression(det->dataHi,diffenv,False,"");
-          storeShadowMemory(sb_out,addr_Hi,modified_dataHi,IRExpr_RdTmp(cas_succeeded));
+          storeShadowMemory(sb_out,addr_Hi,modified_dataHi,IRExpr_RdTmp(originalenv.cas_succeeded));
         }
       } else if(st->tag==Ist_LLSC) {
         VG_(printf)("Did not instrument Ist_LLSC statement.\n");
