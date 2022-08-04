@@ -847,12 +847,12 @@ void x86g_amd64g_diff_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
  *  \param[out] addr_Lo - Low address.
  *  \param[out] addr_Hi - High address.
  */
-static void addressesOfCAS(IRCAS const* det, DiffEnv diffenv, IRExpr** addr_Lo, IRExpr** addr_Hi){
-  IRType type = typeOfIRExpr(diffenv.sb_out->tyenv,det->expdLo);
+static void addressesOfCAS(IRCAS const* det, IRSB* sb_out, IRExpr** addr_Lo, IRExpr** addr_Hi){
+  IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
   Bool double_element = (det->expdHi!=NULL);
   IRExpr* offset; // offset between Hi and Lo part of addr
   IROp add; // operation to add addresses
-  switch(typeOfIRExpr(diffenv.sb_out->tyenv,det->addr)){
+  switch(typeOfIRExpr(sb_out->tyenv,det->addr)){
     case Ity_I32:
       add = Iop_Add32;
       offset = IRExpr_Const(IRConst_U32(sizeofIRType(type)));
@@ -882,6 +882,38 @@ static void addressesOfCAS(IRCAS const* det, DiffEnv diffenv, IRExpr** addr_Lo, 
       *addr_Lo = det->addr;
       *addr_Hi = NULL;
     }
+  }
+}
+
+static void add_statement_original(IRSB* sb_out, IRStmt* st_orig, IRTemp cas_succeeded){
+  const IRStmt* st = st_orig; // const version for differentiation
+  if(st->tag==Ist_CAS){ // needs special treatment:
+    // Test success of CAS instruction in instDeriv,
+    // perform operations on the shadow memory in instDeriv and instPara,
+    // and perform operations on the original memory in instOrig.
+    IRCAS* det = st->Ist.CAS.details;
+    IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
+    Bool double_element = (det->expdHi!=NULL);
+    IRExpr* addr_Lo;
+    IRExpr* addr_Hi;
+    addressesOfCAS(det,sb_out,&addr_Lo,&addr_Hi);
+    // Set oldLo and possibly oldHi.
+    addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo,IRExpr_Load(det->end,type,addr_Lo)));
+    if(double_element){
+      addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi,IRExpr_Load(det->end,type,addr_Hi)));
+    }
+    // Guarded write of Lo part, and possibly Hi part.
+    // As Ist_StoreG causes an isel error on x86, we use an if-then-else construct.
+    IRExpr* store_Lo = IRExpr_ITE(IRExpr_RdTmp(cas_succeeded),
+      det->dataLo, IRExpr_Load(det->end,type,addr_Lo));
+    addStmtToIRSB(sb_out, IRStmt_Store(det->end,addr_Lo,store_Lo));
+    if(double_element){
+      IRExpr* store_Hi = IRExpr_ITE(IRExpr_RdTmp(cas_succeeded),
+        det->dataHi, IRExpr_Load(det->end,type,addr_Hi));
+      addStmtToIRSB(sb_out, IRStmt_Store(det->end,addr_Hi,store_Hi));
+    }
+  } else { // for all other IRStmt's, just copy them
+    addStmtToIRSB(sb_out, st_orig);
   }
 }
 
@@ -929,34 +961,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
     const int instDeriv=1, instPara=2, instOrig=3;
     for(int inst=1; inst<4; inst++){
       if(inst==instOrig){
-        if(st->tag==Ist_CAS){ // needs special treatment:
-          // Test success of CAS instruction in instDeriv,
-          // perform operations on the shadow memory in instDeriv and instPara,
-          // and perform operations on the original memory in instOrig.
-          IRCAS* det = st->Ist.CAS.details;
-          IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
-          Bool double_element = (det->expdHi!=NULL);
-          IRExpr* addr_Lo;
-          IRExpr* addr_Hi;
-          addressesOfCAS(det,diffenv,&addr_Lo,&addr_Hi);
-          // Set oldLo and possibly oldHi.
-          addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo,IRExpr_Load(det->end,type,addr_Lo)));
-          if(double_element){
-            addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi,IRExpr_Load(det->end,type,addr_Hi)));
-          }
-          // Guarded write of Lo part, and possibly Hi part.
-          // As Ist_StoreG causes an isel error on x86, we use an if-then-else construct.
-          IRExpr* store_Lo = IRExpr_ITE(IRExpr_RdTmp(cas_succeeded),
-            det->dataLo, IRExpr_Load(det->end,type,addr_Lo));
-          addStmtToIRSB(sb_out, IRStmt_Store(det->end,addr_Lo,store_Lo));
-          if(double_element){
-            IRExpr* store_Hi = IRExpr_ITE(IRExpr_RdTmp(cas_succeeded),
-              det->dataHi, IRExpr_Load(det->end,type,addr_Hi));
-            addStmtToIRSB(sb_out, IRStmt_Store(det->end,addr_Hi,store_Hi));
-          }
-        } else { // for all other IRStmt's, just copy them
-          addStmtToIRSB(sb_out, st_orig);
-        }
+        add_statement_original(sb_out,st_orig, cas_succeeded);
         continue;
       }
       if(inst==instPara && !paragrind){
@@ -1029,7 +1034,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
         // Find addresses of Hi and Lo part.
         IRExpr* addr_Lo;
         IRExpr* addr_Hi;
-        addressesOfCAS(det,diffenv,&addr_Lo,&addr_Hi);
+        addressesOfCAS(det,sb_out,&addr_Lo,&addr_Hi);
 
         // Find out if CAS succeeded.
         IROp cmp;
