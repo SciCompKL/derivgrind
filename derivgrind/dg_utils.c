@@ -57,3 +57,24 @@ IRExpr* mkIRConst_zero(IRType type){
     default: tl_assert(False); return NULL;
   }
 }
+
+IRExpr* convertToF64(IRExpr* expr, DiffEnv* diffenv, IRType* originaltype){
+  *originaltype = typeOfIRExpr(diffenv->sb_out->tyenv, expr);
+  switch(*originaltype){
+    case Ity_F64: return expr;
+    case Ity_F32: return IRExpr_Unop(Iop_F32toF64, expr);
+    default: VG_(printf)("Bad type in convertToF64.\n"); tl_assert(False); return NULL;
+  }
+}
+/*! Convert F64 expressions to F32 or F64.
+ *  \param[in] expr - F64 expression.
+ *  \param[in] originaltype - Original type is stored here from convertToF64.
+ *  \return F32 or F64 expression.
+ */
+IRExpr* convertFromF64(IRExpr* expr, IRType originaltype){
+  switch(originaltype){
+    case Ity_F64: return expr;
+    case Ity_F32: return IRExpr_Binop(Iop_F64toF32, IRExpr_Const(IRConst_U32(Irrm_ZERO)), expr);
+    default: VG_(printf)("Bad type in convertFromF64.\n"); tl_assert(False); return NULL;
+  }
+}
