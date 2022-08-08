@@ -244,7 +244,8 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
 
 static IRExpr* differentiate_or_zero(IRExpr*, DiffEnv*, Bool, const char*);
 
-/*! Differentiate an expression.
+/*! Differentiate an expression, i.e. produce an
+ *  expression computing the dot value.
  *
  *  - For arithmetic expressions involving float or double variables, we
  *    use the respective differentiation rules. Not all kinds of operations
