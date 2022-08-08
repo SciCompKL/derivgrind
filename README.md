@@ -7,6 +7,9 @@ instrumentation framework for building dynamic analysis tools.
 We give more details on DerivGrind's mechanics in our paper.
 
 ## Quick start
+- Make sure you have the required tools, headers and libraries, which are listed in
+  [environment.def](environment.def). You may run a Singularity image built from 
+  this file to reproducibly obtain an environment where everything is installed.
 - Download and compile the source code:
 
       git clone --recursive <repository url>
@@ -21,7 +24,7 @@ We give more details on DerivGrind's mechanics in our paper.
       cd derivgrind/diff_tests/
       ./setup.sh
       python3 run_tests.py
-- Or check out the following simple program:
+- Or try DerivGrind on the following simple C program:
       
       #include <stdio.h>
       #include <valgrind/derivgrind.h>
@@ -37,17 +40,41 @@ We give more details on DerivGrind's mechanics in our paper.
   Compile it via `gcc test.c -o test -Iinstall/include` and run it via
    
       install/bin/valgrind --tool=derivgrind ./test
-  The two preprocessor macros seed x, and obtain the dot value from y, 
+  The two preprocessor macros seed `x`, and obtain the dot value from `y`, 
   via Valgrind's client request mechanism. In between, the code can 
   perform any kind of calculations, including calls to closed-source libraries.
-  However, have a look at the limitations.
+  However, have a look at the [limitations](#limitations).
+- Or try DerivGrind on the Python interpreter on your system, which should be a 
+  version of [CPython](https://github.com/python/cpython/):
 
-## Limitations
+      cd derivgrind/diff_tests/
+      ./setup.sh && -
+      export PYTHONPATH=$PWD/python
+      install/bin/valgrind --tool=derivgrind python3 
+  This provides you with a (slow) Python interpreter with AD functionality:
+
+      >>> import derivgrind
+      >>> x = derivgrind.set_derivative(4,1)
+      >>> y = x*x*x
+      >>> y
+      64.0
+      >>> derivgrind.get_derivative(y)
+      48.0
+
+
+
+
+## <a name="limitations"></a>Limitations
 - Machine code can "hide" real arithmetics behind integer or logical instructions 
   in manifold ways. For example, a bitwise logical "and" can be used to pull the
   sign bit to zero, and thereby compute the absolute value. DerivGrind does only
-  recognize the more frequent patterns.
+  recognize the some of these ways. Avoid direct manipulation of a floating-point
+  number's binary representation in your program, and avoid using highly optimized 
+  numerical libraries.
 - Valgrind might not know all the instructions used in your program, and makes 
   some floating-point operations behave slightly differently than they do outside
-  Valgrind.
+  of Valgrind.
+
+We give more details on our paper.
+  
 
