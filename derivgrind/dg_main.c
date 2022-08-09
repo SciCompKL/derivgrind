@@ -42,6 +42,7 @@
 
 #include "dg_logical.h"
 #include "dg_utils.h"
+#include "dg_paragrind.h"
 
 #include "dg_shadow.h"
 
@@ -81,6 +82,9 @@ Bool paragrind = False;
 
 static void dg_post_clo_init(void)
 {
+  if(paragrind){
+    dg_paragrind_pre_clo_init();
+  }
 }
 
 static Bool dg_process_cmd_line_option(const HChar* arg)
@@ -732,7 +736,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv* diffenv ){
     IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv->gs_offset[1],descr->elemTy,descr->nElems);
     return IRExpr_GetI(descr_diff,ix,bias+diffenv->gs_offset[1]);
   } else if (ex->tag==Iex_Load) {
-    return loadShadowMemory(diffenv->sm[1],diffenv->sb_out,ex->Iex.Load.addr,ex->Iex.Load.ty);
+    return loadShadowMemory(sm_dot,diffenv->sb_out,ex->Iex.Load.addr,ex->Iex.Load.ty);
   } else {
     return NULL;
   }
@@ -750,8 +754,7 @@ static
 IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv* diffenv, Bool warn, const char* operation){
   IRExpr* diff = differentiate_expr(expr,diffenv);
   if(diff){
-    if(paragrind) return expr;
-    else return diff;
+    return diff;
   } else {
     if(warn){
       VG_(printf)("Warning: Expression\n");
@@ -879,15 +882,35 @@ static void add_statement_original(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
   }
 }
 
+void store_expression_dot(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
+  storeShadowMemory(sm_dot,sb_out,addr,expr,guard);
+}
+IRExpr* load_expression_dot(IRSB* sb_out, IRExpr* addr, IRType type){
+  return loadShadowMemory(sm_dot,sb_out,addr,type);
+}
+void store_expression_para(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
+  storeLayeredShadowMemory(sm_pgdata,sm_pginit,sb_out,addr,expr,guard);
+}
+IRExpr* load_expression_para(IRSB* sb_out, IRExpr* addr, IRType type){
+  return loadLayeredShadowMemory(sm_pgdata,sm_pginit,sb_out,addr,type);
+}
+
 /*! Add statement with modified expressions to output IRSB.
  *  \param[in,out] sb_out - Output IRSB.
  *  \param[in] st_orig - Original statement.
  *  \param[in] diffenv - Additional data.
+ *  \param[in] inst - Used to compute shifts of temporary indices.
  *  \param[in] modify_expression - Function that modifies expressions.
- *  \param[in] inst - Used to compute shifts of temporary indices
- *     and guest state offsets.
+ *    and guest state offsets.
+ *  \param[in] load_expression - Function to load from memory.
+ *  \param[in] store_expression - Function to store in memory.
  */
-static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffenv, IRExpr* (*modify_expression)(IRExpr*, DiffEnv*, Bool, const char*), int inst){
+static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffenv,
+    int inst,
+    IRExpr* (*modify_expression)(IRExpr*, DiffEnv*, Bool, const char*),
+    IRExpr* (*load_expression)(IRSB*, IRExpr*, IRType),
+    void (*store_expression)(IRSB*, IRExpr*, IRExpr*, IRExpr*)
+  ){
   const IRStmt* st = st_orig;
   if(st->tag==Ist_WrTmp) {
     IRType type = sb_out->tyenv->types[st->Ist.WrTmp.tmp];
@@ -911,12 +934,12 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
   } else if(st->tag==Ist_Store){
     IRType type = typeOfIRExpr(sb_out->tyenv,st->Ist.Store.data);
     IRExpr* modified_expr = modify_expression(st->Ist.Store.data, diffenv, warn_about_unwrapped_expressions,"Store");
-    storeShadowMemory(diffenv->sm[inst],diffenv->sb_out,st->Ist.Store.addr,modified_expr,NULL);
+    store_expression(diffenv->sb_out,st->Ist.Store.addr,modified_expr,NULL);
   } else if(st->tag==Ist_StoreG){
     IRStoreG* det = st->Ist.StoreG.details;
     IRType type = typeOfIRExpr(sb_out->tyenv,det->data);
     IRExpr* modified_expr = modify_expression(det->data, diffenv, warn_about_unwrapped_expressions,"StoreG");
-    storeShadowMemory(diffenv->sm[inst],diffenv->sb_out,det->addr,modified_expr,det->guard);
+    store_expression(diffenv->sb_out,det->addr,modified_expr,det->guard);
   } else if(st->tag==Ist_LoadG) {
     IRLoadG* det = st->Ist.LoadG.details;
     // discard det->cvt; extra bits for widening should
@@ -928,7 +951,7 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
     // in shadow memory, or the derivative of the alternative value,
     // to the shadow temporary.
     addStmtToIRSB(diffenv->sb_out, IRStmt_WrTmp(det->dst+diffenv->tmp_offset[inst],
-      IRExpr_ITE(det->guard,loadShadowMemory(diffenv->sm[inst],diffenv->sb_out,det->addr,type),modified_expr_alt)
+      IRExpr_ITE(det->guard,load_expression(diffenv->sb_out,det->addr,type),modified_expr_alt)
     ));
   } else if(st->tag==Ist_CAS) { // TODO
 
@@ -963,13 +986,13 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
     // otherways the CAS will never succeed with the current implementation.
     IRExpr* equal_values_Lo = IRExpr_Binop(cmp,det->expdLo,IRExpr_Load(det->end,type,addr_Lo));
     IRExpr* modified_expdLo = modify_expression(det->expdLo,diffenv,False,"");
-    IRExpr* equal_modifiedvalues_Lo = IRExpr_Binop(cmp,modified_expdLo,loadShadowMemory(diffenv->sm[inst],sb_out,addr_Lo,type));
+    IRExpr* equal_modifiedvalues_Lo = IRExpr_Binop(cmp,modified_expdLo,load_expression(sb_out,addr_Lo,type));
     IRExpr* equal_Lo = IRExpr_Binop(Iop_And1,equal_values_Lo,equal_modifiedvalues_Lo);
     IRExpr* equal_Hi = IRExpr_Const(IRConst_U1(1));
     if(double_element){
       IRExpr* equal_values_Hi = IRExpr_Binop(cmp,det->expdHi,IRExpr_Load(det->end,type,addr_Hi));
       IRExpr* modified_expdHi = modify_expression(det->expdHi,diffenv,False,"");
-      IRExpr* equal_modifiedvalues_Hi = IRExpr_Binop(cmp,modified_expdHi,loadShadowMemory(diffenv->sm[inst],sb_out,addr_Hi,type));
+      IRExpr* equal_modifiedvalues_Hi = IRExpr_Binop(cmp,modified_expdHi,load_expression(sb_out,addr_Hi,type));
       equal_Hi = IRExpr_Binop(Iop_And1,equal_values_Hi,equal_modifiedvalues_Hi);
     }
     diffenv->cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
@@ -979,18 +1002,18 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
 
     // Set shadows of oldLo and possibly oldHi.
     addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo+diffenv->tmp_offset[inst],
-      loadShadowMemory(diffenv->sm[inst],sb_out,addr_Lo,type)));
+      load_expression(sb_out,addr_Lo,type)));
     if(double_element){
       addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi+diffenv->tmp_offset[inst],
-        loadShadowMemory(diffenv->sm[inst],sb_out,addr_Hi,type)));
+        load_expression(sb_out,addr_Hi,type)));
     }
     // Guarded write of Lo part to shadow memory.
     IRExpr* modified_dataLo = modify_expression(det->dataLo,diffenv,False,"");
-    storeShadowMemory(diffenv->sm[inst],sb_out,addr_Lo,modified_dataLo,IRExpr_RdTmp(diffenv->cas_succeeded));
+    store_expression(sb_out,addr_Lo,modified_dataLo,IRExpr_RdTmp(diffenv->cas_succeeded));
     // Possibly guarded write of Hi part to shadow memory.
     if(double_element){
       IRExpr* modified_dataHi =  modify_expression(det->dataHi,diffenv,False,"");
-      storeShadowMemory(diffenv->sm[inst],sb_out,addr_Hi,modified_dataHi,IRExpr_RdTmp(diffenv->cas_succeeded));
+      store_expression(sb_out,addr_Hi,modified_dataHi,IRExpr_RdTmp(diffenv->cas_succeeded));
     }
   } else if(st->tag==Ist_LLSC) {
     VG_(printf)("Did not instrument Ist_LLSC statement.\n");
@@ -1104,7 +1127,7 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
  *  \param[in] diffenv - Additional data.
  */
 static void add_statement_forward(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffenv){
-  add_statement_modified(sb_out, st_orig, diffenv, &differentiate_or_zero, 1);
+  add_statement_modified(sb_out, st_orig, diffenv, 1, &differentiate_or_zero, &load_expression_dot, &store_expression_dot);
 }
 
 /*! Add paragrind instrumentation to output IRSB.
@@ -1113,7 +1136,7 @@ static void add_statement_forward(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffen
  *  \param[in] diffenv - Additional data.
  */
 static void add_statement_paragrind(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffenv){
-  add_statement_modified(sb_out, st_orig, diffenv, NULL, 2); // TODO
+  add_statement_modified(sb_out, st_orig, diffenv, 2, &parallel_or_zero, &load_expression_para, &store_expression_para);
 }
 
 /*! Instrument an IRSB.
