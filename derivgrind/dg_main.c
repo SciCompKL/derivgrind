@@ -726,15 +726,15 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv* diffenv ){
     if(dtrue==NULL || dfalse==NULL) return NULL;
     else return IRExpr_ITE(ex->Iex.ITE.cond, dtrue, dfalse);
   } else if(ex->tag==Iex_RdTmp) {
-    return IRExpr_RdTmp( ex->Iex.RdTmp.tmp + diffenv->t_offset );
+    return IRExpr_RdTmp( ex->Iex.RdTmp.tmp + diffenv->tmp_offset[1] );
   } else if(ex->tag==Iex_Get) {
-    return IRExpr_Get(ex->Iex.Get.offset+diffenv->layout->total_sizeB,ex->Iex.Get.ty);
+    return IRExpr_Get(ex->Iex.Get.offset+diffenv->gs_offset[1],ex->Iex.Get.ty);
   } else if(ex->tag==Iex_GetI) {
     IRRegArray* descr = ex->Iex.GetI.descr;
     IRExpr* ix = ex->Iex.GetI.ix;
     Int bias = ex->Iex.GetI.bias;
-    IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv->layout->total_sizeB,descr->elemTy,descr->nElems);
-    return IRExpr_GetI(descr_diff,ix,bias+diffenv->layout->total_sizeB);
+    IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv->gs_offset[1],descr->elemTy,descr->nElems);
+    return IRExpr_GetI(descr_diff,ix,bias+diffenv->gs_offset[1]);
   } else if (ex->tag==Iex_Load) {
     return loadShadowMemory(diffenv->sb_out,ex->Iex.Load.addr,ex->Iex.Load.ty);
   } else {
@@ -896,21 +896,21 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
   if(st->tag==Ist_WrTmp) {
     IRType type = sb_out->tyenv->types[st->Ist.WrTmp.tmp];
     IRExpr* modified_expr = modify_expression(st->Ist.WrTmp.data, diffenv,warn_about_unwrapped_expressions,"WrTmp");
-    IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv->t_offset*inst, modified_expr);
+    IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv->tmp_offset[inst], modified_expr);
     addStmtToIRSB(sb_out, sp);
   } else if(st->tag==Ist_Put) {
     IRType type = typeOfIRExpr(sb_out->tyenv,st->Ist.Put.data);
     IRExpr* modified_expr = modify_expression(st->Ist.Put.data, diffenv,warn_about_unwrapped_expressions,"Put");
-    IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv->layout->total_sizeB*inst, modified_expr);
+    IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv->gs_offset[inst], modified_expr);
     addStmtToIRSB(sb_out, sp);
   } else if(st->tag==Ist_PutI) {
     IRType type = typeOfIRExpr(sb_out->tyenv,st->Ist.PutI.details->data);
     IRExpr* modified_expr = modify_expression(st->Ist.PutI.details->data, diffenv,warn_about_unwrapped_expressions,"PutI");
     IRRegArray* descr = st->Ist.PutI.details->descr;
-    IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv->layout->total_sizeB*inst, descr->elemTy, descr->nElems);
+    IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv->gs_offset[inst], descr->elemTy, descr->nElems);
     Int bias = st->Ist.PutI.details->bias;
     IRExpr* ix = st->Ist.PutI.details->ix;
-    IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv->layout->total_sizeB*inst,modified_expr));
+    IRStmt* sp = IRStmt_PutI(mkIRPutI(descr_diff,ix,bias+diffenv->gs_offset[inst],modified_expr));
     addStmtToIRSB(sb_out, sp);
   } else if(st->tag==Ist_Store){
     IRType type = typeOfIRExpr(sb_out->tyenv,st->Ist.Store.data);
@@ -931,7 +931,7 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
     // depending on the guard, copy either the derivative stored
     // in shadow memory, or the derivative of the alternative value,
     // to the shadow temporary.
-    addStmtToIRSB(diffenv->sb_out, IRStmt_WrTmp(det->dst+diffenv->t_offset*inst,
+    addStmtToIRSB(diffenv->sb_out, IRStmt_WrTmp(det->dst+diffenv->tmp_offset[inst],
       IRExpr_ITE(det->guard,loadShadowMemory(diffenv->sb_out,det->addr,type),modified_expr_alt)
     ));
   } else if(st->tag==Ist_CAS) { // TODO
@@ -982,10 +982,10 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
     ));
 
     // Set shadows of oldLo and possibly oldHi.
-    addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo+diffenv->t_offset*inst,
+    addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo+diffenv->tmp_offset[inst],
       loadShadowMemory(sb_out,addr_Lo,type)));
     if(double_element){
-      addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi+diffenv->t_offset*inst,
+      addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi+diffenv->tmp_offset[inst],
         loadShadowMemory(sb_out,addr_Hi,type)));
     }
     // Guarded write of Lo part to shadow memory.
@@ -1039,7 +1039,7 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
       IRExpr* addr = args[0];
       IRTemp t = det->tmp;
       IRDirty* dd = unsafeIRDirty_1_N(
-            t + diffenv->t_offset*inst,
+            t + diffenv->tmp_offset[inst],
             0,
             "x86g_amd64g_diff_dirtyhelper_loadF80le",
             &x86g_amd64g_diff_dirtyhelper_loadF80le,
@@ -1070,7 +1070,7 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
      */
     else {
       if(det->tmp!=IRTemp_INVALID){
-        IRTemp shadow_tmp = det->tmp+diffenv->t_offset*inst;
+        IRTemp shadow_tmp = det->tmp+diffenv->tmp_offset[inst];
         IRType type = typeOfIRTemp(diffenv->sb_out->tyenv,det->tmp);
         IRExpr* zero = mkIRConst_zero(type);
         addStmtToIRSB(sb_out,IRStmt_WrTmp(shadow_tmp,zero));
@@ -1134,19 +1134,25 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
   int i;
   DiffEnv diffenv;
   IRSB* sb_out = deepCopyIRSBExceptStmts(sb_in);
-  // append the shadow temporaries to the original temporaries,
-  diffenv.t_offset = sb_in->tyenv->types_used;
-  for(IRTemp t=0; t<diffenv.t_offset; t++){
+
+  // allocate shadow temporaries and store offsets
+  IRTemp nTmp =  sb_in->tyenv->types_used;
+  diffenv.tmp_offset[1] = nTmp;
+  for(IRTemp t=0; t<nTmp; t++){
     newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
   }
-  if(paragrind){ // another set of shadow temporaries
-    for(IRTemp t=0; t<diffenv.t_offset; t++){
+  if(paragrind){
+    diffenv.tmp_offset[2] = 2*nTmp;
+    for(IRTemp t=0; t<nTmp; t++){
       newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
     }
   }
 
+  // shadow guest state (registers) do not need allocation
+  diffenv.gs_offset[1] = layout->total_sizeB;
+  diffenv.gs_offset[2] = 2*layout->total_sizeB;
+
   diffenv.sb_out = sb_out;
-  diffenv.layout = layout;
 
   // copy until IMark
   i = 0;

@@ -55,12 +55,16 @@ IRExpr* mkIRConst_zero(IRType type);
  *  Data required for differentiation, is passed to differentiate_expr.
  */
 typedef struct {
-  /*! Shadow offset for indices of temporaries.
+  /*! Offsets for indices of shadow temporaries.
+   *
+   *  Use index 1 for foward-mode AD and index 2 for paragrind.
    */
-  IRTemp t_offset;
-  /*! Layout argument to dg_instrument.
-   *  layout->total_sizeB is the shadow offset for register indices. */
-  const VexGuestLayout* layout;
+  IRTemp tmp_offset[3];
+  /*! Offsets for byte offsets into the shadow guest state (registers).
+   *
+   *  Use index 1 for foward-mode AD and index 2 for paragrind.
+   */
+  Int gs_offset[3];
   /*! Add helper statements to this IRSB.
    */
   IRSB* sb_out;
