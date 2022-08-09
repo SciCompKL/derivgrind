@@ -151,8 +151,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         case 5: size = 10; break;
       }
       union {unsigned char l[10]; double d; float f;} derivative;
-      setCurrentShadowMap(sm_dot);
-      shadowGet((void*)address, (void*)&derivative, size);
+      shadowGet(sm_dot,(void*)address, (void*)&derivative, size);
       switch(key){
         case 1:
           VG_(gdb_printf)("Derivative: %.16lf\n", derivative.d);
@@ -197,8 +196,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
           break;
         }
       }
-      setCurrentShadowMap(sm_dot);
-      shadowSet((void*)address,(void*)&derivative,size);
+      shadowSet(sm_dot,(void*)address,(void*)&derivative,size);
       return True;
     }
     default:
@@ -224,16 +222,14 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
-    setCurrentShadowMap(sm_dot);
-    shadowGet((void*)addr,(void*)daddr,size);
+    shadowGet(sm_dot,(void*)addr,(void*)daddr,size);
     *ret = 1;
     return True;
   } else if(arg[0]==VG_USERREQ__SET_DERIVATIVE) {
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
-    setCurrentShadowMap(sm_dot);
-    shadowSet(addr,daddr,size);
+    shadowSet(sm_dot,addr,daddr,size);
     *ret = 1;
     return True;
   } else {
@@ -736,7 +732,7 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv* diffenv ){
     IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv->gs_offset[1],descr->elemTy,descr->nElems);
     return IRExpr_GetI(descr_diff,ix,bias+diffenv->gs_offset[1]);
   } else if (ex->tag==Iex_Load) {
-    return loadShadowMemory(diffenv->sb_out,ex->Iex.Load.addr,ex->Iex.Load.ty);
+    return loadShadowMemory(diffenv->sm[1],diffenv->sb_out,ex->Iex.Load.addr,ex->Iex.Load.ty);
   } else {
     return NULL;
   }
@@ -777,10 +773,10 @@ IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv* diffenv, Bool warn, const c
  *  - reinterpret it as an unsigned long.
  *  - return this.
  */
-ULong x86g_amd64g_diff_dirtyhelper_loadF80le ( Addr addrU )
+ULong x86g_amd64g_diff_dirtyhelper_loadF80le ( ULong sm, Addr addrU )
 {
    ULong f64, f128[2];
-   shadowGet((void*)addrU, (void*)f128, 10);
+   shadowGet((void*)sm,(void*)addrU, (void*)f128, 10);
    convert_f80le_to_f64le ( (UChar*)f128, (UChar*)&f64 );
    return f64;
 }
@@ -790,11 +786,11 @@ ULong x86g_amd64g_diff_dirtyhelper_loadF80le ( Addr addrU )
  *  It's very similar, but writes to shadow memory instead
  *  of guest memory.
  */
-void x86g_amd64g_diff_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
+void x86g_amd64g_diff_dirtyhelper_storeF80le ( ULong sm, Addr addrU, ULong f64 )
 {
    ULong f128[2];
    convert_f64le_to_f80le( (UChar*)&f64, (UChar*)f128 );
-   shadowSet((void*)addrU,(void*)f128,10);
+   shadowSet((void*)sm,(void*)addrU,(void*)f128,10);
 }
 
 /*! Helper to extract high/low addresses of CAS statement.
@@ -915,12 +911,12 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
   } else if(st->tag==Ist_Store){
     IRType type = typeOfIRExpr(sb_out->tyenv,st->Ist.Store.data);
     IRExpr* modified_expr = modify_expression(st->Ist.Store.data, diffenv, warn_about_unwrapped_expressions,"Store");
-    storeShadowMemory(diffenv->sb_out,st->Ist.Store.addr,modified_expr,NULL);
+    storeShadowMemory(diffenv->sm[inst],diffenv->sb_out,st->Ist.Store.addr,modified_expr,NULL);
   } else if(st->tag==Ist_StoreG){
     IRStoreG* det = st->Ist.StoreG.details;
     IRType type = typeOfIRExpr(sb_out->tyenv,det->data);
     IRExpr* modified_expr = modify_expression(det->data, diffenv, warn_about_unwrapped_expressions,"StoreG");
-    storeShadowMemory(diffenv->sb_out,det->addr,modified_expr,det->guard);
+    storeShadowMemory(diffenv->sm[inst],diffenv->sb_out,det->addr,modified_expr,det->guard);
   } else if(st->tag==Ist_LoadG) {
     IRLoadG* det = st->Ist.LoadG.details;
     // discard det->cvt; extra bits for widening should
@@ -932,7 +928,7 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
     // in shadow memory, or the derivative of the alternative value,
     // to the shadow temporary.
     addStmtToIRSB(diffenv->sb_out, IRStmt_WrTmp(det->dst+diffenv->tmp_offset[inst],
-      IRExpr_ITE(det->guard,loadShadowMemory(diffenv->sb_out,det->addr,type),modified_expr_alt)
+      IRExpr_ITE(det->guard,loadShadowMemory(diffenv->sm[inst],diffenv->sb_out,det->addr,type),modified_expr_alt)
     ));
   } else if(st->tag==Ist_CAS) { // TODO
 
@@ -967,13 +963,13 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
     // otherways the CAS will never succeed with the current implementation.
     IRExpr* equal_values_Lo = IRExpr_Binop(cmp,det->expdLo,IRExpr_Load(det->end,type,addr_Lo));
     IRExpr* modified_expdLo = modify_expression(det->expdLo,diffenv,False,"");
-    IRExpr* equal_modifiedvalues_Lo = IRExpr_Binop(cmp,modified_expdLo,loadShadowMemory(sb_out,addr_Lo,type));
+    IRExpr* equal_modifiedvalues_Lo = IRExpr_Binop(cmp,modified_expdLo,loadShadowMemory(diffenv->sm[inst],sb_out,addr_Lo,type));
     IRExpr* equal_Lo = IRExpr_Binop(Iop_And1,equal_values_Lo,equal_modifiedvalues_Lo);
     IRExpr* equal_Hi = IRExpr_Const(IRConst_U1(1));
     if(double_element){
       IRExpr* equal_values_Hi = IRExpr_Binop(cmp,det->expdHi,IRExpr_Load(det->end,type,addr_Hi));
       IRExpr* modified_expdHi = modify_expression(det->expdHi,diffenv,False,"");
-      IRExpr* equal_modifiedvalues_Hi = IRExpr_Binop(cmp,modified_expdHi,loadShadowMemory(sb_out,addr_Hi,type));
+      IRExpr* equal_modifiedvalues_Hi = IRExpr_Binop(cmp,modified_expdHi,loadShadowMemory(diffenv->sm[inst],sb_out,addr_Hi,type));
       equal_Hi = IRExpr_Binop(Iop_And1,equal_values_Hi,equal_modifiedvalues_Hi);
     }
     diffenv->cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
@@ -983,18 +979,18 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
 
     // Set shadows of oldLo and possibly oldHi.
     addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo+diffenv->tmp_offset[inst],
-      loadShadowMemory(sb_out,addr_Lo,type)));
+      loadShadowMemory(diffenv->sm[inst],sb_out,addr_Lo,type)));
     if(double_element){
       addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi+diffenv->tmp_offset[inst],
-        loadShadowMemory(sb_out,addr_Hi,type)));
+        loadShadowMemory(diffenv->sm[inst],sb_out,addr_Hi,type)));
     }
     // Guarded write of Lo part to shadow memory.
     IRExpr* modified_dataLo = modify_expression(det->dataLo,diffenv,False,"");
-    storeShadowMemory(sb_out,addr_Lo,modified_dataLo,IRExpr_RdTmp(diffenv->cas_succeeded));
+    storeShadowMemory(diffenv->sm[inst],sb_out,addr_Lo,modified_dataLo,IRExpr_RdTmp(diffenv->cas_succeeded));
     // Possibly guarded write of Hi part to shadow memory.
     if(double_element){
       IRExpr* modified_dataHi =  modify_expression(det->dataHi,diffenv,False,"");
-      storeShadowMemory(sb_out,addr_Hi,modified_dataHi,IRExpr_RdTmp(diffenv->cas_succeeded));
+      storeShadowMemory(diffenv->sm[inst],sb_out,addr_Hi,modified_dataHi,IRExpr_RdTmp(diffenv->cas_succeeded));
     }
   } else if(st->tag==Ist_LLSC) {
     VG_(printf)("Did not instrument Ist_LLSC statement.\n");
@@ -1022,7 +1018,8 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
             0,
             "x86g_amd64g_diff_dirtyhelper_storeF80le",
             &x86g_amd64g_diff_dirtyhelper_storeF80le,
-            mkIRExprVec_2(addr, modified_expr));
+            mkIRExprVec_3(IRExpr_Const(IRConst_U64((ULong)diffenv->sm[inst])),
+             addr, modified_expr) );
       addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
     }
     // The x86g_dirtyhelper_loadF80le dirty call loads 80 bit from
@@ -1043,7 +1040,7 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
             0,
             "x86g_amd64g_diff_dirtyhelper_loadF80le",
             &x86g_amd64g_diff_dirtyhelper_loadF80le,
-            mkIRExprVec_1(addr));
+            mkIRExprVec_2(IRExpr_Const(IRConst_U64((ULong)diffenv->sm[inst])),addr));
       addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
     }
     /*! \page dirty_calls_no_ad Dirty calls without relevance for AD
@@ -1107,7 +1104,6 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
  *  \param[in] diffenv - Additional data.
  */
 static void add_statement_forward(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffenv){
-  setCurrentShadowMap(sm_dot);
   add_statement_modified(sb_out, st_orig, diffenv, &differentiate_or_zero, 1);
 }
 
@@ -1117,8 +1113,7 @@ static void add_statement_forward(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffen
  *  \param[in] diffenv - Additional data.
  */
 static void add_statement_paragrind(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffenv){
-  //setCurrentShadowMap(sm_values);
-  add_statement_modified(sb_out, st_orig, diffenv, NULL, 2);
+  add_statement_modified(sb_out, st_orig, diffenv, NULL, 2); // TODO
 }
 
 /*! Instrument an IRSB.
@@ -1148,9 +1143,13 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
     }
   }
 
-  // shadow guest state (registers) do not need allocation
+  // shadow guest state (registers)
   diffenv.gs_offset[1] = layout->total_sizeB;
   diffenv.gs_offset[2] = 2*layout->total_sizeB;
+
+  // shadow memory
+  diffenv.sm[1] = sm_dot;
+
 
   diffenv.sb_out = sb_out;
 
@@ -1199,7 +1198,6 @@ static void dg_pre_clo_init(void)
 
 
    sm_dot = initializeShadowMap();
-   setCurrentShadowMap(sm_dot);
 
    VG_(needs_client_requests)     (dg_handle_client_request);
 

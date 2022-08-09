@@ -112,13 +112,6 @@ inline void  shadow_out_of_memory(void) {
         VG_(exit)(1);
 }
 
-/*! The shadow map we are currently working on. */
-static ShadowMap* sm_current;
-
-void setCurrentShadowMap(void* sm){
-  sm_current = sm;
-}
-
 void* initializeShadowMap(void){
   ShadowMap* sm = (ShadowMap*) VG_(malloc)("allocate_shadow_memory", sizeof(ShadowMap));
   #ifdef BUILD_32BIT
@@ -138,14 +131,14 @@ void destroyShadowMap(void* sm){
   VG_(free)(sm);
 }
 
-void shadowGet(void* sm_address, void* real_address, int size){
+void shadowGet(void* sm, void* sm_address, void* real_address, int size){
   for(int i=0; i<size; i++){
-    shadow_get_bits(sm_current, (SM_Addr)(sm_address+i), (U8*)real_address+i);
+    shadow_get_bits(sm, (SM_Addr)(sm_address+i), (U8*)real_address+i);
   }
 }
-void shadowSet(void* sm_address, void* real_address, int size){
+void shadowSet(void* sm, void* sm_address, void* real_address, int size){
   for(int i=0; i<size; i++){
-    shadow_set_bits(sm_current, (SM_Addr)(sm_address+i), *( (U8*)real_address+i ));
+    shadow_set_bits(sm, (SM_Addr)(sm_address+i), *( (U8*)real_address+i ));
   }
 }
 
@@ -157,14 +150,14 @@ void shadowSet(void* sm_address, void* real_address, int size){
  *  \param[in] derivative - Tangent value, reinterpreted as 8-byte integer.
  *  \param[in] size - Original size of the variable.
  */
-static void dg_Store_diff(Addr addr, ULong derivative, UChar size){
-  shadowSet((void*)addr, (void*)&derivative, size);
+static void dg_Store_diff(ULong sm, Addr addr, ULong derivative, UChar size){
+  shadowSet((void*)sm, (void*)addr, (void*)&derivative, size);
 }
 
-static VG_REGPARM(0) void dg_Store_diff1(Addr addr, ULong derivative){dg_Store_diff(addr,derivative,1);}
-static VG_REGPARM(0) void dg_Store_diff2(Addr addr, ULong derivative){dg_Store_diff(addr,derivative,2);}
-static VG_REGPARM(0) void dg_Store_diff4(Addr addr, ULong derivative){dg_Store_diff(addr,derivative,4);}
-static VG_REGPARM(0) void dg_Store_diff8(Addr addr, ULong derivative){dg_Store_diff(addr,derivative,8);}
+static VG_REGPARM(0) void dg_Store_diff1(ULong sm, Addr addr, ULong derivative){dg_Store_diff(sm,addr,derivative,1);}
+static VG_REGPARM(0) void dg_Store_diff2(ULong sm, Addr addr, ULong derivative){dg_Store_diff(sm,addr,derivative,2);}
+static VG_REGPARM(0) void dg_Store_diff4(ULong sm, Addr addr, ULong derivative){dg_Store_diff(sm,addr,derivative,4);}
+static VG_REGPARM(0) void dg_Store_diff8(ULong sm, Addr addr, ULong derivative){dg_Store_diff(sm,addr,derivative,8);}
 
 /*! Load a tangent value from shadow memory.
  *
@@ -174,19 +167,19 @@ static VG_REGPARM(0) void dg_Store_diff8(Addr addr, ULong derivative){dg_Store_d
  *  \param[in] size - Original size of the variable
  *  \returns Tangent value, reinterpreted as 8-byte integer.
  */
-static ULong dg_Load_diff(Addr addr, UChar size){
+static ULong dg_Load_diff(ULong sm, Addr addr, UChar size){
   ULong derivative=0;
-  shadowGet((void*)addr, (void*)&derivative, size);
+  shadowGet((void*)sm, (void*)addr, (void*)&derivative, size);
   for(int i=size; i<8; i++){
     *((U8*)&derivative+i) = 0;
   }
   return derivative;
 }
 
-static VG_REGPARM(0) ULong dg_Load_diff1(Addr addr){return dg_Load_diff(addr,1);}
-static VG_REGPARM(0) ULong dg_Load_diff2(Addr addr){return dg_Load_diff(addr,2);}
-static VG_REGPARM(0) ULong dg_Load_diff4(Addr addr){return dg_Load_diff(addr,4);}
-static VG_REGPARM(0) ULong dg_Load_diff8(Addr addr){return dg_Load_diff(addr,8);}
+static VG_REGPARM(0) ULong dg_Load_diff1(ULong sm, Addr addr){return dg_Load_diff(sm,addr,1);}
+static VG_REGPARM(0) ULong dg_Load_diff2(ULong sm, Addr addr){return dg_Load_diff(sm,addr,2);}
+static VG_REGPARM(0) ULong dg_Load_diff4(ULong sm, Addr addr){return dg_Load_diff(sm,addr,4);}
+static VG_REGPARM(0) ULong dg_Load_diff8(ULong sm, Addr addr){return dg_Load_diff(sm,addr,8);}
 
 /*! Reinterpret given expression as 4xI64 in VEX.
  *  This function complements convertFromInteger.
@@ -348,7 +341,7 @@ static IRExpr* convertFromInteger(IRExpr** expr, IRType type){
 }
 
 
-IRExpr* loadShadowMemory(IRSB* sb_out, IRExpr* addr, IRType type){
+IRExpr* loadShadowMemory(void* sm, IRSB* sb_out, IRExpr* addr, IRType type){
 
   UChar n64Blocks; // necessary number of loads of Ity_I64: 1, 2 or 4
   const char* fname; // name of function that Ist_Dirty will call
@@ -396,7 +389,8 @@ IRExpr* loadShadowMemory(IRSB* sb_out, IRExpr* addr, IRType type){
       loadAddr[i64Block],
       0,
       fname, VG_(fnptr_to_fnentry)(fn),
-      mkIRExprVec_1(IRExpr_Binop(add,addr,offsets[i64Block])));
+      mkIRExprVec_2(IRExpr_Const(IRConst_U64((ULong)sm)),
+        IRExpr_Binop(add,addr,offsets[i64Block]) ) );
     addStmtToIRSB(sb_out, IRStmt_Dirty(di));
   }
   // prepare IRExpr's that read from these
@@ -412,7 +406,7 @@ IRExpr* loadShadowMemory(IRSB* sb_out, IRExpr* addr, IRType type){
 }
 
 
-void storeShadowMemory(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
+void storeShadowMemory(void* sm, IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
   IRType type = typeOfIRExpr(sb_out->tyenv,expr);
   UChar n64Blocks; // necessary number of stores of Ity_I64: 1, 2 or 4
   const char* fname; // name of function that Ist_Dirty will call
@@ -451,7 +445,10 @@ void storeShadowMemory(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
     IRDirty* di = unsafeIRDirty_0_N(
       0,
       fname, VG_(fnptr_to_fnentry)(fn),
-      mkIRExprVec_2(IRExpr_Binop(add,addr,offsets[i64Block]), converted[i64Block]));
+      mkIRExprVec_3(
+        IRExpr_Const(IRConst_U64((ULong)sm)),
+        IRExpr_Binop(add,addr,offsets[i64Block]),
+        converted[i64Block]) );
     if(guard)
       di->guard = guard;
     addStmtToIRSB(sb_out, IRStmt_Dirty(di));

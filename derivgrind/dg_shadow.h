@@ -71,40 +71,40 @@ void* initializeShadowMap(void);
  *  \param[in] sm - Shadow map.
  */
 void destroyShadowMap(void* sm);
-/*! Set the shadow map.
- *  \param[in] sm - New shadow map.
- */
-void setCurrentShadowMap(void* sm);
 
 /*! Read from shadow memory.
+ *  \param[in] sm - Shadow map.
  *  \param[in] sm_address - Pointer into shadow memory, indicating where to read from.
  *  \param[in] read_address - Pointer into real memory, indicating where to write to.
  *  \param[in] size - Number of bytes to be read.
  */
-void shadowGet(void* sm_address, void* real_address, int size);
+void shadowGet(void* sm, void* sm_address, void* real_address, int size);
 
 /*! Write to shadow memory.
+ *  \param[in] sm - Shadow map.
  *  \param[in] sm_address - Pointer into shadow memory, indicating where to write to.
  *  \param[in] read_address - Pointer into real memory, indicating where to read from.
  *  \param[in] size - Number of bytes to be written.
  */
-void shadowSet(void* sm_address, void* real_address, int size);
+void shadowSet(void* sm, void* sm_address, void* real_address, int size);
 
 /*! Add VEX instructions to read the shadow memory at a given address.
+ *  \param[in] sm - Shadow map.
  *  \param[in,out] sb_out - IRSB where VEX instruction can be added.
  *  \param[in] addr - Address to be read from.
  *  \param[in] type - Type of the variable stored at addr.
  *  \returns IRExpr that evaluates to the content of the shadow memory.
  */
-IRExpr* loadShadowMemory(IRSB* sb_out, IRExpr* addr, IRType type);
+IRExpr* loadShadowMemory(void* sm, IRSB* sb_out, IRExpr* addr, IRType type);
 
 /*! Add VEX instructions to store the shadow memory at a given address.
+ *  \param[in] sm - Shadow map.
  *  \param[in,out] sb_out - IRSB where VEX instruction can be added.
  *  \param[in] addr - Address to store to.
  *  \param[in] expr - Expression whose value is to be stored.
  *  \param[in] guard - Store guard, can be NULL.
  */
-void storeShadowMemory(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard);
+void storeShadowMemory(void* sm, IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard);
 
 /*! Debugging help. Add a dirty statement to IRSB that prints the value of expr whenever it is run.
  *  \param[in] tag - Tag of your choice, will be printed alongside.
