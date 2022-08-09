@@ -340,7 +340,6 @@ static IRExpr* convertFromInteger(IRExpr** expr, IRType type){
   }
 }
 
-
 IRExpr* loadShadowMemory(void* sm, IRSB* sb_out, IRExpr* addr, IRType type){
 
   UChar n64Blocks; // necessary number of loads of Ity_I64: 1, 2 or 4
@@ -405,6 +404,37 @@ IRExpr* loadShadowMemory(void* sm, IRSB* sb_out, IRExpr* addr, IRType type){
   return convertFromInteger(loadAddr_RdTmp,type);
 }
 
+IRExpr* loadLayeredShadowMemory(void* sm_data, void* sm_init, IRSB* sb_out, IRExpr* addr, IRType type){
+  // load from memory and shadow memory
+  IRExpr* initialized = loadShadowMemory(sm_init,sb_out,addr,type);
+  IRExpr* shadow_data = loadShadowMemory(sm_data,sb_out,addr,type);
+  IRExpr* original_data = IRExpr_Load(Iend_LE,type,addr);
+  // convert to 4 x 64-bit integer
+  IRExpr* shadow_data_conv[4];
+  convertToInteger(shadow_data,shadow_data_conv,type);
+  IRExpr* original_data_conv[4];
+  convertToInteger(original_data,original_data_conv,type);
+  IRExpr* initialized_conv[4];
+  convertToInteger(initialized,initialized_conv,type);
+  // masking
+  IRExpr* result_conv[4];
+  for(int i=0; i<4; i++){
+    result_conv[i] = IRExpr_Binop(Iop_Or64,
+      IRExpr_Binop(Iop_And64, initialized_conv[i], shadow_data_conv[i]),
+      IRExpr_Binop(Iop_And64, IRExpr_Unop(Iop_Not64,initialized_conv[i]), original_data_conv[i])
+    );
+  }
+  // convert back
+  IRExpr* result = convertFromInteger(result_conv,type);
+  return result;
+}
+
+void storeLayeredShadowMemory(void* sm_data, void* sm_init, IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
+  storeShadowMemory(sm_data,sb_out,addr,expr,guard);
+  IRType type = typeOfIRExpr(sb_out->tyenv,expr);
+  IRExpr* ones = mkIRConst_ones(type);
+  storeShadowMemory(sm_init,sb_out,addr,ones,guard);
+}
 
 void storeShadowMemory(void* sm, IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
   IRType type = typeOfIRExpr(sb_out->tyenv,expr);

@@ -50,6 +50,10 @@
  */
 IRExpr* mkIRConst_zero(IRType type);
 
+/*! Make constant of certain type with bitwise representation 0xff..ff.
+ */
+IRExpr* mkIRConst_ones(IRType type);
+
 
 /*! \struct DiffEnv
  *  Data required for differentiation, is passed to differentiate_expr.

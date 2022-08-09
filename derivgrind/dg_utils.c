@@ -58,6 +58,25 @@ IRExpr* mkIRConst_zero(IRType type){
   }
 }
 
+IRExpr* mkIRConst_ones(IRType type){
+  IRExpr* onesU = IRExpr_Const(IRConst_U64(0xffffffffffffffff));
+  switch(type){
+    case Ity_INVALID: tl_assert(False); return NULL;
+    case Ity_I1: return IRExpr_Const(IRConst_U1(True));
+    case Ity_I8: return IRExpr_Const(IRConst_U8(0xff));
+    case Ity_I16: return IRExpr_Const(IRConst_U16(0xffff));
+    case Ity_I32: return IRExpr_Const(IRConst_U32(0xffffffff));
+    case Ity_I64: return onesU;
+    case Ity_I128: return IRExpr_Binop(Iop_64HLto128, onesU, onesU);
+    case Ity_F32: return IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Const(IRConst_U32(0xffffffff)));
+    case Ity_F64: return IRExpr_Unop(Iop_ReinterpI64asF64, onesU);
+    case Ity_V128: return IRExpr_Binop(Iop_64HLtoV128,onesU,onesU);
+    case Ity_V256: return IRExpr_Qop(Iop_64x4toV256,onesU,onesU,onesU,onesU);
+    case Ity_D32: case Ity_D64: case Ity_D128: case Ity_F16: case Ity_F128: default:
+      tl_assert(False); return NULL;
+  }
+}
+
 IRExpr* convertToF64(IRExpr* expr, DiffEnv* diffenv, IRType* originaltype){
   *originaltype = typeOfIRExpr(diffenv->sb_out->tyenv, expr);
   switch(*originaltype){
