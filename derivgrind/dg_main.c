@@ -776,12 +776,25 @@ IRExpr* differentiate_or_zero(IRExpr* expr, DiffEnv* diffenv, Bool warn, const c
  *  - reinterpret it as an unsigned long.
  *  - return this.
  */
-ULong x86g_amd64g_diff_dirtyhelper_loadF80le ( ULong sm, Addr addrU )
+ULong x86g_amd64g_dirtyhelper_loadF80le_dot ( Addr addrU )
 {
    ULong f64, f128[2];
-   shadowGet((void*)sm,(void*)addrU, (void*)f128, 10);
+   shadowGet(sm_dot,(void*)addrU, (void*)f128, 10);
    convert_f80le_to_f64le ( (UChar*)f128, (UChar*)&f64 );
    return f64;
+}
+ULong x86g_amd64g_dirtyhelper_loadF80le_para ( Addr addrU )
+{
+  // masking after reading from memory
+  ULong f64, f128_data[2], f128_init[2];
+  shadowGet(sm_pgdata,(void*)addrU, (void*)f128_data, 10);
+  shadowGet(sm_pginit,(void*)addrU, (void*)f128_init, 10);
+  for(int i=0; i<2; i++){
+    ULong f128_orig = ((ULong*)addrU)[i];
+    f128_data[i] = (f128_init[i] & f128_data[i]) | (~f128_init[i] & f128_orig);
+  }
+  convert_f80le_to_f64le ( (UChar*)f128_data, (UChar*)&f64 );
+  return f64;
 }
 /*! Dirtyhelper for the extra AD logic to dirty calls to
  *  x86g_dirtyhelper_storeF80le / amd64g_dirtyhelper_storeF80le.
@@ -789,11 +802,19 @@ ULong x86g_amd64g_diff_dirtyhelper_loadF80le ( ULong sm, Addr addrU )
  *  It's very similar, but writes to shadow memory instead
  *  of guest memory.
  */
-void x86g_amd64g_diff_dirtyhelper_storeF80le ( ULong sm, Addr addrU, ULong f64 )
+void x86g_amd64g_dirtyhelper_storeF80le_dot ( Addr addrU, ULong f64 )
 {
    ULong f128[2];
    convert_f64le_to_f80le( (UChar*)&f64, (UChar*)f128 );
-   shadowSet((void*)sm,(void*)addrU,(void*)f128,10);
+   shadowSet(sm_dot,(void*)addrU,(void*)f128,10);
+}
+void x86g_amd64g_dirtyhelper_storeF80le_para ( Addr addrU, ULong f64 )
+{
+   ULong f128[2];
+   ULong ones[2] = {0xffffffffffffffff,0xffffffffffffffff};
+   convert_f64le_to_f80le( (UChar*)&f64, (UChar*)f128 );
+   shadowSet(sm_pgdata,(void*)addrU,(void*)f128,10);
+   shadowSet(sm_pginit,(void*)addrU,(void*)ones,10);
 }
 
 /*! Helper to extract high/low addresses of CAS statement.
@@ -882,18 +903,26 @@ static void add_statement_original(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
   }
 }
 
-void store_expression_dot(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
-  storeShadowMemory(sm_dot,sb_out,addr,expr,guard);
-}
-IRExpr* load_expression_dot(IRSB* sb_out, IRExpr* addr, IRType type){
-  return loadShadowMemory(sm_dot,sb_out,addr,type);
-}
-void store_expression_para(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
-  storeLayeredShadowMemory(sm_pgdata,sm_pginit,sb_out,addr,expr,guard);
-}
-IRExpr* load_expression_para(IRSB* sb_out, IRExpr* addr, IRType type){
-  return loadLayeredShadowMemory(sm_pgdata,sm_pginit,sb_out,addr,type);
-}
+
+/*! Tuple of functions defining how to instrument a statement.
+ */
+typedef struct {
+  /*! How to modify expressions in the statement. */
+  IRExpr* (*modify_expression)(IRExpr*, DiffEnv*, Bool, const char*);
+  /*! How to load data from memory. */
+  IRExpr* (*load_expression)(IRSB*, IRExpr*, IRType);
+  /*! How to store data in memory. */
+  void (*store_expression)(IRSB*, IRExpr*, IRExpr*, IRExpr*);
+  /*! Name of dirty call loadF80le. */
+  const char* dirtyhelper_loadF80le_str;
+  /*! Function for dirty call loadF80le. */
+  ULong (*dirtyhelper_loadF80le_fun)(Addr);
+  /*! Name of dirty call storeF80le. */
+  const char* dirtyhelper_storeF80le_str;
+  /*! Function for dirty call storeF80le. */
+  void (*dirtyhelper_storeF80le_fun)(Addr, ULong);
+
+} ExpressionHandling;
 
 /*! Add statement with modified expressions to output IRSB.
  *  \param[in,out] sb_out - Output IRSB.
@@ -906,25 +935,21 @@ IRExpr* load_expression_para(IRSB* sb_out, IRExpr* addr, IRType type){
  *  \param[in] store_expression - Function to store in memory.
  */
 static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffenv,
-    int inst,
-    IRExpr* (*modify_expression)(IRExpr*, DiffEnv*, Bool, const char*),
-    IRExpr* (*load_expression)(IRSB*, IRExpr*, IRType),
-    void (*store_expression)(IRSB*, IRExpr*, IRExpr*, IRExpr*)
-  ){
+    int inst, ExpressionHandling eh){
   const IRStmt* st = st_orig;
   if(st->tag==Ist_WrTmp) {
     IRType type = sb_out->tyenv->types[st->Ist.WrTmp.tmp];
-    IRExpr* modified_expr = modify_expression(st->Ist.WrTmp.data, diffenv,warn_about_unwrapped_expressions,"WrTmp");
+    IRExpr* modified_expr = eh.modify_expression(st->Ist.WrTmp.data, diffenv,warn_about_unwrapped_expressions,"WrTmp");
     IRStmt* sp = IRStmt_WrTmp(st->Ist.WrTmp.tmp+diffenv->tmp_offset[inst], modified_expr);
     addStmtToIRSB(sb_out, sp);
   } else if(st->tag==Ist_Put) {
     IRType type = typeOfIRExpr(sb_out->tyenv,st->Ist.Put.data);
-    IRExpr* modified_expr = modify_expression(st->Ist.Put.data, diffenv,warn_about_unwrapped_expressions,"Put");
+    IRExpr* modified_expr = eh.modify_expression(st->Ist.Put.data, diffenv,warn_about_unwrapped_expressions,"Put");
     IRStmt* sp = IRStmt_Put(st->Ist.Put.offset + diffenv->gs_offset[inst], modified_expr);
     addStmtToIRSB(sb_out, sp);
   } else if(st->tag==Ist_PutI) {
     IRType type = typeOfIRExpr(sb_out->tyenv,st->Ist.PutI.details->data);
-    IRExpr* modified_expr = modify_expression(st->Ist.PutI.details->data, diffenv,warn_about_unwrapped_expressions,"PutI");
+    IRExpr* modified_expr = eh.modify_expression(st->Ist.PutI.details->data, diffenv,warn_about_unwrapped_expressions,"PutI");
     IRRegArray* descr = st->Ist.PutI.details->descr;
     IRRegArray* descr_diff = mkIRRegArray(descr->base+diffenv->gs_offset[inst], descr->elemTy, descr->nElems);
     Int bias = st->Ist.PutI.details->bias;
@@ -933,25 +958,25 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
     addStmtToIRSB(sb_out, sp);
   } else if(st->tag==Ist_Store){
     IRType type = typeOfIRExpr(sb_out->tyenv,st->Ist.Store.data);
-    IRExpr* modified_expr = modify_expression(st->Ist.Store.data, diffenv, warn_about_unwrapped_expressions,"Store");
-    store_expression(diffenv->sb_out,st->Ist.Store.addr,modified_expr,NULL);
+    IRExpr* modified_expr = eh.modify_expression(st->Ist.Store.data, diffenv, warn_about_unwrapped_expressions,"Store");
+    eh.store_expression(diffenv->sb_out,st->Ist.Store.addr,modified_expr,NULL);
   } else if(st->tag==Ist_StoreG){
     IRStoreG* det = st->Ist.StoreG.details;
     IRType type = typeOfIRExpr(sb_out->tyenv,det->data);
-    IRExpr* modified_expr = modify_expression(det->data, diffenv, warn_about_unwrapped_expressions,"StoreG");
-    store_expression(diffenv->sb_out,det->addr,modified_expr,det->guard);
+    IRExpr* modified_expr = eh.modify_expression(det->data, diffenv, warn_about_unwrapped_expressions,"StoreG");
+    eh.store_expression(diffenv->sb_out,det->addr,modified_expr,det->guard);
   } else if(st->tag==Ist_LoadG) {
     IRLoadG* det = st->Ist.LoadG.details;
     // discard det->cvt; extra bits for widening should
     // never be interpreted as derivative information
     IRType type = sb_out->tyenv->types[det->dst];
     // differentiate alternative value
-    IRExpr* modified_expr_alt = modify_expression(det->alt,diffenv,warn_about_unwrapped_expressions,"alternative-LoadG");
+    IRExpr* modified_expr_alt = eh.modify_expression(det->alt,diffenv,warn_about_unwrapped_expressions,"alternative-LoadG");
     // depending on the guard, copy either the derivative stored
     // in shadow memory, or the derivative of the alternative value,
     // to the shadow temporary.
     addStmtToIRSB(diffenv->sb_out, IRStmt_WrTmp(det->dst+diffenv->tmp_offset[inst],
-      IRExpr_ITE(det->guard,load_expression(diffenv->sb_out,det->addr,type),modified_expr_alt)
+      IRExpr_ITE(det->guard,eh.load_expression(diffenv->sb_out,det->addr,type),modified_expr_alt)
     ));
   } else if(st->tag==Ist_CAS) { // TODO
 
@@ -985,14 +1010,14 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
     // We assume that the shadow expression can always be formed,
     // otherways the CAS will never succeed with the current implementation.
     IRExpr* equal_values_Lo = IRExpr_Binop(cmp,det->expdLo,IRExpr_Load(det->end,type,addr_Lo));
-    IRExpr* modified_expdLo = modify_expression(det->expdLo,diffenv,False,"");
-    IRExpr* equal_modifiedvalues_Lo = IRExpr_Binop(cmp,modified_expdLo,load_expression(sb_out,addr_Lo,type));
+    IRExpr* modified_expdLo = eh.modify_expression(det->expdLo,diffenv,False,"");
+    IRExpr* equal_modifiedvalues_Lo = IRExpr_Binop(cmp,modified_expdLo,eh.load_expression(sb_out,addr_Lo,type));
     IRExpr* equal_Lo = IRExpr_Binop(Iop_And1,equal_values_Lo,equal_modifiedvalues_Lo);
     IRExpr* equal_Hi = IRExpr_Const(IRConst_U1(1));
     if(double_element){
       IRExpr* equal_values_Hi = IRExpr_Binop(cmp,det->expdHi,IRExpr_Load(det->end,type,addr_Hi));
-      IRExpr* modified_expdHi = modify_expression(det->expdHi,diffenv,False,"");
-      IRExpr* equal_modifiedvalues_Hi = IRExpr_Binop(cmp,modified_expdHi,load_expression(sb_out,addr_Hi,type));
+      IRExpr* modified_expdHi = eh.modify_expression(det->expdHi,diffenv,False,"");
+      IRExpr* equal_modifiedvalues_Hi = IRExpr_Binop(cmp,modified_expdHi,eh.load_expression(sb_out,addr_Hi,type));
       equal_Hi = IRExpr_Binop(Iop_And1,equal_values_Hi,equal_modifiedvalues_Hi);
     }
     diffenv->cas_succeeded = newIRTemp(sb_out->tyenv, Ity_I1);
@@ -1002,18 +1027,18 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
 
     // Set shadows of oldLo and possibly oldHi.
     addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldLo+diffenv->tmp_offset[inst],
-      load_expression(sb_out,addr_Lo,type)));
+      eh.load_expression(sb_out,addr_Lo,type)));
     if(double_element){
       addStmtToIRSB(sb_out, IRStmt_WrTmp(det->oldHi+diffenv->tmp_offset[inst],
-        load_expression(sb_out,addr_Hi,type)));
+        eh.load_expression(sb_out,addr_Hi,type)));
     }
     // Guarded write of Lo part to shadow memory.
-    IRExpr* modified_dataLo = modify_expression(det->dataLo,diffenv,False,"");
-    store_expression(sb_out,addr_Lo,modified_dataLo,IRExpr_RdTmp(diffenv->cas_succeeded));
+    IRExpr* modified_dataLo = eh.modify_expression(det->dataLo,diffenv,False,"");
+    eh.store_expression(sb_out,addr_Lo,modified_dataLo,IRExpr_RdTmp(diffenv->cas_succeeded));
     // Possibly guarded write of Hi part to shadow memory.
     if(double_element){
-      IRExpr* modified_dataHi =  modify_expression(det->dataHi,diffenv,False,"");
-      store_expression(sb_out,addr_Hi,modified_dataHi,IRExpr_RdTmp(diffenv->cas_succeeded));
+      IRExpr* modified_dataHi =  eh.modify_expression(det->dataHi,diffenv,False,"");
+      eh.store_expression(sb_out,addr_Hi,modified_dataHi,IRExpr_RdTmp(diffenv->cas_succeeded));
     }
   } else if(st->tag==Ist_LLSC) {
     VG_(printf)("Did not instrument Ist_LLSC statement.\n");
@@ -1036,13 +1061,12 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
       IRExpr** args = det->args;
       IRExpr* addr = args[0];
       IRExpr* expr = args[1];
-      IRExpr* modified_expr = modify_expression(expr,diffenv,False,"");
+      IRExpr* modified_expr = eh.modify_expression(expr,diffenv,False,"");
       IRDirty* dd = unsafeIRDirty_0_N(
             0,
-            "x86g_amd64g_diff_dirtyhelper_storeF80le",
-            &x86g_amd64g_diff_dirtyhelper_storeF80le,
-            mkIRExprVec_3(IRExpr_Const(IRConst_U64((ULong)diffenv->sm[inst])),
-             addr, modified_expr) );
+            eh.dirtyhelper_storeF80le_str,
+            eh.dirtyhelper_storeF80le_fun,
+            mkIRExprVec_2(addr, modified_expr) );
       addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
     }
     // The x86g_dirtyhelper_loadF80le dirty call loads 80 bit from
@@ -1061,9 +1085,9 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
       IRDirty* dd = unsafeIRDirty_1_N(
             t + diffenv->tmp_offset[inst],
             0,
-            "x86g_amd64g_diff_dirtyhelper_loadF80le",
-            &x86g_amd64g_diff_dirtyhelper_loadF80le,
-            mkIRExprVec_2(IRExpr_Const(IRConst_U64((ULong)diffenv->sm[inst])),addr));
+            eh.dirtyhelper_loadF80le_str,
+            eh.dirtyhelper_loadF80le_fun,
+            mkIRExprVec_1(addr));
       addStmtToIRSB(sb_out, IRStmt_Dirty(dd));
     }
     /*! \page dirty_calls_no_ad Dirty calls without relevance for AD
@@ -1121,22 +1145,44 @@ static void add_statement_modified(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffe
   }
 }
 
+void store_expression_dot(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
+  storeShadowMemory(sm_dot,sb_out,addr,expr,guard);
+}
+IRExpr* load_expression_dot(IRSB* sb_out, IRExpr* addr, IRType type){
+  return loadShadowMemory(sm_dot,sb_out,addr,type);
+}
 /*! Add forward-mode instrumentation to output IRSB.
  *  \param[in,out] sb_out - Output IRSB.
  *  \param[in] st_orig - Original statement.
  *  \param[in] diffenv - Additional data.
  */
 static void add_statement_forward(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffenv){
-  add_statement_modified(sb_out, st_orig, diffenv, 1, &differentiate_or_zero, &load_expression_dot, &store_expression_dot);
+  ExpressionHandling eh_dot = {
+    &differentiate_or_zero, &load_expression_dot, &store_expression_dot,
+    "x86g_amd64g_dirtyhelper_loadF80le_dot", &x86g_amd64g_dirtyhelper_loadF80le_dot,
+    "x86g_amd64g_dirtyhelper_storeF80le_dot", &x86g_amd64g_dirtyhelper_storeF80le_dot
+  };
+  add_statement_modified(sb_out, st_orig, diffenv, 1, eh_dot);
 }
 
+void store_expression_para(IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExpr* guard){
+  storeLayeredShadowMemory(sm_pgdata,sm_pginit,sb_out,addr,expr,guard);
+}
+IRExpr* load_expression_para(IRSB* sb_out, IRExpr* addr, IRType type){
+  return loadLayeredShadowMemory(sm_pgdata,sm_pginit,sb_out,addr,type);
+}
 /*! Add paragrind instrumentation to output IRSB.
  *  \param[in,out] sb_out - Output IRSB.
  *  \param[in] st_orig - Original statement.
  *  \param[in] diffenv - Additional data.
  */
 static void add_statement_paragrind(IRSB* sb_out, IRStmt* st_orig, DiffEnv* diffenv){
-  add_statement_modified(sb_out, st_orig, diffenv, 2, &parallel_or_zero, &load_expression_para, &store_expression_para);
+  ExpressionHandling eh_para = {
+    &parallel_or_zero, &load_expression_para, &store_expression_para,
+    "x86g_amd64g_dirtyhelper_loadF80le_para", &x86g_amd64g_dirtyhelper_loadF80le_para,
+    "x86g_amd64g_dirtyhelper_storeF80le_para", &x86g_amd64g_dirtyhelper_storeF80le_para
+  };
+  add_statement_modified(sb_out, st_orig, diffenv, 2, eh_para);
 }
 
 /*! Instrument an IRSB.
@@ -1170,10 +1216,6 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
   diffenv.gs_offset[1] = layout->total_sizeB;
   diffenv.gs_offset[2] = 2*layout->total_sizeB;
 
-  // shadow memory
-  diffenv.sm[1] = sm_dot;
-
-
   diffenv.sb_out = sb_out;
 
   // copy until IMark
@@ -1185,7 +1227,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
   for (/* use current i*/; i < sb_in->stmts_used; i++) {
     stmt_counter++;
     IRStmt* st_orig = sb_in->stmts[i];
-    //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st); VG_(printf)("\n");
+    // VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st_orig); VG_(printf)("\n");
 
     diffenv.cas_succeeded = IRTemp_INVALID;
 

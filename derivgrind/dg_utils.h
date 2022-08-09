@@ -69,11 +69,6 @@ typedef struct {
    *  Use index 1 for foward-mode AD and index 2 for paragrind.
    */
   Int gs_offset[3];
-  /*! Shadow maps for shadow memory.
-   *
-   *  Use index 1 for foward-mode AD and index 2 for paragrind.
-   */
-  void* sm[3];
   /*! Add helper statements to this IRSB.
    */
   IRSB* sb_out;

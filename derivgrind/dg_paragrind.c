@@ -101,7 +101,7 @@ IRExpr* parallel_expr(IRExpr* ex, DiffEnv* diffenv){
       i++;
     }
     parallel_args[i] = NULL;
-    IRExpr_CCall(ex->Iex.CCall.cee,ex->Iex.CCall.retty+diffenv->tmp_offset[2],parallel_args);
+    return IRExpr_CCall(ex->Iex.CCall.cee,ex->Iex.CCall.retty+diffenv->tmp_offset[2],parallel_args);
   } else {
     tl_assert(False);
   }
