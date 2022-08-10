@@ -218,7 +218,7 @@ class InteractiveTestCase(TestCase):
       while True:
         line = gdb.stdout.readline()
         self.gdb_log += line
-        r = re.search("Derivative: ([0-9.\-]+)$", line.strip())
+        r = re.search("dot value: ([0-9.\-]+)$", line.strip())
         if r:
           computed_gradient = float(r.group(1))
           if abs(computed_gradient-self.test_grads[var]) > self.type["tol"]:
