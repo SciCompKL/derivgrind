@@ -111,6 +111,7 @@ static void dg_print_debug_usage(void)
 }
 
 #include <VEX/priv/guest_generic_x87.h>
+UChar monitor_command_mode = 'd'; //! Specifies shadow map accessed by monitor commands: d=dot, p=paragrind
 /*! React to gdb monitor commands.
  */
 static
@@ -119,7 +120,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
   VG_(strcpy)(s, req);
   HChar* ssaveptr; //!< internal state of strtok_r
 
-  const HChar commands[] = "help get set fget fset lget lset"; //!< list of possible commands
+  const HChar commands[] = "help get set fget fset lget lset mode"; //!< list of possible commands
   HChar* wcmd = VG_(strtok_r)(s, " ", &ssaveptr); //!< User command
   int key = VG_(keyword_id)(commands, wcmd, kwd_report_duplicated_matches);
   switch(key){
@@ -130,12 +131,14 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
     case 0: // help
       VG_(gdb_printf)(
         "monitor commands:\n"
-        "  get  <addr>       - Prints derivative of double\n"
-        "  set  <addr> <val> - Sets derivative of double\n"
-        "  fget <addr>       - Prints derivative of float\n"
-        "  fset <addr> <val> - Sets derivative of float\n"
-        "  lget <addr>       - Prints derivative of x87 double extended\n"
-        "  lset <addr> <val> - Sets derivative of x87 double extended\n"
+        "  mode <mode>       - Select which shadow map to access:\n"
+        "                      dot (mode=d) or parallel (mode=p)\n"
+        "  get  <addr>       - Prints shadow of binary64 (e.g. C double)\n"
+        "  set  <addr> <val> - Sets shadow of binary64 (e.g. C double)\n"
+        "  fget <addr>       - Prints shadow of binary32 (e.g. C float)\n"
+        "  fset <addr> <val> - Sets shadow of binary32 (e.g. C float)\n"
+        "  lget <addr>       - Prints shadow of x87 double extended\n"
+        "  lset <addr> <val> - Sets shadow of x87 double extended\n"
       );
       return True;
     case 1: case 3: case 5: { // get, fget, lget
@@ -154,21 +157,39 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         case 3: size = 4; break;
         case 5: size = 10; break;
       }
-      union {unsigned char l[10]; double d; float f;} derivative;
-      shadowGet(sm_dot,(void*)address, (void*)&derivative, size);
+      union {unsigned char l[10]; double d; float f;} shadow, init;
+      if(monitor_command_mode=='d'){
+        shadowGet(sm_dot,(void*)address, (void*)&shadow, size);
+        VG_(gdb_printf)("dot value: ");
+      } else if(monitor_command_mode=='p'){
+        shadowGet(sm_pginit,(void*)address, (void*)&init, size);
+        Bool show_original_value = False;
+        for(int i=0; i<size; i++){
+          if(init.l[i]!=0xff)
+            show_original_value = True;
+        }
+        if(show_original_value){
+          for(int i=0; i<size; i++)
+            shadow.l[i] = ((unsigned char*)address)[i];
+          VG_(gdb_printf)("original value: ");
+        } else {
+          shadowGet(sm_pgdata,(void*)address, (void*)&shadow, size);
+          VG_(gdb_printf)("parallel value: ");
+        }
+      }
       switch(key){
         case 1:
-          VG_(gdb_printf)("Derivative: %.16lf\n", derivative.d);
+          VG_(gdb_printf)("%.16lf\n", shadow.d);
           break;
         case 3:
-          VG_(gdb_printf)("Derivative: %.9f\n", derivative.f);
+          VG_(gdb_printf)("%.9f\n", shadow.f);
           break;
         case 5: {
           // convert x87 double extended to 64-bit double
           // so we can use the ordinary I/O.
           double tmp;
-          convert_f80le_to_f64le(derivative.l,(unsigned char*)&tmp);
-          VG_(gdb_printf)("Derivative: %.16lf\n", (double)tmp);
+          convert_f80le_to_f64le(shadow.l,(unsigned char*)&tmp);
+          VG_(gdb_printf)("%.16lf\n", (double)tmp);
           break;
         }
       }
@@ -179,28 +200,50 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       HChar const* address_str_const = address_str;
       Addr address;
       if(!VG_(parse_Addr)(&address_str_const, &address)){
-        VG_(gdb_printf)("Usage: set  <addr> <derivative>\n"
-                        "       fset <addr> <derivative>\n"
-                        "       lset <addr> <derivative>\n");
+        VG_(gdb_printf)("Usage: set  <addr> <shadow value>\n"
+                        "       fset <addr> <shadow value>\n"
+                        "       lset <addr> <shadow value>\n");
         return False;
       }
       HChar* derivative_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
-      union {unsigned char l[10]; double d; float f;} derivative;
-      derivative.d = VG_(strtod)(derivative_str, NULL);
+      union {unsigned char l[10]; double d; float f;} shadow;
+      shadow.d = VG_(strtod)(derivative_str, NULL);
       int size;
       switch(key){
         case 2: size = 8; break;
-        case 4: size = 4; derivative.f = (float) derivative.d; break;
+        case 4: size = 4; shadow.f = (float) shadow.d; break;
         case 6: {
           // read as ordinary double and convert to x87 double extended
           // so we can use the ordinary I/O
           size = 10;
-          double tmp = derivative.d;
-          convert_f64le_to_f80le((unsigned char*)&tmp,derivative.l);
+          double tmp = shadow.d;
+          convert_f64le_to_f80le((unsigned char*)&tmp,shadow.l);
           break;
         }
       }
-      shadowSet(sm_dot,(void*)address,(void*)&derivative,size);
+      if(monitor_command_mode=='d'){
+        shadowSet(sm_dot,(void*)address,(void*)&shadow,size);
+      } else if(monitor_command_mode=='p'){
+        shadowSet(sm_pgdata,(void*)address,(void*)&shadow,size);
+        unsigned char ones[10] = {0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff};
+        shadowSet(sm_pginit,(void*)address,(void*)&ones,size);
+      }
+      return True;
+    }
+    case 7: { // mode
+      HChar* mode_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      if(mode_str[0]=='d') monitor_command_mode='d';
+      else if(mode_str[0]=='p'){
+        if(paragrind){
+          monitor_command_mode='p';
+        } else  {
+          VG_(gdb_printf)("Run DerivGrind with --paragrind=yes to use ParaGrind.\n");
+        }
+      }
+      else {
+        VG_(gdb_printf)("Usage: mode <mode>\n"
+                        "where <mode> is 'd' or 'p'.\n");
+      }
       return True;
     }
     default:
