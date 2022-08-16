@@ -185,7 +185,34 @@ typedef struct {
   IRExpr* ex[8];
 } IRExpr8;
 
+IRExpr8 nullexpr8(){
+  IRExpr8 ret = {{NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL}};
+  return ret;
+}
+Bool isnullexpr8(IRExpr8 i){
+  return (!i.ex[0]);
+}
 
+static ULong next_identifier = 1;
+ULong newid() { return next_identifier++; }
+
+/*! Create identifiers for linear combination of two SIMD vectors.
+ *  \param[in] k - Scalar factor in front of a.
+ *  \param[in] a - Identifier.
+ *  \param[in] l - Scalar factor in front of b.
+ *  \param[in] b - Identifier.
+ *  \param[in] fpsize - 4 (F32) or 8 (F64).
+ *  \returns Identifier for linear combination.
+ */
+IRExpr8 dg_linear_combination(double k, IRExpr8 a, double l, IRExpr8 b, int fpsize, DiffEnv diffenv){
+  IRType type = typeOfIRExpr(diffenv.sb_out->tyenv, a.ex[0]);
+  for(int i=0; i<8; i++){
+    tl_assert(type == typeOfIRExpr(diffenv.sb_out->tyenv, a.ex[i]));
+    tl_assert(type == typeOfIRExpr(diffenv.sb_out->tyenv, b.ex[i]));
+  }
+  IRType size = sizeofIRType(type);
+
+}
 
 /*! Record an expression, i.e. produce a vector of
  *  expressions that compute an identifier for
@@ -197,57 +224,15 @@ typedef struct {
  */
 IRExpr8 record_expr(IRExpr const* ex, DiffEnv* diffenv ){
   if(ex->tag==Iex_Qop){
-    IRQop* rex = ex->Iex.Qop.details;
-    IRExpr* arg1 = rex->arg1;
-    IRExpr* arg2 = rex->arg2;
-    IRExpr* arg3 = rex->arg3;
-    IRExpr* arg4 = rex->arg4;
-    IRExpr* d2 = record_expr(arg2,diffenv);
-    IRExpr* d3 = record_expr(arg3,diffenv);
-    IRExpr* d4 = record_expr(arg4,diffenv);
-    if(d2==NULL || d3==NULL || d4==NULL) return NULL;
-    switch(rex->op){
-      /*! Define derivative of e.g. Iop_MSubF32.
-       * \param addsub - Add or Sub
-       * \param suffix - F32 or F64
-       */
-      #define DERIVATIVE_OF_MADDSUB_QOP(addsub, suffix) \
-      case Iop_M##addsub##suffix: {\
-        IRType originaltype; \
-        IRExpr* arg2_f64 = convertToF64(arg2,diffenv,&originaltype); \
-        IRExpr* arg3_f64 = convertToF64(arg3,diffenv,&originaltype); \
-        IRExpr* d2_f64 = convertToF64(d2,diffenv,&originaltype); \
-        IRExpr* d3_f64 = convertToF64(d3,diffenv,&originaltype); \
-        IRExpr* d4_f64 = convertToF64(d4,diffenv,&originaltype); \
-        IRExpr* res = IRExpr_Triop(Iop_##addsub##F64,arg1, \
-          IRExpr_Triop(Iop_MulF64,arg1,d2_f64,arg3_f64), \
-          IRExpr_Qop(Iop_M##addsub##F64,arg1,arg2_f64,d3_f64,d4_f64) \
-         ); \
-        return convertFromF64(res, originaltype); \
-      }
-      DERIVATIVE_OF_MADDSUB_QOP(Add, F64)
-      DERIVATIVE_OF_MADDSUB_QOP(Sub, F64)
-      DERIVATIVE_OF_MADDSUB_QOP(Add, F32)
-      DERIVATIVE_OF_MADDSUB_QOP(Sub, F32)
-      case Iop_64x4toV256: {
-        IRExpr* d1 = differentiate_expr(arg2,diffenv);
-        if(d1)
-          return IRExpr_Qop(rex->op, d1,d2,d3,d4);
-        else
-          return NULL;
-      }
-
-      default:
-        return NULL;
-    }
+    return nullexpr8();
   } else if(ex->tag==Iex_Triop){
     IRTriop* rex = ex->Iex.Triop.details;
     IRExpr* arg1 = rex->arg1;
     IRExpr* arg2 = rex->arg2;
     IRExpr* arg3 = rex->arg3;
-    IRExpr* d2 = record_expr(arg2,diffenv);
-    IRExpr* d3 = record_expr(arg3,diffenv);
-    if(d2==NULL || d3==NULL) return NULL;
+    IRExpr8 i2 = record_expr(arg2,diffenv);
+    IRExpr8 i3 = record_expr(arg3,diffenv);
+    if(isnullexpr8(i2) || isnullexpr8(i3)) return nullexpr8();
     /*! Define derivative for addition IROp.
      *  \param[in] suffix - Specifies addition IROp, e.g. F64 gives Iop_AddF64.
      */
