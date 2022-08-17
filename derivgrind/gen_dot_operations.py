@@ -82,15 +82,22 @@ for suffix,fpsize,simdsize,llo in [("F64",8,1,False),("F32",4,1,False),("64Fx2",
   sqrt.diff = div.apply(arg1,d2,mul.apply(arg1,makeTwo(fpsize,simdsize),sqrt.apply(arg1,arg2)))
 
   IROp_Infos += [add,sub,mul,div,sqrt]
-# Abs
-for suffix,fpsize in [("F64",8),("F32",4)]:
-  IROp_Infos += [ IROp_Info(f"Iop_Abs{suffix}", f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}(0.)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)", 1, [1], fpsize, 1, False) ]
+# Neg
+for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1),("64Fx2",8,2),("32Fx2",4,2),("32Fx4",4,4)]:
+  neg = IROp_Info(f"Iop_Neg{suffix}", None,1,[1],fpsize,simdsize,False)
+  neg.diff = neg.apply("d1")
+  IROp_Infos += [ neg ]
+# Abs 
+for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1)]: # ("64Fx2",8,2),("32Fx2",4,2),("32Fx4",4,4)] exist, but AD logic is different
+  abs_ = IROp_Info(f"Iop_Abs{suffix}", None, 1, [1], fpsize, simdsize, False)
+  abs_.diff = f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}(0.)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)"
+  IROp_Infos += [ abs_ ]
 # Min
 
 # Pass-through unary operations
 ops = ["F32toF64"]
 for i in ["32","64"]:
-  ops += [f"ReinterpI{i}asF{i}",f"ReinterpF{i}asI{i}",f"NegF{i}"]
+  ops += [f"ReinterpI{i}asF{i}",f"ReinterpF{i}asI{i}"]
 for j in ["","HI"]:
   ops += [f"16{j}to8", f"32{j}to16", f"64{j}to32", f"V128{j}to64", f"128{j}to64"]
 ops += ["64to8","32to8","64to16","V256toV128_0","V256toV128_1","64UtoV128","32UtoV128","V128to32"]
@@ -124,7 +131,7 @@ IROp_Infos += [IROp_Info("Iop_64x4toV256","IRExpr_Qop(Iop_64x4toV256,d1,d2,d3,d4
 
 
 
-IROp_Missing = ["Iop_Div32Fx2","Iop_Sqrt32Fx2","Iop_Abs64F0x2","Iop_Abs32F0x4","Iop_Abs32Fx8","Iop_Abs64Fx4"]
+IROp_Missing = ["Iop_Div32Fx2","Iop_Sqrt32Fx2"]
 IROp_Infos = [irop_info for irop_info in IROp_Infos if irop_info.name not in IROp_Missing]
 
 for irop_info in IROp_Infos:
