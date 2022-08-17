@@ -90,7 +90,7 @@ for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1),("64Fx2",8,2),("32Fx2",4,
 # Abs 
 for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1)]: # ("64Fx2",8,2),("32Fx2",4,2),("32Fx4",4,4)] exist, but AD logic is different
   abs_ = IROp_Info(f"Iop_Abs{suffix}", None, 1, [1], fpsize, simdsize, False)
-  abs_.diff = f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}(0.)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)"
+  abs_.diff = f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}i(0)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)"
   IROp_Infos += [ abs_ ]
 # Min
 
@@ -108,8 +108,9 @@ for j1 in [8,16,32,64]:
       ops += [f"{j1}Uto{j2}", f"{j1}Sto{j2}"]
 IROp_Infos += [IROp_Info(f"Iop_{op}", f"IRExpr_Unop(Iop_{op},d1)",1,[1],0,0,False) for op in ops]
 # Zero-derivative unary operations
-IROp_Infos += [IROp_Info(f"Iop_I32{su}toF64", "IRExpr_Const(IRConst_F64(0.))", 1, [], 0,0,False) for su in ["S","U"]]
+IROp_Infos += [IROp_Info(f"Iop_I32{su}toF64", "IRExpr_Const(IRConst_F64i(0))", 1, [], 0,0,False) for su in ["S","U"]]
 
+IROp_Infos += [IROp_Info("Iop_F64toF32","IRExpr_Binop(Iop_F64toF32,arg1,d2)",2,[2],0,0,False)]
 # Pass-through binary operations
 ops = []
 ops += [f"Iop_{n}HLto{2*n}" for n in [8,16,32,64]]
@@ -119,9 +120,9 @@ ops += [f"Iop_Interleave{hilo}{n}x{128//n}" for hilo in ["HI","LO"] for n in [8,
 IROp_Infos += [IROp_Info(op, f"IRExpr_Binop({op},d1,d2)",2,[1,2],0,0,False) for op in ops]
 # Zero-derivative binary operations
 for op in ["I64StoF64","I64UtoF64","RoundF64toInt"]:
-  IROp_Infos += [IROp_Info(f"Iop_{op}","IRExpr_Const(IRConst_F64(0.))",2,[],8,1,False)]
+  IROp_Infos += [IROp_Info(f"Iop_{op}","IRExpr_Const(IRConst_F64i(0))",2,[],8,1,False)]
 for op in ["I64StoF32","I64UtoF32","I32StoF32","I32UtoF32"]:
-  IROp_Infos += [IROp_Info(f"Iop_{op}","IRExpr_Const(IRConst_F32(0.))",2,[],4,1,False)]
+  IROp_Infos += [IROp_Info(f"Iop_{op}","IRExpr_Const(IRConst_F32i(0))",2,[],4,1,False)]
 
 # Pass-through quarternary operations
 IROp_Infos += [IROp_Info("Iop_64x4toV256","IRExpr_Qop(Iop_64x4toV256,d1,d2,d3,d4)",4,[1,2,3,4],0,0,0)]
