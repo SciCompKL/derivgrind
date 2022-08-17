@@ -9,7 +9,17 @@
 #include "dg_shadow.h"
 
 
-
+IRExpr* differentiate_op(IROp op,IRExpr* arg1, IRExpr* arg2, IRExpr* arg3, IRExpr* arg4, DiffEnv* diffenv){
+  IRExpr *d1, *d2, *d3, *d4;
+  if(arg1) d1 = differentiate_expr(arg1, diffenv);
+  if(arg2) d2 = differentiate_expr(arg2, diffenv);
+  if(arg3) d3 = differentiate_expr(arg3, diffenv);
+  if(arg4) d4 = differentiate_expr(arg4, diffenv);
+  switch(op){
+    #include "dg_dot_operations.c"
+    default: return NULL;
+  }
+}
 
 
 extern void* sm_dot;
@@ -19,14 +29,14 @@ IRExpr* differentiate_expr(IRExpr const* ex, DiffEnv* diffenv ){
     return NULL;
   } else if(ex->tag==Iex_Qop){
     IRQop* rex = ex->Iex.Qop.details;
-    return differentiate_op(rex->op,rex->arg1,rex->arg2,rex->arg3,rex->arg4);
+    return differentiate_op(rex->op,rex->arg1,rex->arg2,rex->arg3,rex->arg4, diffenv);
   } else if(ex->tag==Iex_Triop){
     IRTriop* rex = ex->Iex.Triop.details;
-    return differentiate_op(rex->op,rex->arg1,rex->arg2,rex->arg3,NULL);
+    return differentiate_op(rex->op,rex->arg1,rex->arg2,rex->arg3,NULL,diffenv);
   } else if(ex->tag==Iex_Binop) {
-    return differentiate_op(ex->Iex.Binop.op,ex->Iex.Binop.arg1,ex->Iex.Binop.arg2,NULL,NULL);
+    return differentiate_op(ex->Iex.Binop.op,ex->Iex.Binop.arg1,ex->Iex.Binop.arg2,NULL,NULL,diffenv);
   } else if(ex->tag==Iex_Unop) {
-    return differentiate_op(ex->Iex.Unop.op,ex->Iex.Unop.arg,NULL,NULL,NULL);
+    return differentiate_op(ex->Iex.Unop.op,ex->Iex.Unop.arg,NULL,NULL,NULL,diffenv);
   } else if(ex->tag==Iex_Const) {
     IRConstTag type = ex->Iex.Const.con->tag;
     switch(type){

@@ -748,14 +748,17 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
   for (/* use current i*/; i < sb_in->stmts_used; i++) {
     stmt_counter++;
     IRStmt* st_orig = sb_in->stmts[i];
-    // VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st_orig); VG_(printf)("\n");
+     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st_orig); VG_(printf)("\n");
 
     diffenv.cas_succeeded = IRTemp_INVALID;
 
     add_statement_forward(sb_out,st_orig,&diffenv);
     if(paragrind) add_statement_paragrind(sb_out,st_orig,&diffenv);
     add_statement_original(sb_out,st_orig, &diffenv);
+
   }
+  //VG_(printf)("from stmt %d sb :",stmt_counter); ppIRSB(sb_out); VG_(printf)("\n");
+
   return sb_out;
 }
 
