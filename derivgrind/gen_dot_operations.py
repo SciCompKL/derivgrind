@@ -1,6 +1,61 @@
+"""Create a list of C "case" statements handling VEX IR operations.
+"""
 
+# Among the large set of VEX operations, there are always set of operations 
+# that can be treated similarly, but these sets differ between tools.
+# I hope that this script makes all the necessary distinctions and is as
+# short as possible.
+
+class IROp_Info:
+  """Represents one Iop_...."""
+  def __init__(self,name,diff,nargs,diffinputs,fpsize,simdsize,llo):
+    self.name = name # e.g. Iop_Add64Fx2
+    self.diff = diff # e.g. IRExpr_Triop(Iop_Add64Fx2, arg1, d2, d3) (C code assembling VEX for the derivative)
+    self.nargs = nargs # e.g. 3 (number of operands)
+    self.diffinputs = diffinputs # e.g. [2,3] (inputs whose derivative is needed)
+    self.fpsize = fpsize # e.g. 8 (scalar size in bytes)
+    self.simdsize = simdsize # e.g. 2 (number of scalar components)
+    self.llo = llo # True if lowest-lane-only SIMD operation
+    self.diff_pre = "" # Stuff in front of the return diff statement
+  def makeCase(self):
+    """Return the "case Iop_..: ..." statement."""
+    s = f"case {self.name}: {{"
+    for i in self.diffinputs:
+      s += f"if(!d{i}) return NULL; "
+    s += self.diff_pre
+    s += f"return {self.diff}; }}"
+    return s
+  def apply(self,*operands):
+    """Produce C code that applied the operation.
+      @param operands - List of strings containing C code producing the operand expressions. "None" elements are discarded.
+    """
+    operands = [op for op in operands if op]
+    assert( len(operands)==self.nargs)
+    if self.nargs==1:
+      s = "IRExpr_Unop("
+    elif self.nargs==2:
+      s = "IRExpr_Binop("
+    elif self.nargs==3:
+      s = "IRExpr_Triop("
+    elif self.nargs==4:
+      s = "IRExpr_Qop("
+    s += self.name
+    for op in operands:
+      s += ", "+op
+    s += ")"
+    return s
+
+
+### Handling of floating-point arithmetic operations. ###
+
+### SIMD utilities. ###
+# To account for SIMD vectors, fpsize is the scalar size in bytes (4 or 8)
+# and simdsize is the number of components (1,2,4 or 8).
 
 def makeTwo(fpsize,simdsize):
+  """C code for an expression evaluating to a vector of 2's.
+    This is useful in the denominator of the derivative of sqrt.
+  """
   if fpsize==4:
     if simdsize==1:
       return f"IRExpr_Const(IRConst_F32(2.))"
@@ -23,45 +78,101 @@ def makeTwo(fpsize,simdsize):
       two = f"IRExpr_Unop(Iop_ReinterpF64asI64, {makeTwo(8,1)})"
       return f"IRExpr_Qop(Iop_64x4toV256, {two}, {two}, {two}, {two})"
     
+def getSIMDComponent(expression, fpsize,simdsize,component):
+  """
+    Produce C code for an expression that contains a single  component of an 
+    expression of VEX type I32, I64, V128 or V256.
+    
+    E.g. IRExpr_Unop(Iop_64HIto32, <expression>)
+  """
+  if fpsize==4:
+    if simdsize==1:
+      return expression
+    elif simdsize==2:
+      return f"IRExpr_Unop(Iop_{['64to32','64HIto32'][component]}, {expression})"
+    elif simdsize==4:
+      return f"IRExpr_Unop(Iop_{['64to32','64HIto32','64to32','64HIto32'][component]}, IRExpr_Unop(Iop_{['64to32','64to32','64HIto32','64HIto32'][component]}, {expression}))"
+  elif fpsize==8:
+    if simdsize==1:
+      return expression
+    elif simdsize==2:
+      return f"IRExpr_Unop(Iop_{['V128to64','V128HIto64'][component]}, {expression})"
+    elif simdsize==4:
+      assert(0<=component and component<4)
+      return f"IRExpr_Unop(Iop_V256to64_{component},{expression})"
+  assert(False)
+
+def assembleSIMDVector(expressions,fpsize):
+  """Produce C code for an expression that contains all the components.
+
+  E.g. IRExpr_Binop(Iop_32HLto64, <expressions[1]>, <expressions[0]>.
+  """
+  simdsize = len(expressions)
+  if fpsize==4:
+    if simdsize==1:
+      return expressions[0]
+    elif simdsize==2:
+      return f"IRExpr_Binop(Iop_32HLto64,{expressions[1]},{expressions[0]})"
+    elif simdsize==4:
+      return f"IRExpr_Binop(Iop_64HLtoV128, IRExpr_Binop(Iop_32HLto64,{expressions[3]},{expressions[2]}), IRExpr_Binop(Iop_32HLto64,{expressions[1]},{expressions[0]}))"
+  elif fpsize==8:
+    if simdsize==1:
+      return expressions[0]
+    elif simdsize==2:
+      return f"IRExpr_Binop(Iop_64HLtoV128,{expressions[1]},{expressions[0]})"
+    elif simdsize==4:
+      return f"IRExpr_Qop(Iop_64x4toV256, {expressions[3]}, {expressions[2]}, {expressions[1]}, {expressions[0]})"
+  assert(False)
+
+def applyComponentwisely(inputs,outputs,fpsize,simdsize,body):
+  """
+    Apply C code for all components of a SIMD expression individually, 
+    and assemble the output from the individual results.
+
+    E.g. 
+      // obtain components [0] of inputs
+      <body>
+      // remember outputs as the total output contains them as components [0]
+      // obtain components [1] of inputs
+      <body>
+      // remember outputs as the total output contains them as components [1]
+      // ...
+      // assemble total outputs from remembered partial outputs
+
+    @param inputs - Dictionary: variable name of an input IRExpr* => variable name of portion as used by body
+    @param outputs - Dictionary: variable name of an output IRExpr* => variable name of portion as used by body
+    @param fpsize - Size of component, either 4 or 8 (bytes)
+    @param simdsize - Number of components
+    @param body - C code applied to all components
+    @returns C code applying body to all components.
+  """
+  s = ""
+  for outvar in outputs:
+    s += f"IRExpr* {outputs[outvar]}_arr[{simdsize}]; "
+  for component in range(simdsize): # for each component
+    s += "{"
+    for invar in inputs: # extract component
+      s += f"IRExpr* {inputs[invar]} = {getSIMDComponent(invar,fpsize,simdsize,component)}; "
+      if fpsize==4: # widen to 64 bit
+        s += f"{inputs[invar]} = IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),{inputs[invar]}); "
+    s += body
+    for outvar in outputs:
+      if fpsize==4: # extract the 32 bit
+        s += f"{outputs[outvar]} = IRExpr_Unop(Iop_64to32,{outputs[outvar]});"
+      s += f"{outputs[outvar]}_arr[{component}] = {outputs[outvar]};" 
+    s += "}"
+  for outvar in outputs:
+    s += f"IRExpr* {outvar} = " + assembleSIMDVector([f"{outputs[outvar]}_arr[{i}]" for i in range(simdsize)], fpsize) + ";"
+  return s
+      
 
 
-class IROp_Info:
-  def __init__(self,name,diff,nargs,diffinputs,fpsize,simdsize,llo):
-    self.name = name # e.g. Iop_Add64Fx2
-    self.diff = diff # e.g. IRExpr_Triop(Iop_Add64Fx2, arg1, d2, d3) (C code assembling VEX for the derivative)
-    self.nargs = nargs # e.g. 3 (number of operands)
-    self.diffinputs = diffinputs # e.g. [2,3] (inputs whose derivative is needed)
-    self.fpsize = fpsize # e.g. 8 (scalar size in bytes)
-    self.simdsize = simdsize # e.g. 2 (number of scalar components)
-    self.llo = llo # True if lowest-lane-only SIMD operation
-  def makeCase(self):
-    s = f"case {self.name}: {{"
-    for i in self.diffinputs:
-      s += f"if(!d{i}) return NULL; "
-    s += f"return {self.diff}; }}"
-    return s
-  def apply(self,*operands):
-    operands = [op for op in operands if op]
-    assert( len(operands)==self.nargs)
-    if self.nargs==1:
-      s = "IRExpr_Unop("
-    elif self.nargs==2:
-      s = "IRExpr_Binop("
-    elif self.nargs==3:
-      s = "IRExpr_Triop("
-    elif self.nargs==4:
-      s = "IRExpr_Qop("
-    s += self.name
-    for op in operands:
-      s += ", "+op
-    s += ")"
-    return s
-
-
-
-# Collect IR operations
+### Collect IR operations in this list. ###
 IROp_Infos = []
-# Basic scalar, SIMD, and lowest-lane-only SIMD arithmetic
+
+
+### Basic scalar, SIMD, and lowest-lane-only SIMD arithmetic. ###
+
 for suffix,fpsize,simdsize,llo in [("F64",8,1,False),("F32",4,1,False),("64Fx2",8,2,False),("64Fx4",8,4,False),("32Fx4",4,4,False),("32Fx8",4,8,False),("32F0x4",4,4,True),("64F0x2",8,2,True)]:
 
   # lowest-lane-only operations have no rounding mode, so it's e.g. IRExpr_Binop(Iop_Add32F0x2,d1,d2) instead of IRExpr_Triop(Iop_Add32Fx2,arg1,d2,d3)
@@ -82,7 +193,7 @@ for suffix,fpsize,simdsize,llo in [("F64",8,1,False),("F32",4,1,False),("64Fx2",
   sqrt.diff = div.apply(arg1,d2,mul.apply(arg1,makeTwo(fpsize,simdsize),sqrt.apply(arg1,arg2)))
 
   IROp_Infos += [add,sub,mul,div,sqrt]
-# Neg
+# Neg - different set of SIMD setups, no rounding mode
 for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1),("64Fx2",8,2),("32Fx2",4,2),("32Fx4",4,4)]:
   neg = IROp_Info(f"Iop_Neg{suffix}", None,1,[1],fpsize,simdsize,False)
   neg.diff = neg.apply("d1")
@@ -92,7 +203,17 @@ for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1)]: # ("64Fx2",8,2),("32Fx2
   abs_ = IROp_Info(f"Iop_Abs{suffix}", None, 1, [1], fpsize, simdsize, False)
   abs_.diff = f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}i(0)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)"
   IROp_Infos += [ abs_ ]
-# Min
+# Min TODO
+
+### Logical instructions. ###
+
+for Op, op in [("And","and"), ("Or","or"), ("Xor","xor")]:
+  # the dirty calls handling 8-byte blocks also consider the case of 2 x 4 bytes
+  for (simdsize,fpsize) in [(1,4),(1,8),(2,8),(4,8)]:
+    size = simdsize*fpsize*8
+    the_op = IROp_Info(f"Iop_{Op}{'V' if size>=128 else ''}{size}", "result", 2, [1,2], 0,0,False)
+    the_op.diff_pre = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"result":"result_part"}, fpsize, simdsize, f'IRExpr* result_part = mkIRExprCCall(Ity_I64,0,"dg_logical_{op}64", &dg_logical_{op}64, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
+    IROp_Infos += [ the_op ]
 
 # Pass-through unary operations
 ops = ["F32toF64"]
@@ -130,8 +251,8 @@ IROp_Infos += [IROp_Info("Iop_64x4toV256","IRExpr_Qop(Iop_64x4toV256,d1,d2,d3,d4
 
 
 
-
-
+### Produce code. ###
+# Some operations created above do actually not exist in VEX, remove them.
 IROp_Missing = ["Iop_Div32Fx2","Iop_Sqrt32Fx2"]
 IROp_Infos = [irop_info for irop_info in IROp_Infos if irop_info.name not in IROp_Missing]
 
