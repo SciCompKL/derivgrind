@@ -1,10 +1,10 @@
-# DerivGrind
+# Derivgrind
 
-DerivGrind is a tool for forward-mode algorithmic differentiation (AD) 
+Derivgrind is a tool for forward-mode algorithmic differentiation (AD) 
 of compiled programs, implemented in the [Valgrind](https://valgrind.org/)
 instrumentation framework for building dynamic analysis tools. 
 
-We give more details on DerivGrind's mechanics in our paper.
+We give more details on Derivgrind's mechanics in our paper.
 
 ## Quick start
 - Make sure you have the required tools, headers and libraries, which are listed in
@@ -24,7 +24,7 @@ We give more details on DerivGrind's mechanics in our paper.
       cd derivgrind/diff_tests/
       ./setup.sh
       python3 run_tests.py
-- Or try DerivGrind on the following simple C program:
+- Or try Derivgrind on the following simple C program:
       
       #include <stdio.h>
       #include <valgrind/derivgrind.h>
@@ -44,7 +44,7 @@ We give more details on DerivGrind's mechanics in our paper.
   via Valgrind's client request mechanism. In between, the code can 
   perform any kind of calculations, including calls to closed-source libraries.
   However, have a look at the [limitations](#limitations).
-- Or try DerivGrind on the Python interpreter on your system, which should be a 
+- Or try Derivgrind on the Python interpreter on your system, which should be a 
   version of [CPython](https://github.com/python/cpython/):
 
       cd derivgrind/diff_tests/
@@ -67,7 +67,7 @@ We give more details on DerivGrind's mechanics in our paper.
 ## <a name="limitations"></a>Limitations
 - Machine code can "hide" real arithmetics behind integer or logical instructions 
   in manifold ways. For example, a bitwise logical "and" can be used to pull the
-  sign bit to zero, and thereby compute the absolute value. DerivGrind does only
+  sign bit to zero, and thereby compute the absolute value. Derivgrind does only
   recognize the some of these ways. Avoid direct manipulation of a floating-point
   number's binary representation in your program, and avoid using highly optimized 
   numerical libraries.

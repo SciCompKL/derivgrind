@@ -1,9 +1,9 @@
 # -------------------------------------------------------------------- #
-# --- Build and execute unit tests for DerivGrind.    TestCase .py --- #
+# --- Build and execute unit tests for Derivgrind.    TestCase .py --- #
 # -------------------------------------------------------------------- #
 
 #
-#  This file is part of DerivGrind, a tool performing forward-mode
+#  This file is part of Derivgrind, a tool performing forward-mode
 #  algorithmic differentiation of compiled programs, implemented
 #  in the Valgrind framework.
 #
@@ -40,7 +40,7 @@ import stat
 # gdbptype: Regex to recognize pointer to variable in GDB output
 # size: size in bytes
 # tol: tolerance of the tests
-# get / set: DerivGrind monitor commands
+# get / set: Derivgrind monitor commands
 # format: C printf format specifier
 
 # C/C++ types
@@ -64,7 +64,7 @@ def str_fortran(d):
     return s+"d0"
 
 class TestCase:
-  """Basic data for a DerivGrind test case."""
+  """Basic data for a Derivgrind test case."""
   def __init__(self, name):
     self.name = name # Name of TestCase
     self.stmtd = None # Code to be run in C/C++ main function for double test
@@ -92,7 +92,7 @@ class TestCase:
     self.compiler = "gcc" # gcc, g++, gfortran, python
 
 class InteractiveTestCase(TestCase):
-  """Methods to run a DerivGrind test case interactively in VGDB."""
+  """Methods to run a Derivgrind test case interactively in VGDB."""
   def __init__(self,name):
     super().__init__(name)
 
@@ -255,7 +255,7 @@ class InteractiveTestCase(TestCase):
     
 
 class ClientRequestTestCase(TestCase):
-  """Methods to run a DerivGrind test case using Valgrind client requests."""
+  """Methods to run a Derivgrind test case using Valgrind client requests."""
   def __init__(self,name):
     super().__init__(name)
 
