@@ -204,6 +204,16 @@ for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1)]: # ("64Fx2",8,2),("32Fx2
   abs_.diff = f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}i(0)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)"
   IROp_Infos += [ abs_ ]
 # Min TODO
+# Miscellaneous
+IROp_Infos += [
+  IROp_Info("Iop_ScaleF64", "IRExpr_Triop(Iop_ScaleF64,arg1,d2,arg3)", 3, [2], 8, 1, False),
+  IROp_Info("Iop_Yl2xF64", "IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xF64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),arg3)))", 3, [2,3], 8, 1, False),
+  IROp_Info("Iop_Yl2xp1F64", "IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xp1F64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.))))))", [3], [2,3], 8, 1, False),
+]
+
+  
+
+
 
 ### Logical instructions. ###
 
