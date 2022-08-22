@@ -224,6 +224,10 @@ for Op, op in [("Min", "min"), ("Max", "max")]:
     the_op = IROp_Info(f"Iop_{Op}{suffix}", "result", 2, [1,2], fpsize, simdsize, llo)
     the_op.diff_pre = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"result":"result_part"}, fpsize, simdsize, f'IRExpr* result_part = mkIRExprCCall(Ity_I64,0,"dg_arithmetic_{op}{fpsize*8}", &dg_arithmetic_{op}{fpsize*8}, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));')
     IROp_Infos += [ the_op ]
+# fused multiply-add
+for Op in ["Add", "Sub"]:
+  for suffix in ["F64", "F32"]:
+    IROp_Infos += [ IROp_Info(f"Iop_M{Op}{suffix}", f"IRExpr_Triop(Iop_{Op}{suffix}, arg1, IRExpr_Triop(Iop_{Op}{suffix},arg1,d2,arg3), IRExpr_Qop(Iop_M{Op}{suffix},arg1,arg2,d3,d4))", 4, [2,3,4],0,0,False) ]
 
 # Miscellaneous
 IROp_Infos += [
