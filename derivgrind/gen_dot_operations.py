@@ -52,6 +52,17 @@ class IROp_Info:
 # To account for SIMD vectors, fpsize is the scalar size in bytes (4 or 8)
 # and simdsize is the number of components (1,2,4 or 8).
 
+# (suffix,fpsize,simdsize,lowest_line_only)
+pF64 = ("F64",8,1,False)
+pF32 = ("F32",4,1,False)
+p64Fx2 = ("64Fx2",8,2,False)
+p64Fx4 = ("64Fx4",8,4,False)
+p32Fx2 = ("32Fx2",4,2,False)
+p32Fx4 = ("32Fx4",4,4,False)
+p32Fx8 = ("32Fx8",4,8,False)
+p32F0x4 = ("32F0x4",4,4,True)
+p64F0x2 = ("64F0x2",8,2,True)
+
 def makeTwo(fpsize,simdsize):
   """C code for an expression evaluating to a vector of 2's.
     This is useful in the denominator of the derivative of sqrt.
@@ -92,6 +103,8 @@ def getSIMDComponent(expression, fpsize,simdsize,component):
       return f"IRExpr_Unop(Iop_{['64to32','64HIto32'][component]}, {expression})"
     elif simdsize==4:
       return f"IRExpr_Unop(Iop_{['64to32','64HIto32','64to32','64HIto32'][component]}, IRExpr_Unop(Iop_{['64to32','64to32','64HIto32','64HIto32'][component]}, {expression}))"
+    elif simdsize==8:
+      return f"IRExpr_Unop(Iop_{['64to32','64HIto32'][component%2]}, IRExpr_Unop(Iop_V256to64_{component//2}, {expression}))"
   elif fpsize==8:
     if simdsize==1:
       return expression
@@ -115,6 +128,8 @@ def assembleSIMDVector(expressions,fpsize):
       return f"IRExpr_Binop(Iop_32HLto64,{expressions[1]},{expressions[0]})"
     elif simdsize==4:
       return f"IRExpr_Binop(Iop_64HLtoV128, IRExpr_Binop(Iop_32HLto64,{expressions[3]},{expressions[2]}), IRExpr_Binop(Iop_32HLto64,{expressions[1]},{expressions[0]}))"
+    elif simdsize==8:
+      return f"IRExpr_Qop(Iop_64x4toV256, IRExpr_Binop(Iop_32HLto64,{expressions[7]},{expressions[6]}), IRExpr_Binop(Iop_32HLto64,{expressions[5]},{expressions[4]}), IRExpr_Binop(Iop_32HLto64,{expressions[3]},{expressions[2]}), IRExpr_Binop(Iop_32HLto64,{expressions[1]},{expressions[0]}) )"
   elif fpsize==8:
     if simdsize==1:
       return expressions[0]
@@ -173,7 +188,7 @@ IROp_Infos = []
 
 ### Basic scalar, SIMD, and lowest-lane-only SIMD arithmetic. ###
 
-for suffix,fpsize,simdsize,llo in [("F64",8,1,False),("F32",4,1,False),("64Fx2",8,2,False),("64Fx4",8,4,False),("32Fx4",4,4,False),("32Fx8",4,8,False),("32F0x4",4,4,True),("64F0x2",8,2,True)]:
+for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p32F0x4, p64F0x2]:
 
   # lowest-lane-only operations have no rounding mode, so it's e.g. IRExpr_Binop(Iop_Add32F0x2,d1,d2) instead of IRExpr_Triop(Iop_Add32Fx2,arg1,d2,d3)
   if llo:
@@ -199,11 +214,17 @@ for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1),("64Fx2",8,2),("32Fx2",4,
   neg.diff = neg.apply("d1")
   IROp_Infos += [ neg ]
 # Abs 
-for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1)]: # ("64Fx2",8,2),("32Fx2",4,2),("32Fx4",4,4)] exist, but AD logic is different
+for suffix,fpsize,simdsize,llo in [pF64,pF32]: # p64Fx2, p32Fx2, p32Fx4 exist, but AD logic is different
   abs_ = IROp_Info(f"Iop_Abs{suffix}", None, 1, [1], fpsize, simdsize, False)
   abs_.diff = f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}i(0)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)"
   IROp_Infos += [ abs_ ]
-# Min TODO
+# Min, Max
+for Op, op in [("Min", "min"), ("Max", "max")]:
+  for suffix,fpsize,simdsize,llo in [p32Fx2,p32Fx4,p32F0x4,p64Fx2,p64F0x2,p32Fx8,p64Fx4]:
+    the_op = IROp_Info(f"Iop_{Op}{suffix}", "result", 2, [1,2], fpsize, simdsize, llo)
+    the_op.diff_pre = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"result":"result_part"}, fpsize, simdsize, f'IRExpr* result_part = mkIRExprCCall(Ity_I64,0,"dg_arithmetic_{op}{fpsize*8}", &dg_arithmetic_{op}{fpsize*8}, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));')
+    IROp_Infos += [ the_op ]
+
 # Miscellaneous
 IROp_Infos += [
   IROp_Info("Iop_ScaleF64", "IRExpr_Triop(Iop_ScaleF64,arg1,d2,arg3)", 3, [2], 8, 1, False),

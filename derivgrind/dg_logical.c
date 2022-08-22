@@ -168,3 +168,21 @@ VG_REGPARM(0) ULong dg_logical_xor64(ULong x, ULong xd, ULong y, ULong yd){
   else DG_HANDLE_XOR(double,ULong, y, x)
   else DG_HANDLE_HALVES(dg_logical_xor32)
 }
+
+/*--- Min/Max ---*/
+VG_REGPARM(0) ULong dg_arithmetic_min32(ULong x, ULong xd, ULong y, ULong yd){
+  if( *(double*)&x < *(double*)&y ) return xd;
+  else return yd;
+}
+VG_REGPARM(0) ULong dg_arithmetic_min64(ULong x, ULong xd, ULong y, ULong yd){
+  if( *(float*)&x < *(float*)&y ) return xd;
+  else return yd;
+}
+VG_REGPARM(0) ULong dg_arithmetic_max32(ULong x, ULong xd, ULong y, ULong yd){
+  if( *(double*)&x > *(double*)&y ) return xd;
+  else return yd;
+}
+VG_REGPARM(0) ULong dg_arithmetic_max64(ULong x, ULong xd, ULong y, ULong yd){
+  if( *(float*)&x > *(float*)&y ) return xd;
+  else return yd;
+}
