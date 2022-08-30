@@ -490,8 +490,7 @@ void storeShadowMemory(void* sm, IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExp
  *  \param[in] tag - Tag that is also printed.
  *  \param[in] value - Printed value.
  */
-static int outcount = 0;
-static VG_REGPARM(0) void dg_Print_double(ULong tag, ULong value){ /*VG_(printf)("Value for %d : ", tag); */if(outcount++%1==0) VG_(printf)("%lf\n", *(double*)&value); }
+static VG_REGPARM(0) void dg_Print_double(ULong tag, ULong value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%lf\n", *(double*)&value); }
 static VG_REGPARM(0) void dg_Print_unsignedlong(ULong tag, ULong value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%p\n", (void*)value); }
 static VG_REGPARM(0) void dg_Print_unsignedint(ULong tag, Int value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%p\n", (void*)value); }
 
@@ -536,3 +535,34 @@ void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
         mkIRExprVec_2(IRExpr_Const(IRConst_U64(tag)), expr_to_print));
   addStmtToIRSB(sb_out, IRStmt_Dirty(di));
 }
+
+static int outcount = 0;
+static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalue){
+  if(outcount++%1==0){
+    VG_(printf)("%lf %lf\n", *(double*)&value, *(double*)&dotvalue);
+  }
+}
+void dg_add_diffquotdebug(IRSB* sb_out, IRExpr* value, IRExpr* dotvalue){
+  IRType type = typeOfIRExpr(sb_out->tyenv, value);
+  tl_assert(type == typeOfIRExpr(sb_out->tyenv, dotvalue));
+  IRExpr *value_to_print, *dotvalue_to_print;
+  switch(type){
+    case Ity_F64:
+      value_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,value);
+      dotvalue_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,dotvalue);
+      break;
+    case Ity_F32:
+      value_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,IRExpr_Unop(Iop_F32toF64,value));
+      dotvalue_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,IRExpr_Unop(Iop_F32toF64,dotvalue));
+      break;
+    default:
+      VG_(printf)("Bad type in dg_add_diffquotdebug.\n");
+      return;
+  }
+  IRDirty* di = unsafeIRDirty_0_N(
+        0,
+        "dg_add_diffquotdebug_helper", VG_(fnptr_to_fnentry)(&dg_add_diffquotdebug_helper),
+        mkIRExprVec_2(value_to_print, dotvalue_to_print));
+  addStmtToIRSB(sb_out, IRStmt_Dirty(di));
+}
+

@@ -136,4 +136,11 @@ void storeLayeredShadowMemory(void* sm_data, void* sm_init, IRSB* sb_out, IRExpr
  */
 void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr);
 
+/*! Debugging help. Add a dirty statement to IRSB that prints two expressions whenever it is run.
+ *  \param[in] sb_out - IRSB to which the dirty statement is added.
+ *  \param[in] value - Expression.
+ *  \param[in] dotvalue - Expression.
+ */
+void dg_add_diffquotdebug(IRSB* sb_out, IRExpr* value, IRExpr* dotvalue);
+
 #endif // DG_SHADOW_H

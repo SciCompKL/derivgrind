@@ -48,9 +48,9 @@ class IROp_Info:
     if print_results and self.fpsize and self.simdsize:
       s += f"IRExpr* value = {self.apply()};" 
       if self.fpsize==4:
-        s += applyComponentwisely({"value":"value_part"}, {}, self.fpsize, self.simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)));")
+        s += applyComponentwisely({"value":"value_part","dotvalue":"dotvalue_part"}, {}, self.fpsize, self.simdsize, "dg_add_diffquotdebug(diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)),IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, dotvalue_part)));")
       else:
-        s += applyComponentwisely({"value":"value_part"}, {}, self.fpsize, self.simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part));")
+        s += applyComponentwisely({"value":"value_part","dotvalue":"dotvalue_part"}, {}, self.fpsize, self.simdsize, "dg_add_diffquotdebug(diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part),IRExpr_Unop(Iop_ReinterpI64asF64, dotvalue_part));")
     s += f"return dotvalue; \n}}"
     return s
   def apply(self,*operands):
