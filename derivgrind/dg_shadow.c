@@ -510,6 +510,11 @@ void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
       fptr = dg_Print_double;
       expr_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,expr);
       break;
+    case Ity_F32:
+      fname = "dg_Print_double";
+      fptr = dg_Print_double;
+      expr_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,IRExpr_Unop(Iop_F32toF64,expr));
+      break;
     case Ity_I64:
       fname = "dg_Print_unsignedlong";
       fptr = dg_Print_unsignedlong;

@@ -27,9 +27,11 @@ class IROp_Info:
     return s
   def apply(self,*operands):
     """Produce C code that applied the operation.
-      @param operands - List of strings containing C code producing the operand expressions. "None" elements are discarded.
+      @param operands - List of strings containing C code producing the operand expressions. "None" elements are discarded. If empty, apply to arg1, arg2, ...
     """
     operands = [op for op in operands if op]
+    if len(operands)==0:
+      operands = ["arg1", "arg2", "arg3", "arg4"][0:self.nargs]
     assert( len(operands)==self.nargs)
     if self.nargs==1:
       s = "IRExpr_Unop("
@@ -44,6 +46,9 @@ class IROp_Info:
       s += ", "+op
     s += ")"
     return s
+
+def makeprint(irop_info, fpsize, simdsize, llo):
+  return "IRExpr* value = "+irop_info.apply() + "; " + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,value_part);")
 
 
 ### Handling of floating-point arithmetic operations. ###
@@ -139,28 +144,31 @@ def assembleSIMDVector(expressions,fpsize):
       return f"IRExpr_Qop(Iop_64x4toV256, {expressions[3]}, {expressions[2]}, {expressions[1]}, {expressions[0]})"
   assert(False)
 
-def applyComponentwisely(inputs,outputs,fpsize,simdsize,body):
+def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest=None):
   """
     Apply C code for all components of a SIMD expression individually, 
     and assemble the output from the individual results.
 
     E.g. 
       // obtain components [0] of inputs
-      <body>
+      <bodyLowest>
       // remember outputs as the total output contains them as components [0]
       // obtain components [1] of inputs
-      <body>
+      <bodyNonLowest>
       // remember outputs as the total output contains them as components [1]
-      // ...
+      // ... (use bodyNonLowest)
       // assemble total outputs from remembered partial outputs
 
     @param inputs - Dictionary: variable name of an input IRExpr* => variable name of portion as used by body
     @param outputs - Dictionary: variable name of an output IRExpr* => variable name of portion as used by body
     @param fpsize - Size of component, either 4 or 8 (bytes)
     @param simdsize - Number of components
-    @param body - C code applied to all components
+    @param bodyLowest - C code applied to lowest-lane component
+    @param bodyNonLowest - C code applied to non-lowest-lane components
     @returns C code applying body to all components.
   """
+  if not bodyNonLowest:
+    bodyNonLowest = bodyLowest
   s = ""
   for outvar in outputs:
     s += f"IRExpr* {outputs[outvar]}_arr[{simdsize}]; "
@@ -170,7 +178,7 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,body):
       s += f"IRExpr* {inputs[invar]} = {getSIMDComponent(invar,fpsize,simdsize,component)}; "
       if fpsize==4: # widen to 64 bit
         s += f"{inputs[invar]} = IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),{inputs[invar]}); "
-    s += body
+    s += bodyLowest if component==0 else bodyNonLowest
     for outvar in outputs:
       if fpsize==4: # extract the 32 bit
         s += f"{outputs[outvar]} = IRExpr_Unop(Iop_64to32,{outputs[outvar]});"
@@ -206,6 +214,12 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
   mul.diff = add.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,d3,arg2))
   div.diff = div.apply(arg1,sub.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,arg2,d3)),mul.apply(arg1,arg3,arg3))
   sqrt.diff = div.apply(arg1,d2,mul.apply(arg1,makeTwo(fpsize,simdsize),sqrt.apply(arg1,arg2)))
+
+  add.diff_pre += makeprint(add,fpsize,simdsize,llo)
+  sub.diff_pre += makeprint(sub,fpsize,simdsize,llo)
+  mul.diff_pre += makeprint(mul,fpsize,simdsize,llo)
+  div.diff_pre += makeprint(div,fpsize,simdsize,llo)
+  sqrt.diff_pre += makeprint(sqrt,fpsize,simdsize,llo)
 
   IROp_Infos += [add,sub,mul,div,sqrt]
 # Neg - different set of SIMD setups, no rounding mode
