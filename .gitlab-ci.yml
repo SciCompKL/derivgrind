@@ -8,7 +8,7 @@ build:
   script:
     - apt-get update
     - apt-get install -y build-essential binutils automake gcc-multilib python3 gfortran
-    - cd derivgrind && python3 gen_replace_math.py && python3 gen_dot_operations > dg_dot_operations.c && cd -
+    - cd derivgrind && python3 gen_replace_math.py && python3 gen_dot_operations.py > dg_dot_operations.c && cd -
     - ./autogen.sh
     - CFLAGS=-g ./configure --prefix=$PWD/install
     - make install
