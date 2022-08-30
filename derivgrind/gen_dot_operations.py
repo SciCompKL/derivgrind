@@ -1,32 +1,60 @@
 """Create a list of C "case" statements handling VEX IR operations.
 """
 
-# Among the large set of VEX operations, there are always set of operations 
+# Among the large set of VEX operations, there are always subset of operations 
 # that can be treated similarly, but these sets differ between tools.
 # I hope that this script makes all the necessary distinctions and is as
 # short as possible.
 
 class IROp_Info:
   """Represents one Iop_...."""
-  def __init__(self,name,diff,nargs,diffinputs,fpsize,simdsize,llo):
-    self.name = name # e.g. Iop_Add64Fx2
-    self.diff = diff # e.g. IRExpr_Triop(Iop_Add64Fx2, arg1, d2, d3) (C code assembling VEX for the derivative)
-    self.nargs = nargs # e.g. 3 (number of operands)
-    self.diffinputs = diffinputs # e.g. [2,3] (inputs whose derivative is needed)
-    self.fpsize = fpsize # e.g. 8 (scalar size in bytes)
-    self.simdsize = simdsize # e.g. 2 (number of scalar components)
-    self.llo = llo # True if lowest-lane-only SIMD operation
-    self.diff_pre = "" # Stuff in front of the return diff statement
-  def makeCase(self):
-    """Return the "case Iop_..: ..." statement."""
-    s = f"case {self.name}: {{"
+  def __init__(self,name,nargs,diffinputs,fpsize=None,simdsize=None,llo=None):
+    """Constructor.
+
+      @param name - C identifier of the IROp, e.g. Iop_Add64Fx2
+      @param nargs - Number of operands
+      @param diffinputs - Indices of operands whose derivative is required, as a list.
+      @param fpsize - Size of a component in bytes, 4 or 8.
+      @param simdsize - Number of components, 1, 2, 4 or 8.
+      @param llo - Is this a lowest-lane-only operation?
+    """
+    self.name = name
+    self.nargs = nargs
+    self.diffinputs = diffinputs
+    self.fpsize = fpsize
+    self.simdsize = simdsize
+    self.llo = llo
+    # C code computing dotvalue from arg1,arg2,.. and d1,d2,.., must be set after construction.
+    self.dotcode = "" 
+      
+
+  def make_printcode(self,fpsize,simdsize,llo):
+    if fpsize==4:
+      return f"IRExpr* value = {irop_info.apply()};" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)));")
+    else:
+      return f"IRExpr* value = {irop_info.apply()};" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part));")
+
+  def makeCase(self, print_results=False):
+    """Return the "case Iop_..: ..." statement for dg_dot_operands.c.
+      @param print_results - If True, add output statements that print the value and dotvalue.
+    """
+    s = f"\ncase {self.name}: {{\n"
+    # check that diffinputs can be differentiated
     for i in self.diffinputs:
       s += f"if(!d{i}) return NULL; "
-    s += self.diff_pre
-    s += f"return {self.diff}; }}"
+    # compute dot value
+    s += self.dotcode
+    # add print statement if required
+    if print_results and self.fpsize and self.simdsize:
+      s += f"IRExpr* value = {self.apply()};" 
+      if self.fpsize==4:
+        s += applyComponentwisely({"value":"value_part"}, {}, self.fpsize, self.simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)));")
+      else:
+        s += applyComponentwisely({"value":"value_part"}, {}, self.fpsize, self.simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part));")
+    s += f"return dotvalue; \n}}"
     return s
   def apply(self,*operands):
-    """Produce C code that applied the operation.
+    """Produce C code that applies the operation.
       @param operands - List of strings containing C code producing the operand expressions. "None" elements are discarded. If empty, apply to arg1, arg2, ...
     """
     operands = [op for op in operands if op]
@@ -46,13 +74,6 @@ class IROp_Info:
       s += ", "+op
     s += ")"
     return s
-
-def makeprint(irop_info, fpsize, simdsize, llo):
-  if fpsize==4:
-    return f"IRExpr* value = {irop_info.apply()};" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)));")
-  else:
-    return f"IRExpr* value = {irop_info.apply()};" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part));")
-
 
 ### Handling of floating-point arithmetic operations. ###
 
@@ -121,6 +142,8 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
 IROp_Infos = []
 
 
+dv = lambda expr: f"IRExpr* dotvalue = {expr};" # assign expression to dotvalue
+
 ### Basic scalar, SIMD, and lowest-lane-only SIMD arithmetic. ###
 
 for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p32F0x4, p64F0x2]:
@@ -130,56 +153,51 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
     arg1 = None; arg2 = "arg1"; arg3 = "arg2"; d2 = "d1"; d3 = "d2";
   else:
     arg1 = "arg1"; arg2 = "arg2"; arg3 = "arg3"; d2 = "d2"; d3 = "d3";
-  add = IROp_Info(f"Iop_Add{suffix}",None,3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
-  sub = IROp_Info(f"Iop_Sub{suffix}",None,3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
-  mul = IROp_Info(f"Iop_Mul{suffix}",None,3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
-  div = IROp_Info(f"Iop_Div{suffix}",None,3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
-  sqrt = IROp_Info(f"Iop_Sqrt{suffix}",None,2-llo,[2-llo],fpsize,simdsize,llo)
+  add = IROp_Info(f"Iop_Add{suffix}",3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
+  sub = IROp_Info(f"Iop_Sub{suffix}",3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
+  mul = IROp_Info(f"Iop_Mul{suffix}",3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
+  div = IROp_Info(f"Iop_Div{suffix}",3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
+  sqrt = IROp_Info(f"Iop_Sqrt{suffix}",2-llo,[2-llo],fpsize,simdsize,llo)
 
-  add.diff = add.apply(arg1,d2,d3)
-  sub.diff = sub.apply(arg1,d2,d3)
-  mul.diff = add.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,d3,arg2))
-  div.diff = div.apply(arg1,sub.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,arg2,d3)),mul.apply(arg1,arg3,arg3))
-  sqrt.diff = div.apply(arg1,d2,mul.apply(arg1,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(arg1,arg2)))
-
-  add.diff_pre += makeprint(add,fpsize,simdsize,llo)
-  sub.diff_pre += makeprint(sub,fpsize,simdsize,llo)
-  mul.diff_pre += makeprint(mul,fpsize,simdsize,llo)
-  div.diff_pre += makeprint(div,fpsize,simdsize,llo)
-  sqrt.diff_pre += makeprint(sqrt,fpsize,simdsize,llo)
+  add.dotcode = dv(add.apply(arg1,d2,d3))
+  sub.dotcode = dv(sub.apply(arg1,d2,d3))
+  mul.dotcode = dv(add.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,d3,arg2)))
+  div.dotcode = dv(div.apply(arg1,sub.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,arg2,d3)),mul.apply(arg1,arg3,arg3)))
+  sqrt.dotcode = dv(div.apply(arg1,d2,mul.apply(arg1,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(arg1,arg2))))
 
   IROp_Infos += [add,sub,mul,div,sqrt]
+
 # Neg - different set of SIMD setups, no rounding mode
 for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1),("64Fx2",8,2),("32Fx2",4,2),("32Fx4",4,4)]:
-  neg = IROp_Info(f"Iop_Neg{suffix}", None,1,[1],fpsize,simdsize,False)
-  neg.diff = neg.apply("d1")
+  neg = IROp_Info(f"Iop_Neg{suffix}", 1,[1],fpsize,simdsize,False)
+  neg.dotcode = dv(neg.apply("d1"))
   IROp_Infos += [ neg ]
 # Abs 
 for suffix,fpsize,simdsize,llo in [pF64,pF32]: # p64Fx2, p32Fx2, p32Fx4 exist, but AD logic is different
-  abs_ = IROp_Info(f"Iop_Abs{suffix}", None, 1, [1], fpsize, simdsize, False)
-  abs_.diff = f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}i(0)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)"
+  abs_ = IROp_Info(f"Iop_Abs{suffix}", 1, [1], fpsize, simdsize, False)
+  abs_.dotcode = dv(f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}i(0)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)")
   IROp_Infos += [ abs_ ]
 # Min, Max
 for Op, op in [("Min", "min"), ("Max", "max")]:
   for suffix,fpsize,simdsize,llo in [p32Fx2,p32Fx4,p32F0x4,p64Fx2,p64F0x2,p32Fx8,p64Fx4]:
-    the_op = IROp_Info(f"Iop_{Op}{suffix}", "result", 2, [1,2], fpsize, simdsize, llo)
-    the_op.diff_pre = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"result":"result_part"}, fpsize, simdsize, f'IRExpr* result_part = mkIRExprCCall(Ity_I64,0,"dg_arithmetic_{op}{fpsize*8}", &dg_arithmetic_{op}{fpsize*8}, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));')
+    the_op = IROp_Info(f"Iop_{Op}{suffix}", 2, [1,2], fpsize, simdsize, llo)
+    the_op.dotcode = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"dotvalue":"dotvalue_part"}, fpsize, simdsize, f'IRExpr* dotvalue_part = mkIRExprCCall(Ity_I64,0,"dg_arithmetic_{op}{fpsize*8}", &dg_arithmetic_{op}{fpsize*8}, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
     IROp_Infos += [ the_op ]
 # fused multiply-add
 for Op in ["Add", "Sub"]:
-  for suffix in ["F64", "F32"]:
-    IROp_Infos += [ IROp_Info(f"Iop_M{Op}{suffix}", f"IRExpr_Triop(Iop_{Op}{suffix}, arg1, IRExpr_Triop(Iop_{Op}{suffix},arg1,d2,arg3), IRExpr_Qop(Iop_M{Op}{suffix},arg1,arg2,d3,d4))", 4, [2,3,4],0,0,False) ]
+  for suffix,fpsize,simdsize,llo in [pF64,pF32]:
+    the_op = IROp_Info(f"Iop_M{Op}{suffix}", 4, [2,3,4], fpsize,simdsize,llo)
+    the_op.dotcode = dv(f"IRExpr_Triop(Iop_{Op}{suffix}, arg1, IRExpr_Triop(Iop_{Op}{suffix},arg1,d2,arg3), IRExpr_Qop(Iop_M{Op}{suffix},arg1,arg2,d3,d4))")
+    IROp_Infos += [ the_op ]
 
 # Miscellaneous
-IROp_Infos += [
-  IROp_Info("Iop_ScaleF64", "IRExpr_Triop(Iop_ScaleF64,arg1,d2,arg3)", 3, [2], 8, 1, False),
-  IROp_Info("Iop_Yl2xF64", "IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xF64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),arg3)))", 3, [2,3], 8, 1, False),
-  IROp_Info("Iop_Yl2xp1F64", "IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xp1F64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.))))))", [3], [2,3], 8, 1, False),
-]
-
-  
-
-
+scalef64 = IROp_Info("Iop_ScaleF64",  3, [2], 8, 1, False)
+scalef64.dotcode = dv(scalef64.apply("arg1","d2","arg3"))
+yl2xf64 = IROp_Info("Iop_Yl2xF64", 3, [2,3], 8, 1, False)
+yl2xf64.dotcode = dv("IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xF64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),arg3)))")
+yl2xp1f64 = IROp_Info("Iop_Yl2xp1F64", 3, [2,3], 8, 1, False)
+yl2xp1f64.dotcode = dv("IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xp1F64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.))))))")
+IROp_Infos += [ scalef64, yl2xf64, yl2xp1f64 ]
 
 ### Logical instructions. ###
 
@@ -187,8 +205,8 @@ for Op, op in [("And","and"), ("Or","or"), ("Xor","xor")]:
   # the dirty calls handling 8-byte blocks also consider the case of 2 x 4 bytes
   for (simdsize,fpsize) in [(1,4),(1,8),(2,8),(4,8)]:
     size = simdsize*fpsize*8
-    the_op = IROp_Info(f"Iop_{Op}{'V' if size>=128 else ''}{size}", "result", 2, [1,2], 0,0,False)
-    the_op.diff_pre = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"result":"result_part"}, fpsize, simdsize, f'IRExpr* result_part = mkIRExprCCall(Ity_I64,0,"dg_logical_{op}64", &dg_logical_{op}64, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
+    the_op = IROp_Info(f"Iop_{Op}{'V' if size>=128 else ''}{size}", 2, [1,2], 0,0,False)
+    the_op.dotcode = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"dotvalue":"dotvalue_part"}, fpsize, simdsize, f'IRExpr* dotvalue_part = mkIRExprCCall(Ity_I64,0,"dg_logical_{op}64", &dg_logical_{op}64, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
     IROp_Infos += [ the_op ]
 
 # Pass-through unary operations
@@ -203,26 +221,47 @@ for j1 in [8,16,32,64]:
   for j2 in [8,16,32,64]:
     if j1<j2:
       ops += [f"{j1}Uto{j2}", f"{j1}Sto{j2}"]
-IROp_Infos += [IROp_Info(f"Iop_{op}", f"IRExpr_Unop(Iop_{op},d1)",1,[1],0,0,False) for op in ops]
-# Zero-derivative unary operations
-IROp_Infos += [IROp_Info(f"Iop_I32{su}toF64", "IRExpr_Const(IRConst_F64i(0))", 1, [], 0,0,False) for su in ["S","U"]]
+for op in ops:
+  the_op = IROp_Info(f"Iop_{op}",1,[1])
+  the_op.dotcode = dv(f"IRExpr_Unop(Iop_{op},d1)")
+  IROp_Infos += [the_op]
 
-IROp_Infos += [IROp_Info("Iop_F64toF32","IRExpr_Binop(Iop_F64toF32,arg1,d2)",2,[2],0,0,False)]
+# Zero-derivative unary operations
+for op in ["I32StoF64", "I32UtoF64"]:
+  the_op = IROp_Info(f"Iop_{op}",1,[])
+  the_op.dotcode = dv("IRExpr_Const(IRConst_F64i(0))")
+  IROp_Infos += [the_op]
+
 # Pass-through binary operations
 ops = []
 ops += [f"Iop_{n}HLto{2*n}" for n in [8,16,32,64]]
 ops += ["Iop_64HLtoV128", "Iop_V128HLtoV256"]
 ops += ["Iop_SetV128lo32", "Iop_SetV128lo64"]
 ops += [f"Iop_Interleave{hilo}{n}x{128//n}" for hilo in ["HI","LO"] for n in [8,16,32,64]]
-IROp_Infos += [IROp_Info(op, f"IRExpr_Binop({op},d1,d2)",2,[1,2],0,0,False) for op in ops]
+for op in ops:
+  the_op = IROp_Info(op,2,[1,2])
+  the_op.dotcode = dv(f"IRExpr_Binop({op},d1,d2)")
+  IROp_Infos += [the_op]
+
+# Partial pass-through binary operation
+f64tof32 = IROp_Info("Iop_F64toF32",2,[2])
+f64tof32.dotcode = dv(f64tof32.apply("arg1","d2"))
+IROp_Infos += [f64tof32]
+
 # Zero-derivative binary operations
 for op in ["I64StoF64","I64UtoF64","RoundF64toInt"]:
-  IROp_Infos += [IROp_Info(f"Iop_{op}","IRExpr_Const(IRConst_F64i(0))",2,[],8,1,False)]
+  the_op = IROp_Info(f"Iop_{op}",2,[],8,1,False)
+  the_op.dotcode = dv("IRExpr_Const(IRConst_F64i(0))")
+  IROp_Infos += [the_op]
 for op in ["I64StoF32","I64UtoF32","I32StoF32","I32UtoF32"]:
-  IROp_Infos += [IROp_Info(f"Iop_{op}","IRExpr_Const(IRConst_F32i(0))",2,[],4,1,False)]
+  the_op = IROp_Info(f"Iop_{op}",2,[],4,1,False)
+  the_op.dotcode = dv("IRExpr_Const(IRConst_F32i(0))")
+  IROp_Infos += [the_op]
 
 # Pass-through quarternary operations
-IROp_Infos += [IROp_Info("Iop_64x4toV256","IRExpr_Qop(Iop_64x4toV256,d1,d2,d3,d4)",4,[1,2,3,4],0,0,0)]
+i64x4tov256 = IROp_Info("Iop_64x4toV256",4,[1,2,3,4])
+i64x4tov256.dotcode = dv("IRExpr_Qop(Iop_64x4toV256,d1,d2,d3,d4)")
+IROp_Infos += [i64x4tov256]
 
 
 
@@ -233,6 +272,6 @@ IROp_Missing = ["Iop_Div32Fx2","Iop_Sqrt32Fx2"]
 IROp_Infos = [irop_info for irop_info in IROp_Infos if irop_info.name not in IROp_Missing]
 
 for irop_info in IROp_Infos:
-  print(irop_info.makeCase())
+  print(irop_info.makeCase(False))
 
 

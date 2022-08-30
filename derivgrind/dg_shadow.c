@@ -490,7 +490,8 @@ void storeShadowMemory(void* sm, IRSB* sb_out, IRExpr* addr, IRExpr* expr, IRExp
  *  \param[in] tag - Tag that is also printed.
  *  \param[in] value - Printed value.
  */
-static VG_REGPARM(0) void dg_Print_double(ULong tag, ULong value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%lf\n", *(double*)&value); }
+static int outcount = 0;
+static VG_REGPARM(0) void dg_Print_double(ULong tag, ULong value){ /*VG_(printf)("Value for %d : ", tag); */if(outcount++%1==0) VG_(printf)("%lf\n", *(double*)&value); }
 static VG_REGPARM(0) void dg_Print_unsignedlong(ULong tag, ULong value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%p\n", (void*)value); }
 static VG_REGPARM(0) void dg_Print_unsignedint(ULong tag, Int value){ VG_(printf)("Value for %d : ", tag); VG_(printf)("%p\n", (void*)value); }
 
