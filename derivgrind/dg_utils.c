@@ -142,6 +142,35 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
   }
 }
 
+IRExpr* assembleSIMDVector(IRExpr** expressions, int simdsize, DiffEnv* diffenv){
+  IRType type = typeOfIRExpr(diffenv->sb_out->tyenv,expressions[0]);
+  for(int i=0; i<simdsize; i++){
+    tl_assert(typeOfIRExpr(diffenv->sb_out->tyenv,expressions[i])==type);
+    if(type==Ity_F64) expressions[i] = IRExpr_Unop(Iop_ReinterpF64asI64,expressions[i]);
+    if(type==Ity_F32) expressions[i] = IRExpr_Unop(Iop_ReinterpF32asI32,expressions[i]);
+  }
+  if(sizeofIRType(type)==4){
+    switch(simdsize){
+      case 1: return expressions[0];
+      case 2: return IRExpr_Binop(Iop_32HLto64,expressions[1],expressions[0]);
+      case 4: return IRExpr_Binop(Iop_64HLtoV128,
+        IRExpr_Binop(Iop_32HLto64,expressions[3],expressions[2]),
+        IRExpr_Binop(Iop_32HLto64,expressions[1],expressions[0]) );
+      case 8: return IRExpr_Qop(Iop_64x4toV256,
+        IRExpr_Binop(Iop_32HLto64,expressions[7],expressions[6]),
+        IRExpr_Binop(Iop_32HLto64,expressions[5],expressions[4]),
+        IRExpr_Binop(Iop_32HLto64,expressions[3],expressions[2]),
+        IRExpr_Binop(Iop_32HLto64,expressions[1],expressions[0]) );
+    }
+  } else {
+    switch(simdsize){
+      case 1: return expressions[0];
+      case 2: return IRExpr_Binop(Iop_64HLtoV128,expressions[1],expressions[0]);
+      case 4: return IRExpr_Qop(Iop_64x4toV256,expressions[3],expressions[2],expressions[1],expressions[0]);
+    }
+  }
+}
+
 IRExpr* convertToF64(IRExpr* expr, DiffEnv* diffenv, IRType* originaltype){
   *originaltype = typeOfIRExpr(diffenv->sb_out->tyenv, expr);
   switch(*originaltype){

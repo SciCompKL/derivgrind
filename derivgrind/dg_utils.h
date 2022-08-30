@@ -118,7 +118,12 @@ IRExpr* convertFromF64(IRExpr* expr, IRType originaltype);
  */
 IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int component, DiffEnv* diffenv);
 
-
+/*! Assemble a SIMD vector from expressions for its components.
+ *  \param[in] expressions - Array of expressions for components.
+ *  \param[in] simdsize - Number of components.
+ *  \param[in] diffenv - Additional data.
+ */
+IRExpr* assembleSIMDVector(IRExpr** expressions, int simdsize, DiffEnv* diffenv);
 
 
 #endif // DG_UTILS_H

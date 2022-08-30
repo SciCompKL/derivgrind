@@ -71,30 +71,6 @@ p32Fx8 = ("32Fx8",4,8,False)
 p32F0x4 = ("32F0x4",4,4,True)
 p64F0x2 = ("64F0x2",8,2,True)
 
-def assembleSIMDVector(expressions,fpsize):
-  """Produce C code for an expression that contains all the components.
-
-  E.g. IRExpr_Binop(Iop_32HLto64, <expressions[1]>, <expressions[0]>.
-  """
-  simdsize = len(expressions)
-  if fpsize==4:
-    if simdsize==1:
-      return expressions[0]
-    elif simdsize==2:
-      return f"IRExpr_Binop(Iop_32HLto64,{expressions[1]},{expressions[0]})"
-    elif simdsize==4:
-      return f"IRExpr_Binop(Iop_64HLtoV128, IRExpr_Binop(Iop_32HLto64,{expressions[3]},{expressions[2]}), IRExpr_Binop(Iop_32HLto64,{expressions[1]},{expressions[0]}))"
-    elif simdsize==8:
-      return f"IRExpr_Qop(Iop_64x4toV256, IRExpr_Binop(Iop_32HLto64,{expressions[7]},{expressions[6]}), IRExpr_Binop(Iop_32HLto64,{expressions[5]},{expressions[4]}), IRExpr_Binop(Iop_32HLto64,{expressions[3]},{expressions[2]}), IRExpr_Binop(Iop_32HLto64,{expressions[1]},{expressions[0]}) )"
-  elif fpsize==8:
-    if simdsize==1:
-      return expressions[0]
-    elif simdsize==2:
-      return f"IRExpr_Binop(Iop_64HLtoV128,{expressions[1]},{expressions[0]})"
-    elif simdsize==4:
-      return f"IRExpr_Qop(Iop_64x4toV256, {expressions[3]}, {expressions[2]}, {expressions[1]}, {expressions[0]})"
-  assert(False)
-
 def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest=None):
   """
     Apply C code for all components of a SIMD expression individually, 
@@ -136,7 +112,7 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
       s += f"{outputs[outvar]}_arr[{component}] = {outputs[outvar]};" 
     s += "}"
   for outvar in outputs:
-    s += f"IRExpr* {outvar} = " + assembleSIMDVector([f"{outputs[outvar]}_arr[{i}]" for i in range(simdsize)], fpsize) + ";"
+    s += f"IRExpr* {outvar} = assembleSIMDVector({outputs[outvar]}_arr, {simdsize}, diffenv);"
   return s
       
 
