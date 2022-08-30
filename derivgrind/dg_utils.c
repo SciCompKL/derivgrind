@@ -77,6 +77,71 @@ IRExpr* mkIRConst_ones(IRType type){
   }
 }
 
+IRExpr* mkIRConst_fptwo(int fpsize, int simdsize){
+  if(fpsize==4){
+    switch(simdsize){
+      case 1:
+        return IRExpr_Const(IRConst_F32(2.));
+      case 2: {
+        IRExpr* two = IRExpr_Unop(Iop_ReinterpF32asI32,mkIRConst_fptwo(4,1));
+        return IRExpr_Binop(Iop_32HLto64, two, two);
+      }
+      case 4: {
+        IRExpr* two = mkIRConst_fptwo(4,2);
+        return IRExpr_Binop(Iop_64HLtoV128,two,two);
+      }
+      case 8: {
+        IRExpr* two = mkIRConst_fptwo(4,2);
+        return IRExpr_Qop(Iop_64x4toV256, two, two, two, two);
+      }
+    }
+  } else {
+    switch(simdsize){
+      case 1:
+        return IRExpr_Const(IRConst_F64(2.));
+      case 2: {
+        IRExpr* two = IRExpr_Unop(Iop_ReinterpF64asI64, mkIRConst_fptwo(8,1));
+        return IRExpr_Binop(Iop_64HLtoV128, two, two);
+      }
+      case 4: {
+        IRExpr* two = IRExpr_Unop(Iop_ReinterpF64asI64, mkIRConst_fptwo(8,1));
+        return IRExpr_Qop(Iop_64x4toV256, two, two, two, two);
+      }
+    }
+  }
+}
+
+IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int component, DiffEnv* diffenv){
+  // reinterpret expression as I32, I64, V128, V256
+  IRType type = typeOfIRExpr(diffenv->sb_out->tyenv,expression);
+  if(type==Ity_F64) expression = IRExpr_Unop(Iop_ReinterpF64asI64, expression);
+  if(type==Ity_F32) expression = IRExpr_Unop(Iop_ReinterpF32asI32, expression);
+  if(type==Ity_I128) expression = IRExpr_Unop(Iop_ReinterpI128asV128, expression);
+  type = typeOfIRExpr(diffenv->sb_out->tyenv,expression);
+  if(type!=Ity_I32&&type!=Ity_I64&&type!=Ity_V128&&type!=Ity_V256){
+    VG_(printf)("Bad type in getSIMDComponent.");
+    tl_assert(False);
+  }
+  // extract component
+  static const IROp arr64to32[2] = {Iop_64to32,Iop_64HIto32};
+  static const IROp arr128to64[2] = {Iop_128to64,Iop_128HIto64};
+  static const IROp arr256to64[4] = {Iop_V256to64_0,Iop_V256to64_1,Iop_V256to64_2,Iop_V256to64_3};
+  if(fpsize==4){
+    switch(simdsize){
+      case 1: return expression;
+      case 2: return IRExpr_Unop(arr64to32[component], expression);
+      case 4: return IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr128to64[component/2], expression));
+      case 8: return IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr256to64[component/2], expression));
+    }
+  } else {
+    switch(simdsize){
+      case 1: return expression;
+      case 2: return IRExpr_Unop(arr128to64[component], expression);
+      case 4: return IRExpr_Unop(arr256to64[component], expression);
+    }
+  }
+}
+
 IRExpr* convertToF64(IRExpr* expr, DiffEnv* diffenv, IRType* originaltype){
   *originaltype = typeOfIRExpr(diffenv->sb_out->tyenv, expr);
   switch(*originaltype){

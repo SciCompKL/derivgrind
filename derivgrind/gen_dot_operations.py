@@ -48,7 +48,10 @@ class IROp_Info:
     return s
 
 def makeprint(irop_info, fpsize, simdsize, llo):
-  return "IRExpr* value = "+irop_info.apply() + "; " + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,value_part);")
+  if fpsize==4:
+    return f"IRExpr* value = IRExpr_Unop(Iop_ReinterpF32asI32,{irop_info.apply()});" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)));")
+  else:
+    return f"IRExpr* value = IRExpr_Unop(Iop_ReinterpF64asI64,{irop_info.apply()});" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part));")
 
 
 ### Handling of floating-point arithmetic operations. ###
@@ -107,7 +110,7 @@ def getSIMDComponent(expression, fpsize,simdsize,component):
     elif simdsize==2:
       return f"IRExpr_Unop(Iop_{['64to32','64HIto32'][component]}, {expression})"
     elif simdsize==4:
-      return f"IRExpr_Unop(Iop_{['64to32','64HIto32','64to32','64HIto32'][component]}, IRExpr_Unop(Iop_{['64to32','64to32','64HIto32','64HIto32'][component]}, {expression}))"
+      return f"IRExpr_Unop(Iop_{['64to32','64HIto32','64to32','64HIto32'][component]}, IRExpr_Unop(Iop_{['V128to64','V128to64','V128HIto64','V128HIto64'][component]}, {expression}))"
     elif simdsize==8:
       return f"IRExpr_Unop(Iop_{['64to32','64HIto32'][component%2]}, IRExpr_Unop(Iop_V256to64_{component//2}, {expression}))"
   elif fpsize==8:
