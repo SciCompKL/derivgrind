@@ -49,9 +49,9 @@ class IROp_Info:
 
 def makeprint(irop_info, fpsize, simdsize, llo):
   if fpsize==4:
-    return f"IRExpr* value = IRExpr_Unop(Iop_ReinterpF32asI32,{irop_info.apply()});" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)));")
+    return f"IRExpr* value = {irop_info.apply()};" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)));")
   else:
-    return f"IRExpr* value = IRExpr_Unop(Iop_ReinterpF64asI64,{irop_info.apply()});" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part));")
+    return f"IRExpr* value = {irop_info.apply()};" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part));")
 
 
 ### Handling of floating-point arithmetic operations. ###
@@ -70,58 +70,6 @@ p32Fx4 = ("32Fx4",4,4,False)
 p32Fx8 = ("32Fx8",4,8,False)
 p32F0x4 = ("32F0x4",4,4,True)
 p64F0x2 = ("64F0x2",8,2,True)
-
-def makeTwo(fpsize,simdsize):
-  """C code for an expression evaluating to a vector of 2's.
-    This is useful in the denominator of the derivative of sqrt.
-  """
-  if fpsize==4:
-    if simdsize==1:
-      return f"IRExpr_Const(IRConst_F32(2.))"
-    elif simdsize==2:
-      two = f"IRExpr_Unop(Iop_ReinterpF32asI32, {makeTwo(4,1)})"
-      return f"IRExpr_Binop(Iop_32HLto64, {two}, {two})"
-    elif simdsize==4:
-      two = makeTwo(4,2)
-      return f"IRExpr_Binop(Iop_64HLtoV128, {two}, {two})"
-    elif simdsize==8:
-      two = makeTwo(4,2)
-      return f"IRExpr_Qop(Iop_64x4toV256, {two}, {two}, {two}, {two})"
-  else:
-    if simdsize==1:
-      return f"IRExpr_Const(IRConst_F64(2.))"
-    elif simdsize==2:
-      two = f"IRExpr_Unop(Iop_ReinterpF64asI64, {makeTwo(8,1)})"
-      return f"IRExpr_Binop(Iop_64HLtoV128, {two}, {two})"
-    elif simdsize==4:
-      two = f"IRExpr_Unop(Iop_ReinterpF64asI64, {makeTwo(8,1)})"
-      return f"IRExpr_Qop(Iop_64x4toV256, {two}, {two}, {two}, {two})"
-    
-def getSIMDComponent(expression, fpsize,simdsize,component):
-  """
-    Produce C code for an expression that contains a single  component of an 
-    expression of VEX type I32, I64, V128 or V256.
-    
-    E.g. IRExpr_Unop(Iop_64HIto32, <expression>)
-  """
-  if fpsize==4:
-    if simdsize==1:
-      return expression
-    elif simdsize==2:
-      return f"IRExpr_Unop(Iop_{['64to32','64HIto32'][component]}, {expression})"
-    elif simdsize==4:
-      return f"IRExpr_Unop(Iop_{['64to32','64HIto32','64to32','64HIto32'][component]}, IRExpr_Unop(Iop_{['V128to64','V128to64','V128HIto64','V128HIto64'][component]}, {expression}))"
-    elif simdsize==8:
-      return f"IRExpr_Unop(Iop_{['64to32','64HIto32'][component%2]}, IRExpr_Unop(Iop_V256to64_{component//2}, {expression}))"
-  elif fpsize==8:
-    if simdsize==1:
-      return expression
-    elif simdsize==2:
-      return f"IRExpr_Unop(Iop_{['V128to64','V128HIto64'][component]}, {expression})"
-    elif simdsize==4:
-      assert(0<=component and component<4)
-      return f"IRExpr_Unop(Iop_V256to64_{component},{expression})"
-  assert(False)
 
 def assembleSIMDVector(expressions,fpsize):
   """Produce C code for an expression that contains all the components.
@@ -178,7 +126,7 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
   for component in range(simdsize): # for each component
     s += "{"
     for invar in inputs: # extract component
-      s += f"IRExpr* {inputs[invar]} = {getSIMDComponent(invar,fpsize,simdsize,component)}; "
+      s += f"IRExpr* {inputs[invar]} = getSIMDComponent({invar},{fpsize},{simdsize},{component},diffenv); "
       if fpsize==4: # widen to 64 bit
         s += f"{inputs[invar]} = IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),{inputs[invar]}); "
     s += bodyLowest if component==0 else bodyNonLowest
@@ -216,7 +164,7 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
   sub.diff = sub.apply(arg1,d2,d3)
   mul.diff = add.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,d3,arg2))
   div.diff = div.apply(arg1,sub.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,arg2,d3)),mul.apply(arg1,arg3,arg3))
-  sqrt.diff = div.apply(arg1,d2,mul.apply(arg1,makeTwo(fpsize,simdsize),sqrt.apply(arg1,arg2)))
+  sqrt.diff = div.apply(arg1,d2,mul.apply(arg1,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(arg1,arg2)))
 
   add.diff_pre += makeprint(add,fpsize,simdsize,llo)
   sub.diff_pre += makeprint(sub,fpsize,simdsize,llo)

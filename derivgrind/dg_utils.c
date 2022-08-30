@@ -124,7 +124,7 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
   }
   // extract component
   static const IROp arr64to32[2] = {Iop_64to32,Iop_64HIto32};
-  static const IROp arr128to64[2] = {Iop_128to64,Iop_128HIto64};
+  static const IROp arr128to64[2] = {Iop_V128to64,Iop_V128HIto64};
   static const IROp arr256to64[4] = {Iop_V256to64_0,Iop_V256to64_1,Iop_V256to64_2,Iop_V256to64_3};
   if(fpsize==4){
     switch(simdsize){
