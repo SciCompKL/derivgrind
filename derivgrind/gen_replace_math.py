@@ -65,7 +65,7 @@ __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x) {{
   OrigFn fn;
   VALGRIND_GET_ORIG_FN(fn);
-  VALGRIND_ENABLE_DIFFQUOTDEBUG(0);
+  VALGRIND_DISABLE_DIFFQUOTDEBUG(1);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}(ret, fn, x);
   if(!called_from_within_wrapper) {{
@@ -76,7 +76,7 @@ __attribute__((optimize("O0")))
     called_from_within_wrapper = false;
     VALGRIND_SET_DERIVATIVE(&ret, &ret_d, {self.size});
   }}
-  VALGRIND_ENABLE_DIFFQUOTDEBUG(1);
+  VALGRIND_DISABLE_DIFFQUOTDEBUG(-1);
   return ret;
 }}
 """
@@ -95,7 +95,7 @@ __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.type} y) {{
   OrigFn fn;
   VALGRIND_GET_ORIG_FN(fn);
-  VALGRIND_ENABLE_DIFFQUOTDEBUG(0);
+  VALGRIND_DISABLE_DIFFQUOTDEBUG(1);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}{self.T}(ret, fn, x, y);
   if(!called_from_within_wrapper) {{
@@ -107,7 +107,7 @@ __attribute__((optimize("O0")))
     called_from_within_wrapper = false;
     VALGRIND_SET_DERIVATIVE(&ret, &ret_d, {self.size});
   }}
-  VALGRIND_ENABLE_DIFFQUOTDEBUG(1);
+  VALGRIND_DISABLE_DIFFQUOTDEBUG(-1);
   return ret;
 }}
 """
@@ -127,7 +127,7 @@ __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.extratype} e) {{
   OrigFn fn;
   VALGRIND_GET_ORIG_FN(fn);
-  VALGRIND_ENABLE_DIFFQUOTDEBUG(0);
+  VALGRIND_DISABLE_DIFFQUOTDEBUG(1);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}{self.extratypeletter}(ret, fn, x, e);
   if(!called_from_within_wrapper) {{
@@ -138,7 +138,7 @@ __attribute__((optimize("O0")))
     called_from_within_wrapper = false;
     VALGRIND_SET_DERIVATIVE(&ret, &ret_d, {self.size});
   }}
-  VALGRIND_ENABLE_DIFFQUOTDEBUG(1);
+  VALGRIND_DISABLE_DIFFQUOTDEBUG(-1);
   return ret;
 }}
 """
