@@ -81,7 +81,8 @@
 typedef
    enum { 
       VG_USERREQ__GET_DERIVATIVE = VG_USERREQ_TOOL_BASE('D','G'),
-      VG_USERREQ__SET_DERIVATIVE
+      VG_USERREQ__SET_DERIVATIVE,
+      VG_USERREQ__ENABLE_DIFFQUOTDEBUG
    } Vg_DerivGrindClientRequest;
 
 
@@ -99,6 +100,12 @@ typedef
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__SET_DERIVATIVE,          \
                             (_qzz_addr), (_qzz_daddr), (_qzz_size), 0, 0)
+
+/* Enable/disable outputting of values and dot values for difference quotient debugging. */
+#define VALGRIND_ENABLE_DIFFQUOTDEBUG(_qzz_newstate) \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__ENABLE_DIFFQUOTDEBUG,    \
+                            (_qzz_newstate), 0, 0, 0, 0)
 
 #endif
 

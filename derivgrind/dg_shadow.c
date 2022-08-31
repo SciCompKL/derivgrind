@@ -537,8 +537,9 @@ void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
 }
 
 static int outcount = 0;
+extern Bool diffquotdebug;
 static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalue){
-  if(outcount++%1==0){
+  if(diffquotdebug && outcount++%1==0){
     VG_(printf)("%lf %lf\n", *(double*)&value, *(double*)&dotvalue);
   }
 }

@@ -81,6 +81,10 @@ static Bool warn_about_unwrapped_expressions = False;
  */
 Bool paragrind = False;
 
+/*! If True, print values and dot values, for difference quotient debugging.
+ */
+Bool diffquotdebug = False;
+
 static void dg_post_clo_init(void)
 {
   if(paragrind){
@@ -92,6 +96,7 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
 {
    if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
    else if VG_BOOL_CLO(arg, "--paragrind", paragrind) {}
+   else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
    else
       return False;
    return True;
@@ -280,6 +285,8 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     shadowSet(sm_dot,addr,daddr,size);
     *ret = 1;
     return True;
+  } else if(arg[0]==VG_USERREQ__ENABLE_DIFFQUOTDEBUG) {
+    diffquotdebug = arg[1];
   } else {
     VG_(printf)("Unhandled user request.\n");
     return True;

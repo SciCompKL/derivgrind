@@ -272,6 +272,6 @@ IROp_Missing = ["Iop_Div32Fx2","Iop_Sqrt32Fx2"]
 IROp_Infos = [irop_info for irop_info in IROp_Infos if irop_info.name not in IROp_Missing]
 
 for irop_info in IROp_Infos:
-  print(irop_info.makeCase(False))
+  print(irop_info.makeCase(True))
 
 
