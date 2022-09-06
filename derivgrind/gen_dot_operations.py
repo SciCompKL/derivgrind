@@ -26,6 +26,7 @@ class IROp_Info:
     self.llo = llo
     # C code computing dotvalue from arg1,arg2,.. and d1,d2,.., must be set after construction.
     self.dotcode = "" 
+    self.disable_print_results = False
       
 
   def make_printcode(self,fpsize,simdsize,llo):
@@ -45,7 +46,7 @@ class IROp_Info:
     # compute dot value
     s += self.dotcode
     # add print statement if required
-    if print_results and self.fpsize and self.simdsize:
+    if print_results and self.fpsize and self.simdsize and not self.disable_print_results:
       s += f"IRExpr* value = {self.apply()};" 
       if self.fpsize==4:
         s += applyComponentwisely({"value":"value_part","dotvalue":"dotvalue_part"}, {}, self.fpsize, self.simdsize, "dg_add_diffquotdebug(diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)),IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, dotvalue_part)));")
@@ -207,6 +208,7 @@ for Op, op in [("And","and"), ("Or","or"), ("Xor","xor")]:
     size = simdsize*fpsize*8
     the_op = IROp_Info(f"Iop_{Op}{'V' if size>=128 else ''}{size}", 2, [1,2], 0,0,False)
     the_op.dotcode = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"dotvalue":"dotvalue_part"}, fpsize, simdsize, f'IRExpr* dotvalue_part = mkIRExprCCall(Ity_I64,0,"dg_logical_{op}64", &dg_logical_{op}64, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
+    the_op.disable_print_results = True # because many are not floating-point operations
     IROp_Infos += [ the_op ]
 
 # Pass-through unary operations
