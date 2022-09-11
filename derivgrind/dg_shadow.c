@@ -536,13 +536,16 @@ void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
   addStmtToIRSB(sb_out, IRStmt_Dirty(di));
 }
 
+#include "pub_tool_gdbserver.h"
+#include "pub_tool_threadstate.h"
 static unsigned long outcount = 0;
 extern Bool diffquotdebug;
 extern Long disable_diffquotdebug;
 static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalue){
   if(diffquotdebug && disable_diffquotdebug==0){
-    if(outcount%100==0){
+    if(outcount==3748601890){
       VG_(printf)("dqd %lu %p %p\n", outcount, (void*)value, (void*)dotvalue);
+      VG_(gdbserver)(VG_(get_running_tid)());
     }
     outcount++;
   }
