@@ -81,6 +81,13 @@ static Bool warn_about_unwrapped_expressions = False;
  */
 Bool paragrind = False;
 
+/*! Print intermediate values and dot values for difference quotient debugging.
+ */
+Bool diffquotdebug = False;
+/*! If nonzero, do not print difference quotient debugging information.
+ */
+Long disable_diffquotdebug = 0;
+
 static void dg_post_clo_init(void)
 {
   if(paragrind){
@@ -92,6 +99,7 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
 {
    if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
    else if VG_BOOL_CLO(arg, "--paragrind", paragrind) {}
+   else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
    else
       return False;
    return True;
@@ -280,6 +288,8 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     shadowSet(sm_dot,addr,daddr,size);
     *ret = 1;
     return True;
+  } else if(arg[0]==VG_USERREQ__DISABLE_DIFFQUOTDEBUG) {
+    disable_diffquotdebug += arg[1];
   } else {
     VG_(printf)("Unhandled user request.\n");
     return True;
@@ -748,14 +758,17 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
   for (/* use current i*/; i < sb_in->stmts_used; i++) {
     stmt_counter++;
     IRStmt* st_orig = sb_in->stmts[i];
-    // VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st_orig); VG_(printf)("\n");
+     //VG_(printf)("next stmt %d :",stmt_counter); ppIRStmt(st_orig); VG_(printf)("\n");
 
     diffenv.cas_succeeded = IRTemp_INVALID;
 
     add_statement_forward(sb_out,st_orig,&diffenv);
     if(paragrind) add_statement_paragrind(sb_out,st_orig,&diffenv);
     add_statement_original(sb_out,st_orig, &diffenv);
+
   }
+  //VG_(printf)("from stmt %d sb :",stmt_counter); ppIRSB(sb_out); VG_(printf)("\n");
+
   return sb_out;
 }
 

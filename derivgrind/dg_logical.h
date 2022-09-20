@@ -43,4 +43,9 @@ VG_REGPARM(0) ULong dg_logical_or64(ULong x, ULong xd, ULong y, ULong yd);
 VG_REGPARM(0) UInt dg_logical_xor32(UInt x, UInt xd, UInt y, UInt yd);
 VG_REGPARM(0) ULong dg_logical_xor64(ULong x, ULong xd, ULong y, ULong yd);
 
+VG_REGPARM(0) ULong dg_arithmetic_min32(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_arithmetic_min64(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_arithmetic_max32(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_arithmetic_max64(ULong x, ULong xd, ULong y, ULong yd);
+
 #endif // DG_LOGICAL_H

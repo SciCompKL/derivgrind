@@ -46,7 +46,9 @@
 
 #define DEFAULT_ROUNDING IRExpr_Const(IRConst_U32(Irrm_NEAREST))
 
-/*! Make zero constant of certain type.
+/*! Make constant of certain type with bitwise representation 0x00..00.
+ *
+ *  This corresponds to a floating-point 0.0.
  */
 IRExpr* mkIRConst_zero(IRType type);
 
@@ -54,6 +56,15 @@ IRExpr* mkIRConst_zero(IRType type);
  */
 IRExpr* mkIRConst_ones(IRType type);
 
+/*! Make SIMD vector filled by components representing the floating-point number 2.0.
+ *
+ * Required for the derivative of the square root.
+ * The type of the return expression is F32 or F64 for scalars,
+ * and I64, V128 or V256 if there is more than one component.
+ * \param[in] fpsize - Size of a component in bytes, 4 or 8.
+ * \param[in] simdsize - Number of components, 1, 2, 4 or 8.
+ */
+IRExpr* mkIRConst_fptwo(int fpsize, int simdsize);
 
 /*! \struct DiffEnv
  *  Data required for differentiation, is passed to differentiate_expr.
@@ -97,6 +108,22 @@ IRExpr* convertToF64(IRExpr* expr, DiffEnv* diffenv, IRType* originaltype);
  */
 IRExpr* convertFromF64(IRExpr* expr, IRType originaltype);
 
+/*! Extract one component of a SIMD vector expression, as I32 or I64 expression.
+ *
+ * \param[in] expression - SIMD vector.
+ * \param[in] fpsize - Size of a component in bytes, 4 or 8.
+ * \param[in] simdsize - Number of components, 1, 2, 4 or 8.
+ * \param[in] component - Index within SIMD vector, 0 <= component < simdsize.
+ * \param[in] diffenv - Additional data.
+ */
+IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int component, DiffEnv* diffenv);
+
+/*! Assemble a SIMD vector from expressions for its components.
+ *  \param[in] expressions - Array of expressions for components.
+ *  \param[in] simdsize - Number of components.
+ *  \param[in] diffenv - Additional data.
+ */
+IRExpr* assembleSIMDVector(IRExpr** expressions, int simdsize, DiffEnv* diffenv);
 
 
 #endif // DG_UTILS_H

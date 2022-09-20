@@ -510,6 +510,11 @@ void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
       fptr = dg_Print_double;
       expr_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,expr);
       break;
+    case Ity_F32:
+      fname = "dg_Print_double";
+      fptr = dg_Print_double;
+      expr_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,IRExpr_Unop(Iop_F32toF64,expr));
+      break;
     case Ity_I64:
       fname = "dg_Print_unsignedlong";
       fptr = dg_Print_unsignedlong;
@@ -530,3 +535,42 @@ void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
         mkIRExprVec_2(IRExpr_Const(IRConst_U64(tag)), expr_to_print));
   addStmtToIRSB(sb_out, IRStmt_Dirty(di));
 }
+
+#include "pub_tool_gdbserver.h"
+#include "pub_tool_threadstate.h"
+static unsigned long outcount = 0;
+extern Bool diffquotdebug;
+extern Long disable_diffquotdebug;
+static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalue){
+  if(diffquotdebug && disable_diffquotdebug==0){
+    if(outcount==3748601890){
+      VG_(printf)("dqd %lu %p %p\n", outcount, (void*)value, (void*)dotvalue);
+      VG_(gdbserver)(VG_(get_running_tid)());
+    }
+    outcount++;
+  }
+}
+void dg_add_diffquotdebug(IRSB* sb_out, IRExpr* value, IRExpr* dotvalue){
+  IRType type = typeOfIRExpr(sb_out->tyenv, value);
+  tl_assert(type == typeOfIRExpr(sb_out->tyenv, dotvalue));
+  IRExpr *value_to_print, *dotvalue_to_print;
+  switch(type){
+    case Ity_F64:
+      value_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,value);
+      dotvalue_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,dotvalue);
+      break;
+    case Ity_F32:
+      value_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,IRExpr_Unop(Iop_F32toF64,value));
+      dotvalue_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,IRExpr_Unop(Iop_F32toF64,dotvalue));
+      break;
+    default:
+      VG_(printf)("Bad type in dg_add_diffquotdebug.\n");
+      return;
+  }
+  IRDirty* di = unsafeIRDirty_0_N(
+        0,
+        "dg_add_diffquotdebug_helper", VG_(fnptr_to_fnentry)(&dg_add_diffquotdebug_helper),
+        mkIRExprVec_2(value_to_print, dotvalue_to_print));
+  addStmtToIRSB(sb_out, IRStmt_Dirty(di));
+}
+
