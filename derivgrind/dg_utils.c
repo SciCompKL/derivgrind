@@ -191,3 +191,42 @@ IRExpr* convertFromF64(IRExpr* expr, IRType originaltype){
     default: VG_(printf)("Bad type in convertFromF64.\n"); tl_assert(False); return NULL;
   }
 }
+
+
+void addressesOfCAS(IRCAS const* det, IRSB* sb_out, IRExpr** addr_Lo, IRExpr** addr_Hi){
+  IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
+  Bool double_element = (det->expdHi!=NULL);
+  IRExpr* offset; // offset between Hi and Lo part of addr
+  IROp add; // operation to add addresses
+  switch(typeOfIRExpr(sb_out->tyenv,det->addr)){
+    case Ity_I32:
+      add = Iop_Add32;
+      offset = IRExpr_Const(IRConst_U32(sizeofIRType(type)));
+      break;
+    case Ity_I64:
+      add = Iop_Add64;
+      offset = IRExpr_Const(IRConst_U64(sizeofIRType(type)));
+      break;
+    default:
+      VG_(printf)("Unhandled type for address in translation of Ist_CAS.\n");
+      tl_assert(False);
+      break;
+  }
+  if(det->end==Iend_LE){
+    if(double_element){
+      *addr_Lo = det->addr;
+      *addr_Hi = IRExpr_Binop(add,det->addr,offset);
+    } else {
+      *addr_Lo = det->addr;
+      *addr_Hi = NULL;
+    }
+  } else { // Iend_BE
+    if(double_element){
+      *addr_Lo = IRExpr_Binop(add,det->addr,offset);
+      *addr_Hi = det->addr;
+    } else {
+      *addr_Lo = det->addr;
+      *addr_Hi = NULL;
+    }
+  }
+}

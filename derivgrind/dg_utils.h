@@ -70,16 +70,12 @@ IRExpr* mkIRConst_fptwo(int fpsize, int simdsize);
  *  Data required for differentiation, is passed to differentiate_expr.
  */
 typedef struct {
-  /*! Offsets for indices of shadow temporaries.
-   *
-   *  Use index 1 for foward-mode AD and index 2 for paragrind.
+  /*! Offset for indices of shadow temporaries.
    */
-  IRTemp tmp_offset[3];
-  /*! Offsets for byte offsets into the shadow guest state (registers).
-   *
-   *  Use index 1 for foward-mode AD and index 2 for paragrind.
+  IRTemp tmp_offset;
+  /*! Offset for byte offsets into the shadow guest state (registers).
    */
-  Int gs_offset[3];
+  Int gs_offset;
   /*! Add helper statements to this IRSB.
    */
   IRSB* sb_out;
@@ -124,6 +120,17 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
  *  \param[in] diffenv - Additional data.
  */
 IRExpr* assembleSIMDVector(IRExpr** expressions, int simdsize, DiffEnv* diffenv);
+
+/*! Helper to extract high/low addresses of CAS statement.
+ *
+ *  One of addr_Lo, addr_Hi is det->addr,
+ *  the other one is det->addr + offset.
+ *  \param[in] det - CAS statement details.
+ *  \param[in] diffenv - Differentiation environment.
+ *  \param[out] addr_Lo - Low address.
+ *  \param[out] addr_Hi - High address.
+ */
+void addressesOfCAS(IRCAS const* det, IRSB* sb_out, IRExpr** addr_Lo, IRExpr** addr_Hi);
 
 
 #endif // DG_UTILS_H
