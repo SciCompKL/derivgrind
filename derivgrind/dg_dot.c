@@ -1,10 +1,8 @@
-/*! \file dg_forward.c
- *  Define ExpressionHandling for the forward mode of AD.
+/*! \file dg_dot.c
+ *  Define statement handling for the forward mode of AD.
  */
 
 #include "dg_expressionhandling.h"
-
-#include "dg_dot_expressions.h"
 
 #include "pub_tool_basics.h"
 #include "pub_tool_libcassert.h"
@@ -13,7 +11,7 @@
 
 #include "dg_shadow.h"
 
-#include "dg_forward.h"
+#include "dg_dot.h"
 
 //! Shadow memory for the dot values.
 void* sm_dot = NULL;

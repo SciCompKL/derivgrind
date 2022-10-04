@@ -44,9 +44,8 @@
 #include "dg_utils.h"
 
 #include "dg_shadow.h"
-#include "dg_dot_expressions.h"
 
-#include "dg_forward.h"
+#include "dg_dot.h"
 
 /*! \page storage_convention Storage convention for shadow memory
  *
