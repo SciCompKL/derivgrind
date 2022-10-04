@@ -7,11 +7,13 @@
 #include "pub_tool_basics.h"
 #include "pub_tool_libcassert.h"
 #include "pub_tool_tooliface.h"
-#include "dg_logical.h"
+#include "dg_dot_bitwise.h"
 
 #include "dg_shadow.h"
 
 #include "dg_dot.h"
+
+#include "dg_dot_bitwise.h"
 
 //! Shadow memory for the dot values.
 void* sm_dot = NULL;

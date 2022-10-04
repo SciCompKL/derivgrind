@@ -40,7 +40,7 @@
 #include "valgrind.h"
 #include "derivgrind.h"
 
-#include "dg_logical.h"
+#include "dg_dot_bitwise.h"
 #include "dg_utils.h"
 #include "dg_shadow.h"
 

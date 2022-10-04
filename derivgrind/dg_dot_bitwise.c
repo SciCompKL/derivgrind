@@ -31,7 +31,7 @@
 
 #include "pub_tool_basics.h"
 
-#include "dg_logical.h"
+#include "dg_dot_bitwise.h"
 
 /*! \file dg_logical.c
  *  Define functions for AD handling of logical operations.
@@ -100,7 +100,7 @@
  *  \param[in] yd - Derivative of y.
  *  \returns Derivative of abs(x) or abs(y), if the other one is 0b0111.., otherwise zero.
  */
-VG_REGPARM(0) UInt dg_logical_and32(UInt x, UInt xd, UInt y, UInt yd){
+VG_REGPARM(0) UInt dg_dot_bitwise_and32(UInt x, UInt xd, UInt y, UInt yd){
   DG_HANDLE_AND(float,UInt, x, y)
   else DG_HANDLE_AND(float,UInt, y, x)
   else return 0x0;
@@ -112,10 +112,10 @@ VG_REGPARM(0) UInt dg_logical_and32(UInt x, UInt xd, UInt y, UInt yd){
  * value operation on F64, treat it accordingly. Otherwise, it
  * might be a 32-bit absolute value operation on either half.
  */
-VG_REGPARM(0) ULong dg_logical_and64(ULong x, ULong xd, ULong y, ULong yd){
+VG_REGPARM(0) ULong dg_dot_bitwise_and64(ULong x, ULong xd, ULong y, ULong yd){
   DG_HANDLE_AND(double,ULong, x, y)
   else DG_HANDLE_AND(double,ULong, y, x)
-  else DG_HANDLE_HALVES(dg_logical_and32)
+  else DG_HANDLE_HALVES(dg_dot_bitwise_and32)
 }
 
 /*--- OR <-> negative abs ---*/
@@ -130,16 +130,16 @@ VG_REGPARM(0) ULong dg_logical_and64(ULong x, ULong xd, ULong y, ULong yd){
     return y##d; \
   }
 
-VG_REGPARM(0) UInt dg_logical_or32(UInt x, UInt xd, UInt y, UInt yd){
+VG_REGPARM(0) UInt dg_dot_bitwise_or32(UInt x, UInt xd, UInt y, UInt yd){
   DG_HANDLE_OR(float,UInt, x, y)
   else DG_HANDLE_OR(float,UInt, y, x)
   else return 0x0;
 }
 
-VG_REGPARM(0) ULong dg_logical_or64(ULong x, ULong xd, ULong y, ULong yd){
+VG_REGPARM(0) ULong dg_dot_bitwise_or64(ULong x, ULong xd, ULong y, ULong yd){
   DG_HANDLE_OR(double,ULong, x, y)
   else DG_HANDLE_OR(double,ULong, y, x)
-  else DG_HANDLE_HALVES(dg_logical_or32)
+  else DG_HANDLE_HALVES(dg_dot_bitwise_or32)
 }
 
 /*--- XOR <-> negative ---*/
@@ -152,32 +152,32 @@ VG_REGPARM(0) ULong dg_logical_or64(ULong x, ULong xd, ULong y, ULong yd){
     return *(inttype*)&yd_f; \
   }
 
-VG_REGPARM(0) UInt dg_logical_xor32(UInt x, UInt xd, UInt y, UInt yd){
+VG_REGPARM(0) UInt dg_dot_bitwise_xor32(UInt x, UInt xd, UInt y, UInt yd){
   DG_HANDLE_XOR(float,UInt, x, y)
   else DG_HANDLE_XOR(float,UInt, y, x)
   else return 0x0;
 }
 
-VG_REGPARM(0) ULong dg_logical_xor64(ULong x, ULong xd, ULong y, ULong yd){
+VG_REGPARM(0) ULong dg_dot_bitwise_xor64(ULong x, ULong xd, ULong y, ULong yd){
   DG_HANDLE_XOR(double,ULong, x, y)
   else DG_HANDLE_XOR(double,ULong, y, x)
-  else DG_HANDLE_HALVES(dg_logical_xor32)
+  else DG_HANDLE_HALVES(dg_dot_bitwise_xor32)
 }
 
 /*--- Min/Max ---*/
-VG_REGPARM(0) ULong dg_arithmetic_min32(ULong x, ULong xd, ULong y, ULong yd){
+VG_REGPARM(0) ULong dg_dot_arithmetic_min32(ULong x, ULong xd, ULong y, ULong yd){
   if( *(double*)&x < *(double*)&y ) return xd;
   else return yd;
 }
-VG_REGPARM(0) ULong dg_arithmetic_min64(ULong x, ULong xd, ULong y, ULong yd){
+VG_REGPARM(0) ULong dg_dot_arithmetic_min64(ULong x, ULong xd, ULong y, ULong yd){
   if( *(float*)&x < *(float*)&y ) return xd;
   else return yd;
 }
-VG_REGPARM(0) ULong dg_arithmetic_max32(ULong x, ULong xd, ULong y, ULong yd){
+VG_REGPARM(0) ULong dg_dot_arithmetic_max32(ULong x, ULong xd, ULong y, ULong yd){
   if( *(double*)&x > *(double*)&y ) return xd;
   else return yd;
 }
-VG_REGPARM(0) ULong dg_arithmetic_max64(ULong x, ULong xd, ULong y, ULong yd){
+VG_REGPARM(0) ULong dg_dot_arithmetic_max64(ULong x, ULong xd, ULong y, ULong yd){
   if( *(float*)&x > *(float*)&y ) return xd;
   else return yd;
 }
