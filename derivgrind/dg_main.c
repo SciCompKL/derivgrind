@@ -362,7 +362,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
 
 static void dg_fini(Int exitcode)
 {
-  destroyShadowMap(sm_dot);
+  dg_dot_finalize();
 }
 
 static void dg_pre_clo_init(void)

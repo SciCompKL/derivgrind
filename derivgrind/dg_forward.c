@@ -170,3 +170,7 @@ void dg_dot_initialize(void){
   sm_dot = initializeShadowMap();
 }
 
+void dg_dot_finalize(void){
+  destroyShadowMap(sm_dot);
+}
+

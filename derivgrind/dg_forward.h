@@ -14,4 +14,8 @@ void dg_dot_handle_statement(DiffEnv* diffenv, IRStmt* st_orig);
  */
 void dg_dot_initialize(void);
 
+/*! Destroy forward-mode data structures.
+ */
+void dg_dot_finalize(void);
+
 #endif // DG_FORWARD_H
