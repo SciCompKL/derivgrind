@@ -1,5 +1,5 @@
-#ifndef DG_FORWARD_H
-#define DG_FORWARD_H
+#ifndef DG_DOT_H
+#define DG_DOT_H
 
 #include "pub_tool_basics.h"
 #include "dg_utils.h"
@@ -18,4 +18,4 @@ void dg_dot_initialize(void);
  */
 void dg_dot_finalize(void);
 
-#endif // DG_FORWARD_H
+#endif // DG_DOT_H
