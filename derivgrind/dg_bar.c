@@ -217,8 +217,8 @@ void* dg_bar_writeToTape(DiffEnv* diffenv, IRExpr* index1Lo, IRExpr* index1Hi, I
   IRTemp returnindex = newIRTemp(diffenv->sb_out->tyenv,Ity_I64);
   IRDirty* dd = unsafeIRDirty_1_N(
         returnindex,
-        0, "dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Lo",
-        &dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Lo,
+        0, "dg_bar_writeToTape_call",
+        &dg_bar_writeToTape_call,
         mkIRExprVec_6(index1Lo,index1Hi,index2Lo,index2Hi,
           IRExpr_Unop(Iop_ReinterpF64asI64,diff1),
           IRExpr_Unop(Iop_ReinterpF64asI64,diff2) )  );
