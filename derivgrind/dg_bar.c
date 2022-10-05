@@ -12,6 +12,7 @@
 #include "dg_shadow.h"
 
 #include "dg_bar.h"
+#include "dg_bar_tape.h"
 
 //#include "dg_dot_bitwise.h"
 
@@ -200,9 +201,45 @@ static void* dg_bar_ite(DiffEnv* diffenv, IRExpr* cond, void* dtrue, void* dfals
   return (void*)mkIRExprVec_2(exLo,exHi);
 }
 
+ULong dg_bar_writeToTape_call(ULong index1Lo, ULong index1Hi, ULong index2Lo, ULong index2Hi, ULong diff1, ULong diff2){
+  // assemble 8-byte indices from 4-byte beginnings in both shadow layers
+  UInt index1[2], index2[2];
+  index1[0] = *(UInt*)&index1Lo;
+  index1[1] = *(UInt*)&index1Hi;
+  index2[0] = *(UInt*)&index2Lo;
+  index2[1] = *(UInt*)&index2Hi;
+  ULong returnindex = tapeAddStatement(index1,index2,*(double*)&diff1,*(double*)&diff2);
+  return returnindex;
+}
+
+// diff1, diff2 should be Ity_F64
+void* dg_bar_writeToTape(DiffEnv* diffenv, IRExpr* index1Lo, IRExpr* index1Hi, IRExpr* index2Lo, IRExpr* index2Hi, IRExpr* diff1, IRExpr* diff2){
+  IRTemp returnindex = newIRTemp(diffenv->sb_out->tyenv,Ity_I64);
+  IRDirty* dd = unsafeIRDirty_1_N(
+        returnindex,
+        0, "dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Lo",
+        &dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Lo,
+        mkIRExprVec_6(index1Lo,index1Hi,index2Lo,index2Hi,
+          IRExpr_Unop(Iop_ReinterpF64asI64,diff1),
+          IRExpr_Unop(Iop_ReinterpF64asI64,diff2) )  );
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
+  // split returnindex into two layers
+  IRExpr* exLo_i32 = IRExpr_Unop(Iop_64to32, IRExpr_RdTmp(returnindex));
+  IRExpr* exHi_i32 = IRExpr_Unop(Iop_64HIto32, IRExpr_RdTmp(returnindex));
+  // and return as I64
+  IRExpr* exLo = IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),exLo_i32);
+  IRExpr* exHi = IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),exHi_i32);
+  return (void*)mkIRExprVec_2(exLo,exHi);
+}
+
 void* dg_bar_operation(DiffEnv* diffenv, IROp op,
                          IRExpr* arg1, IRExpr* arg2, IRExpr* arg3, IRExpr* arg4,
-                         void* d1, void* d2, void* d3, void* d4){
+                         void* i1, void* i2, void* i3, void* i4){
+  IRExpr *i1Lo=NULL, *i1Hi=NULL, *i2Lo=NULL, *i2Hi=NULL, *i3Lo=NULL, *i3Hi=NULL, *i4Lo=NULL, *i4Hi=NULL;
+  if(i1) { i1Lo = ((IRExpr**)i1)[0]; i1Hi = ((IRExpr**)i1)[1]; }
+  if(i2) { i2Lo = ((IRExpr**)i2)[0]; i2Hi = ((IRExpr**)i2)[1]; }
+  if(i3) { i3Lo = ((IRExpr**)i3)[0]; i3Hi = ((IRExpr**)i3)[1]; }
+  if(i4) { i4Lo = ((IRExpr**)i4)[0]; i4Hi = ((IRExpr**)i4)[1]; }
   switch(op){
     #include "dg_bar_operations.c"
     default: return NULL;

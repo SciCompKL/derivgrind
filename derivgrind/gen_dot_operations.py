@@ -43,7 +43,7 @@ class IROp_Info:
     # check that diffinputs can be differentiated
     for i in self.diffinputs:
       s += f"if(!d{i}) return NULL; "
-    # compute dot value
+    # compute dot value into 'IRExpr* dotvalue'
     s += self.dotcode
     # add print statement if required
     if print_results and self.fpsize and self.simdsize and not self.disable_print_results:
@@ -52,8 +52,23 @@ class IROp_Info:
         s += applyComponentwisely({"value":"value_part","dotvalue":"dotvalue_part"}, {}, self.fpsize, self.simdsize, "dg_add_diffquotdebug(diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)),IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, dotvalue_part)));")
       else:
         s += applyComponentwisely({"value":"value_part","dotvalue":"dotvalue_part"}, {}, self.fpsize, self.simdsize, "dg_add_diffquotdebug(diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part),IRExpr_Unop(Iop_ReinterpI64asF64, dotvalue_part));")
-    s += f"return dotvalue; \n}}"
+    # post-process
+    s += "return dotvalue; \n}"
     return s
+
+  def makeCaseBar(self):
+    """Return the "case Iop_..: ..." statement for dg_bar_operands.c.
+    """
+    s = f"\ncase {self.name}: {{\n"
+    # check that diffinputs can be differentiated
+    for i in self.diffinputs:
+      s += f"if(!d{i}) return NULL; "
+    # compute result index into 'IRExpr *indexLo, *indexHi'
+    s += self.barcode
+    # post-process
+    s += "return mkIRExprVec_2(indexLo, indexHi); \n}"
+    return s
+
   def apply(self,*operands):
     """Produce C code that applies the operation.
       @param operands - List of strings containing C code producing the operand expressions. "None" elements are discarded. If empty, apply to arg1, arg2, ...
@@ -166,6 +181,11 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
   div.dotcode = dv(div.apply(arg1,sub.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,arg2,d3)),mul.apply(arg1,arg3,arg3)))
   sqrt.dotcode = dv(div.apply(arg1,d2,mul.apply(arg1,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(arg1,arg2))))
 
+  if llo:
+    pass
+  else:
+    add.barcode = applyComponentwisely({"arg1":"arg1_part","arg2":"arg2_part","i1Lo":"i1Lo_part","i1Hi":"i1Hi_part","i2Lo":"i2Lo_part","i2Hi":"i2Hi_part"},{"indexLo":"indexLo_part","indexHi":"indexHi_part"}, fpsize, simdsize, f'IRExpr* indexLo_part = dg_bar_writeToTape(diffenv,i1Lo_part,i1Hi_part,i2Lo_part,i2Hi_part, IRExpr_Const(IRConst_F64(1.)), IRExpr_Const(IRConst_F64(1.)))')
+
   IROp_Infos += [add,sub,mul,div,sqrt]
 
 # Neg - different set of SIMD setups, no rounding mode
@@ -274,6 +294,6 @@ IROp_Missing = ["Iop_Div32Fx2","Iop_Sqrt32Fx2"]
 IROp_Infos = [irop_info for irop_info in IROp_Infos if irop_info.name not in IROp_Missing]
 
 for irop_info in IROp_Infos:
-  print(irop_info.makeCase(True))
+  print(irop_info.makeCase(False))
 
 
