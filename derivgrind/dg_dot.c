@@ -94,7 +94,7 @@ static void dg_dot_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
 }
 
-static void* dg_dot_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp){
+static void dg_dot_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp){
   IRDirty* dd = unsafeIRDirty_1_N(
         temp+diffenv->tmp_offset,
         0, "dg_dot_x86g_amd64g_dirtyhelper_loadF80le",

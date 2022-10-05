@@ -75,7 +75,7 @@ typedef struct {
    *  \param addr - Address into memory.
    *  \param temp - Temporary to be written to.
    */
-  void* (*dirty_loadF80le)(DiffEnv* diffenv,IRExpr* addr,IRTemp temp);
+  void (*dirty_loadF80le)(DiffEnv* diffenv,IRExpr* addr,IRTemp temp);
 
   /*! Handling of constant expressions.
    *  \param diffenv - General setup.
