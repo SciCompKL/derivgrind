@@ -347,6 +347,12 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
   for(IRTemp t=0; t<nTmp; t++){
     newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
   }
+  // another layer in recording mode
+  if(mode=='b'){
+    for(IRTemp t=0; t<nTmp; t++){
+      newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
+    }
+  }
 
   // shadow guest state (registers)
   diffenv.gs_offset = layout->total_sizeB;

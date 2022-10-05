@@ -14,7 +14,7 @@ ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2);
 
 /*! Initialize tape.
  */
-void dg_bar_tape_initialize(char* filename);
+void dg_bar_tape_initialize(const HChar* filename);
 
 /*! Finalize tape.
  */

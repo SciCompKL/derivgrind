@@ -544,7 +544,7 @@ static unsigned long outcount = 0;
 extern Bool diffquotdebug;
 extern Long disable_diffquotdebug;
 ULong buffer[2000000];
-Int fd=-1;
+static Int fd=-1;
 static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalue){
   if(fd==-1){
     fd=VG_(fd_open)("~/dump",VKI_O_WRONLY,VKI_O_CREAT);
