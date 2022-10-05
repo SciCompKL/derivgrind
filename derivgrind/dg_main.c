@@ -46,6 +46,8 @@
 #include "dg_shadow.h"
 
 #include "dg_dot.h"
+#include "dg_bar.h"
+#include "dg_bar_tape.h"
 
 /*! \page storage_convention Storage convention for shadow memory
  *
@@ -80,17 +82,29 @@ Bool diffquotdebug = False;
  */
 Long disable_diffquotdebug = 0;
 
+/*! Mode: d=dot/forward, b=bar/reverse/recording
+ */
+HChar mode = 'd';
+/*! Path for tape file in recording mode.
+ */
+const HChar* tape_path = NULL;
+
 static void dg_post_clo_init(void)
 {
-  dg_dot_initialize();
+  if(mode=='d'){
+    dg_dot_initialize();
+  } else {
+    dg_bar_initialize();
+    dg_bar_tape_initialize(tape_path);
+  }
 }
 
 static Bool dg_process_cmd_line_option(const HChar* arg)
 {
    if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
    else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
-   else
-      return False;
+   else if VG_STR_CLO(arg, "--record", tape_path) { mode = 'b'; }
+   else return False;
    return True;
 }
 
@@ -98,6 +112,8 @@ static void dg_print_usage(void)
 {
    VG_(printf)(
 "    --warn-unwrapped=no|yes   warn about unwrapped expressions\n"
+"    --diffquotdebug=no|yes    print values and dot values of intermediate results\n"
+"    --record=<path>           switch to recording mode and store tape at specified path\n"
    );
 }
 
@@ -350,7 +366,8 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
 
     diffenv.cas_succeeded = IRTemp_INVALID;
 
-    dg_dot_handle_statement(&diffenv,st_orig);
+    if(mode=='d') dg_dot_handle_statement(&diffenv,st_orig);
+    else if(mode=='b') dg_bar_handle_statement(&diffenv,st_orig);
     dg_original_statement(&diffenv,st_orig);
 
   }
@@ -361,7 +378,12 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
 
 static void dg_fini(Int exitcode)
 {
-  dg_dot_finalize();
+  if(mode=='d'){
+    dg_dot_finalize();
+  } else if(mode=='b') {
+    dg_bar_finalize();
+    dg_bar_tape_finalize();
+  }
 }
 
 static void dg_pre_clo_init(void)
