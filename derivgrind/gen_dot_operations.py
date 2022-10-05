@@ -26,6 +26,7 @@ class IROp_Info:
     self.llo = llo
     # C code computing dotvalue from arg1,arg2,.. and d1,d2,.., must be set after construction.
     self.dotcode = "" 
+    self.barcode = ""
     self.disable_print_results = False
       
 
@@ -35,7 +36,7 @@ class IROp_Info:
     else:
       return f"IRExpr* value = {irop_info.apply()};" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part));")
 
-  def makeCase(self, print_results=False):
+  def makeCaseDot(self, print_results=False):
     """Return the "case Iop_..: ..." statement for dg_dot_operands.c.
       @param print_results - If True, add output statements that print the value and dotvalue.
     """
@@ -59,10 +60,13 @@ class IROp_Info:
   def makeCaseBar(self):
     """Return the "case Iop_..: ..." statement for dg_bar_operands.c.
     """
+    if self.barcode=="":
+      return ""
     s = f"\ncase {self.name}: {{\n"
     # check that diffinputs can be differentiated
     for i in self.diffinputs:
-      s += f"if(!d{i}) return NULL; "
+      s += f"if(!i{i}Lo) return NULL; "
+      s += f"if(!i{i}Hi) return NULL; "
     # compute result index into 'IRExpr *indexLo, *indexHi'
     s += self.barcode
     # post-process
@@ -184,7 +188,7 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
   if llo:
     pass
   else:
-    add.barcode = applyComponentwisely({"arg1":"arg1_part","arg2":"arg2_part","i1Lo":"i1Lo_part","i1Hi":"i1Hi_part","i2Lo":"i2Lo_part","i2Hi":"i2Hi_part"},{"indexLo":"indexLo_part","indexHi":"indexHi_part"}, fpsize, simdsize, f'IRExpr* indexLo_part = dg_bar_writeToTape(diffenv,i1Lo_part,i1Hi_part,i2Lo_part,i2Hi_part, IRExpr_Const(IRConst_F64(1.)), IRExpr_Const(IRConst_F64(1.)))')
+    add.barcode = applyComponentwisely({"arg1":"arg1_part","arg2":"arg2_part","i1Lo":"i1Lo_part","i1Hi":"i1Hi_part","i2Lo":"i2Lo_part","i2Hi":"i2Hi_part"},{"indexLo":"indexLo_part","indexHi":"indexHi_part"}, fpsize, simdsize, f'IRExpr** indexHiLo_part = dg_bar_writeToTape(diffenv,i1Lo_part,i1Hi_part,i2Lo_part,i2Hi_part, IRExpr_Const(IRConst_F64(1.)), IRExpr_Const(IRConst_F64(1.))); IRExpr* indexLo_part = indexHiLo_part[0]; IRExpr* indexHi_part = indexHiLo_part[1]; ')
 
   IROp_Infos += [add,sub,mul,div,sqrt]
 
@@ -293,7 +297,20 @@ IROp_Infos += [i64x4tov256]
 IROp_Missing = ["Iop_Div32Fx2","Iop_Sqrt32Fx2"]
 IROp_Infos = [irop_info for irop_info in IROp_Infos if irop_info.name not in IROp_Missing]
 
+import sys
+mode = 'dot'
+if(len(sys.argv)>=2):
+  mode = sys.argv[1]
+
 for irop_info in IROp_Infos:
-  print(irop_info.makeCase(False))
+  if mode=='dot':
+    print(irop_info.makeCaseDot(False))
+  elif mode=='dot-dqd':
+    print(irop_info.makeCaseDot(True))
+  elif mode=='bar':
+    print(irop_info.makeCaseBar())
+  else:
+    print(f"Error: Bad mode '{mode}'.",file=sys.stderr)
+    exit(1)
 
 
