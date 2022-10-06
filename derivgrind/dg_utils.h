@@ -121,6 +121,14 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
  */
 IRExpr* assembleSIMDVector(IRExpr** expressions, int simdsize, DiffEnv* diffenv);
 
+/*! Convert between types of same size.
+ *  \param diffenv - General setup.
+ *  \param expr - Expression to be converted.
+ *  \param type - Type to convert expression into.
+ *  \returns Converted expression.
+ */
+IRExpr* reinterpretType(DiffEnv* diffenv, IRExpr* expr,IRType type);
+
 /*! Helper to extract high/low addresses of CAS statement.
  *
  *  One of addr_Lo, addr_Hi is det->addr,

@@ -188,7 +188,7 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
   if llo:
     pass
   else:
-    add.barcode = applyComponentwisely({"arg1":"arg1_part","arg2":"arg2_part","i1Lo":"i1Lo_part","i1Hi":"i1Hi_part","i2Lo":"i2Lo_part","i2Hi":"i2Hi_part"},{"indexLo":"indexLo_part","indexHi":"indexHi_part"}, fpsize, simdsize, f'IRExpr** indexHiLo_part = dg_bar_writeToTape(diffenv,i1Lo_part,i1Hi_part,i2Lo_part,i2Hi_part, IRExpr_Const(IRConst_F64(1.)), IRExpr_Const(IRConst_F64(1.))); IRExpr* indexLo_part = indexHiLo_part[0]; IRExpr* indexHi_part = indexHiLo_part[1]; ')
+    add.barcode = applyComponentwisely({"arg2":"arg2_part","arg3":"arg3_part","i2Lo":"i2Lo_part","i2Hi":"i2Hi_part","i3Lo":"i3Lo_part","i3Hi":"i3Hi_part"},{"indexIntLo":"indexIntLo_part","indexIntHi":"indexIntHi_part"}, fpsize, simdsize, f'IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i2Lo_part,i2Hi_part,i3Lo_part,i3Hi_part, IRExpr_Const(IRConst_F64(1.)), IRExpr_Const(IRConst_F64(1.))); IRExpr* indexIntLo_part = indexIntHiLo_part[0]; IRExpr* indexIntHi_part = indexIntHiLo_part[1]; ') + f"IRExpr* indexLo = reinterpretType(diffenv,indexIntLo, typeOfIRExpr(diffenv->sb_out->tyenv,{add.apply()}));  IRExpr* indexHi = reinterpretType(diffenv,indexIntHi, typeOfIRExpr(diffenv->sb_out->tyenv,{add.apply()}));"
 
   IROp_Infos += [add,sub,mul,div,sqrt]
 

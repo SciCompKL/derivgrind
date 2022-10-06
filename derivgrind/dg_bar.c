@@ -208,11 +208,11 @@ ULong dg_bar_writeToTape_call(ULong index1Lo, ULong index1Hi, ULong index2Lo, UL
   index1[1] = *(UInt*)&index1Hi;
   index2[0] = *(UInt*)&index2Lo;
   index2[1] = *(UInt*)&index2Hi;
-  ULong returnindex = tapeAddStatement(index1,index2,*(double*)&diff1,*(double*)&diff2);
+  ULong returnindex = tapeAddStatement(*(ULong*)index1,*(ULong*)index2,*(double*)&diff1,*(double*)&diff2);
   return returnindex;
 }
 
-// diff1, diff2 should be Ity_F64
+// index1Lo, ..., index2Hi, diff1, diff2 should be Ity_F64
 void* dg_bar_writeToTape(DiffEnv* diffenv, IRExpr* index1Lo, IRExpr* index1Hi, IRExpr* index2Lo, IRExpr* index2Hi, IRExpr* diff1, IRExpr* diff2){
   IRTemp returnindex = newIRTemp(diffenv->sb_out->tyenv,Ity_I64);
   IRDirty* dd = unsafeIRDirty_1_N(
