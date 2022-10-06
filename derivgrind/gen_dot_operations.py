@@ -43,12 +43,12 @@ class IROp_Info:
     s = f"\ncase {self.name}: {{\n"
     # check that diffinputs can be differentiated
     for i in self.diffinputs:
-      s += f"if(!d{i}) return NULL; "
+      s += f"if(!d{i}) return NULL;\n"
     # compute dot value into 'IRExpr* dotvalue'
     s += self.dotcode
     # add print statement if required
     if print_results and self.fpsize and self.simdsize and not self.disable_print_results:
-      s += f"IRExpr* value = {self.apply()};" 
+      s += f"IRExpr* value = {self.apply()};\n" 
       if self.fpsize==4:
         s += applyComponentwisely({"value":"value_part","dotvalue":"dotvalue_part"}, {}, self.fpsize, self.simdsize, "dg_add_diffquotdebug(diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)),IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, dotvalue_part)));")
       else:
@@ -65,8 +65,8 @@ class IROp_Info:
     s = f"\ncase {self.name}: {{\n"
     # check that diffinputs can be differentiated
     for i in self.diffinputs:
-      s += f"if(!i{i}Lo) return NULL; "
-      s += f"if(!i{i}Hi) return NULL; "
+      s += f"if(!i{i}Lo) return NULL;\n"
+      s += f"if(!i{i}Hi) return NULL;\n"
     # compute result index into 'IRExpr *indexLo, *indexHi'
     s += self.barcode
     # post-process
@@ -139,21 +139,21 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
     bodyNonLowest = bodyLowest
   s = ""
   for outvar in outputs:
-    s += f"IRExpr* {outputs[outvar]}_arr[{simdsize}]; "
+    s += f"IRExpr* {outputs[outvar]}_arr[{simdsize}];\n"
   for component in range(simdsize): # for each component
-    s += "{"
+    s += "{\n"
     for invar in inputs: # extract component
-      s += f"IRExpr* {inputs[invar]} = getSIMDComponent({invar},{fpsize},{simdsize},{component},diffenv); "
+      s += f"  IRExpr* {inputs[invar]} = getSIMDComponent({invar},{fpsize},{simdsize},{component},diffenv);\n"
       if fpsize==4: # widen to 64 bit
-        s += f"{inputs[invar]} = IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),{inputs[invar]}); "
+        s += f"  {inputs[invar]} = IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),{inputs[invar]});\n"
     s += bodyLowest if component==0 else bodyNonLowest
     for outvar in outputs:
       if fpsize==4: # extract the 32 bit
-        s += f"{outputs[outvar]} = IRExpr_Unop(Iop_64to32,{outputs[outvar]});"
-      s += f"{outputs[outvar]}_arr[{component}] = {outputs[outvar]};" 
-    s += "}"
+        s += f"  {outputs[outvar]} = IRExpr_Unop(Iop_64to32,{outputs[outvar]});\n"
+      s += f"  {outputs[outvar]}_arr[{component}] = {outputs[outvar]};\n" 
+    s += "}\n"
   for outvar in outputs:
-    s += f"IRExpr* {outvar} = assembleSIMDVector({outputs[outvar]}_arr, {fpsize}, {simdsize}, diffenv);"
+    s += f"IRExpr* {outvar} = assembleSIMDVector({outputs[outvar]}_arr, {fpsize}, {simdsize}, diffenv);\n"
   return s
       
 
@@ -162,7 +162,7 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
 IROp_Infos = []
 
 
-dv = lambda expr: f"IRExpr* dotvalue = {expr};" # assign expression to dotvalue
+dv = lambda expr: f"IRExpr* dotvalue = {expr};\n" # assign expression to dotvalue
 
 ### Basic scalar, SIMD, and lowest-lane-only SIMD arithmetic. ###
 
