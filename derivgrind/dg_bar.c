@@ -21,6 +21,7 @@ void* sm_barLo = NULL;
 //! Second layer of shadow memory for the higher 4 byte of the 8-byte indices.
 void* sm_barHi = NULL;
 
+#define dg_bar_rounding_mode IRExpr_Const(IRConst_U32(0))
 
 /* --- Define ExpressionHandling. --- */
 

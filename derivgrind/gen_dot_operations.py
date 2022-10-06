@@ -118,17 +118,22 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
     and assemble the output from the individual results.
 
     E.g. 
-      // obtain components [0] of inputs
-      <bodyLowest>
-      // remember outputs as the total output contains them as components [0]
-      // obtain components [1] of inputs
+      // split every input vector and obtain its component [0], as I64 expression
+      <bodyLowest> // may use component [0] of inputs, produces component [0] of outputs
+      // store the component [0] of every output vector
+      // split every input vector and obtain its component [1], as I64 expression
       <bodyNonLowest>
-      // remember outputs as the total output contains them as components [1]
-      // ... (use bodyNonLowest)
-      // assemble total outputs from remembered partial outputs
+      // store the component [1] of every output vector
+      // ... (further components, always use bodyNonLowest)
+      // assemble total outputs from stored components
 
-    @param inputs - Dictionary: variable name of an input IRExpr* => variable name of portion as used by body
-    @param outputs - Dictionary: variable name of an output IRExpr* => variable name of portion as used by body
+    The body can access the input components as I64 expressions. If fpsize==4, its more-significant four
+    bytes are filled with zeros. The body may compute the output components of types
+    - I64 or F64, if fpsize==8
+    - I64 (only less-significant four bytes are relevant), I32 or F32, if fpsize==4.
+
+    @param inputs - Dictionary: variable name of an input IRExpr* => variable name of component as used by body
+    @param outputs - Dictionary: variable name of an output IRExpr* => variable name of component as used by body
     @param fpsize - Size of component, either 4 or 8 (bytes)
     @param simdsize - Number of components
     @param bodyLowest - C code applied to lowest-lane component
@@ -155,8 +160,26 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
   for outvar in outputs:
     s += f"IRExpr* {outvar} = assembleSIMDVector({outputs[outvar]}_arr, {fpsize}, {simdsize}, diffenv);\n"
   return s
-      
 
+def createBarCode(op, inputs, partials,fpsize,simdsize,llo):
+  """
+    Record an operation on the tape for every component of a SIMD vector.
+  """
+  if llo:
+    pass
+  else: # not llo
+    # len(intputs)==2 TODO
+    input_names = {}
+    for i in inputs:
+      input_names[f"arg{i}"] = f"arg{i}_part"
+      input_names[f"i{i}Lo"] = f"i{i}Lo_part"
+      input_names[f"i{i}Hi"] = f"i{i}Hi_part"
+    output_names = {"indexIntLo":"indexIntLo_part", "indexIntHi":"indexIntHi_part"}
+    body = f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
+    barcode = applyComponentwisely(input_names, output_names, fpsize, simdsize, body);
+    barcode += f"IRExpr* indexLo = reinterpretType(diffenv,indexIntLo, typeOfIRExpr(diffenv->sb_out->tyenv,{op.apply()}));\n"
+    barcode += f"IRExpr* indexHi = reinterpretType(diffenv,indexIntHi, typeOfIRExpr(diffenv->sb_out->tyenv,{op.apply()}));\n"
+    return barcode
 
 ### Collect IR operations in this list. ###
 IROp_Infos = []
@@ -188,7 +211,10 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
   if llo:
     pass
   else:
-    add.barcode = applyComponentwisely({"arg2":"arg2_part","arg3":"arg3_part","i2Lo":"i2Lo_part","i2Hi":"i2Hi_part","i3Lo":"i3Lo_part","i3Hi":"i3Hi_part"},{"indexIntLo":"indexIntLo_part","indexIntHi":"indexIntHi_part"}, fpsize, simdsize, f'IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i2Lo_part,i2Hi_part,i3Lo_part,i3Hi_part, IRExpr_Const(IRConst_F64(1.)), IRExpr_Const(IRConst_F64(1.))); IRExpr* indexIntLo_part = indexIntHiLo_part[0]; IRExpr* indexIntHi_part = indexIntHiLo_part[1]; ') + f"IRExpr* indexLo = reinterpretType(diffenv,indexIntLo, typeOfIRExpr(diffenv->sb_out->tyenv,{add.apply()}));  IRExpr* indexHi = reinterpretType(diffenv,indexIntHi, typeOfIRExpr(diffenv->sb_out->tyenv,{add.apply()}));"
+    add.barcode = createBarCode(add, [2,3], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(1.))"], fpsize, simdsize, False)
+    sub.barcode = createBarCode(sub, [2,3], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(-1.))"], fpsize, simdsize, False)
+    mul.barcode = createBarCode(mul, [2,3], ["arg3", "arg2"], fpsize, simdsize, False)
+    div.barcode = createBarCode(div, [2,3], ["IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(1.)),arg3)", "IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Triop(Iop_MulF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(-1.)), arg2),IRExpr_Triop(Iop_MulF64,dg_bar_rounding_mode,arg3,arg3))"], fpsize, simdsize, False)
 
   IROp_Infos += [add,sub,mul,div,sqrt]
 
