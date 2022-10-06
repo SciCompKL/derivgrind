@@ -143,7 +143,7 @@ static void* dg_bar_constant(DiffEnv* diffenv, IRConstTag type){
     case Ico_F64: zero = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Const(IRConst_U64(0))); break;
     case Ico_F64i: zero = IRExpr_Const(IRConst_F64i(0)); break;
     case Ico_F32: zero = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Const(IRConst_U32(0))); break;
-    case Ico_F32i: zero = IRExpr_Const(IRConst_F32i(0)); break;
+    case Ico_F32i: zero = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Const(IRConst_U32(0))); break;
     case Ico_U1: zero = IRExpr_Const(IRConst_U1(0)); break;
     case Ico_U8: zero = IRExpr_Const(IRConst_U8(0)); break;
     case Ico_U16: zero = IRExpr_Const(IRConst_U16(0)); break;
@@ -168,7 +168,7 @@ static void* dg_bar_default_(DiffEnv* diffenv, IRType type){
     case Ity_I32: zero = IRExpr_Const(IRConst_U32(0)); break;
     case Ity_I64: zero = zeroU; break;
     case Ity_I128: zero = IRExpr_Const(IRConst_U128(0)); break;
-    case Ity_F32: zero = IRExpr_Const(IRConst_F32i(0)); break;
+    case Ity_F32: zero = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Const(IRConst_U32(0))); break;
     case Ity_F64: zero = IRExpr_Const(IRConst_F64i(0)); break;
     case Ity_D64: zero = IRExpr_Unop(Iop_ReinterpI64asD64,zeroU); break;
     case Ity_F128: zero = IRExpr_Unop(Iop_ReinterpI128asF128,IRExpr_Const(IRConst_U128(0))); break;
