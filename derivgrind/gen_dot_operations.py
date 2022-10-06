@@ -165,16 +165,22 @@ def createBarCode(op, inputs, partials,fpsize,simdsize,llo):
   """
     Record an operation on the tape for every component of a SIMD vector.
   """
-  # len(intputs)==2 TODO
+  assert(len(inputs) in [1,2,3])
   input_names = {}
   for i in inputs:
     input_names[f"arg{i}"] = f"arg{i}_part"
     input_names[f"i{i}Lo"] = f"i{i}Lo_part"
     input_names[f"i{i}Hi"] = f"i{i}Hi_part"
   output_names = {"indexIntLo":"indexIntLo_part", "indexIntHi":"indexIntHi_part"}
-  bodyLowest = f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
+  if len(inputs)==1: # use index 0 to indicate missing input
+    bodyLowest = f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,IRExpr_Const(IRConst_U64(0)),IRExpr_Const(IRConst_U64(0)), {partials[0]}, IRExpr_Const(IRConst_F64(0.)));\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
+  elif len(inputs)==2:
+    bodyLowest = f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
+  elif len(inputs)==3: # add two tape entries to combine three inputs
+    bodyLowest = f'  IRExpr** indexIntermediateIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]});\n  IRExpr* indexIntermediateIntLo_part = indexIntermediateIntHiLo_part[0];\n  IRExpr* indexIntermediateIntHi_part = indexIntermediateIntHiLo_part[1];\n'
+    bodyLowest += f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,indexIntermediateIntLo_part,indexIntermediateIntHi_part,i{inputs[2]}Lo_part,i{inputs[2]}Hi_part, IRExpr_Const(IRConst_F64(1.)), {partials[2]});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
   if llo:
-    bodyNonLowest = f'  IRExpr* indexIntLo_part = i{inputs[0]}Lo_part;\n  IRExpr* indexIntHi_part = i{inputs[1]}Hi_part;\n'
+    bodyNonLowest = f'  IRExpr* indexIntLo_part = i{inputs[0]}Lo_part;\n  IRExpr* indexIntHi_part = i{inputs[0]}Hi_part;\n'
   else:
     bodyNonLowest = bodyLowest
   barcode = applyComponentwisely(input_names, output_names, fpsize, simdsize, bodyLowest, bodyNonLowest);
@@ -209,7 +215,7 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
   div.dotcode = dv(div.apply(arg1,sub.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,arg2,d3)),mul.apply(arg1,arg3,arg3)))
   sqrt.dotcode = dv(div.apply(arg1,d2,mul.apply(arg1,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(arg1,arg2))))
 
-  if fpsize==4:
+  if fpsize==4: # convert I64 parts to F32 or F64
     arg2_part_f = f"IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,{arg2}_part))"
     arg3_part_f = f"IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,{arg3}_part))"
   else:
@@ -219,6 +225,7 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
   sub.barcode = createBarCode(sub, [2-llo,3-llo], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(-1.))"], fpsize, simdsize, llo)
   mul.barcode = createBarCode(mul, [2-llo,3-llo], [arg3_part_f, arg2_part_f], fpsize, simdsize, llo)
   div.barcode = createBarCode(div, [2-llo,3-llo], [f"IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(1.)),{arg3_part_f})", f"IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Triop(Iop_MulF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(-1.)), {arg2_part_f}),IRExpr_Triop(Iop_MulF64,dg_bar_rounding_mode,{arg3_part_f},{arg3_part_f}))"], fpsize, simdsize, llo)
+  sqrt.barcode = createBarCode(sqrt, [2-llo], [f"IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(0.5)), IRExpr_Binop(Iop_SqrtF64,dg_bar_rounding_mode,{arg2_part_f}))"], fpsize, simdsize, llo)
 
   IROp_Infos += [add,sub,mul,div,sqrt]
 
