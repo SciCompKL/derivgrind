@@ -125,6 +125,7 @@ static void dg_print_debug_usage(void)
 }
 
 extern void* sm_dot;
+extern void *sm_barLo, *sm_barHi;
 
 #include <VEX/priv/guest_generic_x87.h>
 /*! React to gdb monitor commands.
@@ -135,7 +136,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
   VG_(strcpy)(s, req);
   HChar* ssaveptr; //!< internal state of strtok_r
 
-  const HChar commands[] = "help get set fget fset lget lset"; //!< list of possible commands
+  const HChar commands[] = "help get set fget fset lget lset index mark"; //!< list of possible commands
   HChar* wcmd = VG_(strtok_r)(s, " ", &ssaveptr); //!< User command
   int key = VG_(keyword_id)(commands, wcmd, kwd_report_duplicated_matches);
   switch(key){
@@ -145,7 +146,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       return False;
     case 0: // help
       VG_(gdb_printf)(
-        "monitor commands:\n"
+        "monitor commands in forward mode:\n"
         "  mode <mode>       - Select which shadow map to access:\n"
         "                      dot (mode=d) or parallel (mode=p)\n"
         "  get  <addr>       - Prints shadow of binary64 (e.g. C double)\n"
@@ -154,9 +155,13 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         "  fset <addr> <val> - Sets shadow of binary32 (e.g. C float)\n"
         "  lget <addr>       - Prints shadow of x87 double extended\n"
         "  lset <addr> <val> - Sets shadow of x87 double extended\n"
+        "monitor commands in recording mode:\n"
+        "  index <addr>      - Prints index of variable\n"
+        "  mark  <addr>      - Marks variable as input and prints its new index\n"
       );
       return True;
     case 1: case 3: case 5: { // get, fget, lget
+      if(mode!='d'){ VG_(printf)("Only available in forward mode.\n"); return False; }
       HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
       HChar const* address_str_const = address_str;
       Addr address;
@@ -194,6 +199,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       return True;
     }
     case 2: case 4: case 6: { // set, fset, lset
+      if(mode!='d'){ VG_(printf)("Only available in forward mode.\n"); return False; }
       HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
       HChar const* address_str_const = address_str;
       Addr address;
@@ -221,6 +227,31 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       }
       shadowSet(sm_dot,(void*)address,(void*)&shadow,size);
       return True;
+    }
+    case 7: case 8: { // index, mark
+      if(mode!='b'){ VG_(printf)("Only available in recording mode.\n"); return False; }
+      HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      HChar const* address_str_const = address_str;
+      Addr address;
+      if(!VG_(parse_Addr)(&address_str_const, &address)){
+        VG_(gdb_printf)("Usage: index <addr> \n");
+        return False;
+      }
+      ULong index;
+      shadowGet(sm_barLo,(void*)address,(void*)&index,4);
+      shadowGet(sm_barHi,(void*)address,(void*)&index+4,4);
+      if(key==7){ // index
+        VG_(gdb_printf)("index: %llu\n",index);
+        return True;
+      } else if(key==8){ // mark
+        if(index!=0){
+          VG_(gdb_printf)("Warning: Variable depends on other inputs, previous index was %llu.\n",index);
+        }
+        ULong setIndex = tapeAddStatement(0,0,0.,0.); // TODO mark in special way
+        shadowSet(sm_barLo,(void*)address,(void*)&setIndex,4);
+        shadowSet(sm_barHi,(void*)address,(void*)&setIndex+4,4);
+        return True;
+      }
     }
     default:
       VG_(printf)("Error in dg_handle_gdb_monitor_command.\n");
