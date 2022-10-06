@@ -153,7 +153,7 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
       s += f"{outputs[outvar]}_arr[{component}] = {outputs[outvar]};" 
     s += "}"
   for outvar in outputs:
-    s += f"IRExpr* {outvar} = assembleSIMDVector({outputs[outvar]}_arr, {simdsize}, diffenv);"
+    s += f"IRExpr* {outvar} = assembleSIMDVector({outputs[outvar]}_arr, {fpsize}, {simdsize}, diffenv);"
   return s
       
 

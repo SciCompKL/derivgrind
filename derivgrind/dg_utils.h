@@ -116,10 +116,11 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
 
 /*! Assemble a SIMD vector from expressions for its components.
  *  \param[in] expressions - Array of expressions for components.
+ *  \param[in] fpsize - Size of a component in bytes, 4 or 8.
  *  \param[in] simdsize - Number of components.
  *  \param[in] diffenv - Additional data.
  */
-IRExpr* assembleSIMDVector(IRExpr** expressions, int simdsize, DiffEnv* diffenv);
+IRExpr* assembleSIMDVector(IRExpr** expressions, int fpsize, int simdsize, DiffEnv* diffenv);
 
 /*! Convert between types of same size.
  *  \param diffenv - General setup.

@@ -135,7 +135,7 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
       case 4: result32 = IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr128to64[component/2], expression)); break;
       case 8: result32 = IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr256to64[component/2], expression)); break;
     }
-    return IRExpr_Binop(Iop_32HLto64,zero32,result32);
+    return result32; // IRExpr_Binop(Iop_32HLto64,zero32,result32);
   } else {
     IRExpr* result;
     switch(simdsize){
@@ -147,13 +147,13 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
   }
 }
 
-IRExpr* assembleSIMDVector(IRExpr** expressions, int simdsize, DiffEnv* diffenv){
+IRExpr* assembleSIMDVector(IRExpr** expressions, int fpsize, int simdsize, DiffEnv* diffenv){
   IRType type = typeOfIRExpr(diffenv->sb_out->tyenv,expressions[0]);
   for(int i=0; i<simdsize; i++){
     tl_assert(typeOfIRExpr(diffenv->sb_out->tyenv,expressions[i])==type);
     if(type==Ity_F64) expressions[i] = IRExpr_Unop(Iop_ReinterpF64asI64,expressions[i]);
     if(type==Ity_F32) expressions[i] = IRExpr_Unop(Iop_ReinterpF32asI32,expressions[i]);
-    if(type==Ity_I64 && simdsize==4) expressions[i] = IRExpr_Unop(Iop_64to32, expressions[i]);
+    if(type==Ity_I64 && fpsize==4) expressions[i] = IRExpr_Unop(Iop_64to32, expressions[i]);
   }
   if(sizeofIRType(type)==4){
     switch(simdsize){
