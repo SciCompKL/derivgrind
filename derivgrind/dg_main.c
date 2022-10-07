@@ -247,7 +247,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         if(index!=0){
           VG_(gdb_printf)("Warning: Variable depends on other inputs, previous index was %llu.\n",index);
         }
-        ULong setIndex = tapeAddStatement(0,0,0.,0.); // TODO mark in special way
+        ULong setIndex = tapeAddStatement(0,0,0.,0.);
         shadowSet(sm_barLo,(void*)address,(void*)&setIndex,4);
         shadowSet(sm_barHi,(void*)address,(void*)&setIndex+4,4);
         return True;
@@ -273,21 +273,46 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     }
     return handled;
   } else if(arg[0]==VG_USERREQ__GET_DERIVATIVE) {
+    if(mode!='d') return True;
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
     shadowGet(sm_dot,(void*)addr,(void*)daddr,size);
-    *ret = 1;
-    return True;
+    *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__SET_DERIVATIVE) {
+    if(mode!='d') return True;
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
     shadowSet(sm_dot,addr,daddr,size);
-    *ret = 1;
-    return True;
+    *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__DISABLE_DIFFQUOTDEBUG) {
+    if(mode!='d') return True;
     disable_diffquotdebug += arg[1];
+    *ret = 1; return True;
+  } else if(arg[0]==VG_USERREQ__GET_INDEX) {
+    if(mode!='b') return True;
+    void* addr = (void*) arg[1];
+    void* iaddr = (void*) arg[2];
+    shadowGet(sm_barLo,(void*)addr,(void*)iaddr,4);
+    shadowGet(sm_barHi,(void*)addr,(void*)iaddr+4,4);
+    *ret = 1; return True;
+  } else if(arg[0]==VG_USERREQ__SET_INDEX) {
+    if(mode!='b') return True;
+    void* addr = (void*) arg[1];
+    void* iaddr = (void*) arg[2];
+    shadowSet(sm_barLo,(void*)addr,(void*)iaddr,4);
+    shadowSet(sm_barHi,(void*)addr,(void*)iaddr+4,4);
+    *ret = 1; return True;
+  } else if(arg[0]==VG_USERREQ__NEW_INDEX) {
+    if(mode!='b') return True;
+    ULong* index1addr = (ULong*) arg[1];
+    ULong* index2addr = (ULong*) arg[2];
+    double* diff1addr = (double*) arg[3];
+    double* diff2addr = (double*) arg[4];
+    ULong* newindexaddr = (ULong*) arg[5];
+    *newindexaddr = tapeAddStatement(*index1addr,*index2addr,*diff1addr,*diff2addr);
+    *ret = 1; return True;
   } else {
     VG_(printf)("Unhandled user request.\n");
     return True;
