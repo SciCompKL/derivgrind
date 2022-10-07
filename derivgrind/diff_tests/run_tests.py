@@ -67,9 +67,11 @@ addition.stmtr4 = "real, target :: c; c= a+b"
 addition.stmtr8 = "double precision, target :: c; c= a+b"
 addition.stmtp = "c = a+b"
 addition.vals = {'a':1.0,'b':2.0}
-addition.grads = {'a':3.0,'b':4.0}
+addition.dots = {'a':3.0,'b':4.0}
 addition.test_vals = {'c':3.0}
-addition.test_grads = {'c':7.0}
+addition.test_dots = {'c':7.0}
+addition.bars = {'c':1.0}
+addition.test_bars = {'a':1.0,'b':1.0}
 basiclist.append(addition)
 
 addition_const_l = ClientRequestTestCase("addition_const_l")
@@ -80,9 +82,9 @@ addition_const_l.stmtr4 = "real, target :: c; c= 0.3e0+a"
 addition_const_l.stmtr8 = "double precision, target :: c; c= 0.3d0+a"
 addition_const_l.stmtp = "c = 0.3 + a"
 addition_const_l.vals = {'a':1.0}
-addition_const_l.grads = {'a':2.0}
+addition_const_l.dots = {'a':2.0}
 addition_const_l.test_vals = {'c':1.3}
-addition_const_l.test_grads = {'c':2.0}
+addition_const_l.test_dots = {'c':2.0}
 basiclist.append(addition_const_l)
 
 addition_const_r = ClientRequestTestCase("addition_const_r")
@@ -93,9 +95,9 @@ addition_const_r.stmtr4 = "real, target :: c; c= a+0.3e0"
 addition_const_r.stmtr8 = "double precision, target :: c; c= a+0.3d0"
 addition_const_r.stmtp = "c = a + 0.3"
 addition_const_r.vals = {'a':1.0}
-addition_const_r.grads = {'a':2.0}
+addition_const_r.dots = {'a':2.0}
 addition_const_r.test_vals = {'c':1.3}
-addition_const_r.test_grads = {'c':2.0}
+addition_const_r.test_dots = {'c':2.0}
 basiclist.append(addition_const_r)
 
 subtraction = ClientRequestTestCase("subtraction")
@@ -106,9 +108,9 @@ subtraction.stmtr4 = "real, target :: c; c= a-b"
 subtraction.stmtr8 = "double precision, target :: c; c= a-b"
 subtraction.stmtp = "c = a - b"
 subtraction.vals = {'a':1.0,'b':2.0}
-subtraction.grads = {'a':3.0,'b':4.0}
+subtraction.dots = {'a':3.0,'b':4.0}
 subtraction.test_vals = {'c':-1.0}
-subtraction.test_grads = {'c':-1.0}
+subtraction.test_dots = {'c':-1.0}
 basiclist.append(subtraction)
 
 subtraction_const_l = ClientRequestTestCase("subtraction_const_l")
@@ -119,9 +121,9 @@ subtraction_const_l.stmtr4 = "real, target :: c; c= 0.3e0-a"
 subtraction_const_l.stmtr8 = "double precision, target :: c; c= 0.3d0-a"
 subtraction_const_l.stmtp = "c = 0.3 - a"
 subtraction_const_l.vals = {'a':1.0}
-subtraction_const_l.grads = {'a':2.0}
+subtraction_const_l.dots = {'a':2.0}
 subtraction_const_l.test_vals = {'c':-0.7}
-subtraction_const_l.test_grads = {'c':-2.0}
+subtraction_const_l.test_dots = {'c':-2.0}
 basiclist.append(subtraction_const_l)
 
 subtraction_const_r = ClientRequestTestCase("subtraction_const_r")
@@ -132,9 +134,9 @@ subtraction_const_r.stmtr4 = "real, target :: c; c= a-0.5e0"
 subtraction_const_r.stmtr8 = "double precision, target :: c; c= a-0.5d0"
 subtraction_const_r.stmtp = "c = a - 0.5"
 subtraction_const_r.vals = {'a':1.0}
-subtraction_const_r.grads = {'a':2.0}
+subtraction_const_r.dots = {'a':2.0}
 subtraction_const_r.test_vals = {'c':0.5}
-subtraction_const_r.test_grads = {'c':2.0}
+subtraction_const_r.test_dots = {'c':2.0}
 basiclist.append(subtraction_const_r)
 
 multiplication = ClientRequestTestCase("multiplication")
@@ -145,9 +147,9 @@ multiplication.stmtr4 = "real, target :: c; c= a*b"
 multiplication.stmtr8 = "double precision, target :: c; c= a*b"
 multiplication.stmtp = "c = a * b"
 multiplication.vals = {'a':1.0,'b':2.0}
-multiplication.grads = {'a':3.0,'b':4.0}
+multiplication.dots = {'a':3.0,'b':4.0}
 multiplication.test_vals = {'c':2.0}
-multiplication.test_grads = {'c':10.0}
+multiplication.test_dots = {'c':10.0}
 basiclist.append(multiplication)
 
 multiplication_const_l = ClientRequestTestCase("multiplication_const_l")
@@ -158,9 +160,9 @@ multiplication_const_l.stmtr4 = "real, target :: c; c = 0.3e0 * a"
 multiplication_const_l.stmtr8 = "double precision, target :: c; c = 0.3d0 * a"
 multiplication_const_l.stmtp = "c = 0.3 * a"
 multiplication_const_l.vals = {'a':2.0}
-multiplication_const_l.grads = {'a':3.0}
+multiplication_const_l.dots = {'a':3.0}
 multiplication_const_l.test_vals = {'c':0.6}
-multiplication_const_l.test_grads = {'c':0.9}
+multiplication_const_l.test_dots = {'c':0.9}
 basiclist.append(multiplication_const_l)
 
 multiplication_const_r = ClientRequestTestCase("multiplication_const_r")
@@ -171,9 +173,9 @@ multiplication_const_r.stmtr4 = "real, target :: c; c = a * 0.5e0"
 multiplication_const_r.stmtr8 = "double precision, target :: c; c = a * 0.5d0"
 multiplication_const_r.stmtp = "c = a * 0.5"
 multiplication_const_r.vals = {'a':2.0}
-multiplication_const_r.grads = {'a':3.0}
+multiplication_const_r.dots = {'a':3.0}
 multiplication_const_r.test_vals = {'c':1.0}
-multiplication_const_r.test_grads = {'c':1.5}
+multiplication_const_r.test_dots = {'c':1.5}
 basiclist.append(multiplication_const_r)
 
 division = ClientRequestTestCase("division")
@@ -184,9 +186,9 @@ division.stmtr4 = "real, target :: c; c = a/b"
 division.stmtr8 = "double precision, target :: c; c = a/b"
 division.stmtp = "c = a/b"
 division.vals = {'a':1.0,'b':2.0}
-division.grads = {'a':5.0,'b':4.0}
+division.dots = {'a':5.0,'b':4.0}
 division.test_vals = {'c':0.5}
-division.test_grads = {'c':1.5}
+division.test_dots = {'c':1.5}
 basiclist.append(division)
 
 division_const_l = ClientRequestTestCase("division_const_l")
@@ -197,9 +199,9 @@ division_const_l.stmtr4 = "real, target :: c; c = 0.3e0 / a"
 division_const_l.stmtr8 = "double precision, target :: c; c = 0.3d0 / a"
 division_const_l.stmtp = "c = 0.3/a"
 division_const_l.vals = {'a':2.0}
-division_const_l.grads = {'a':3.0}
+division_const_l.dots = {'a':3.0}
 division_const_l.test_vals = {'c':0.15}
-division_const_l.test_grads = {'c':-9/40}
+division_const_l.test_dots = {'c':-9/40}
 basiclist.append(division_const_l)
 
 division_const_r = ClientRequestTestCase("division_const_r")
@@ -210,9 +212,9 @@ division_const_r.stmtr4 = "real, target :: c; c = a / 0.5e0"
 division_const_r.stmtr8 = "double precision, target :: c; c = a / 0.5d0"
 division_const_r.stmtp = "c = a/0.5"
 division_const_r.vals = {'a':2.0}
-division_const_r.grads = {'a':3.0}
+division_const_r.dots = {'a':3.0}
 division_const_r.test_vals = {'c':4.0}
-division_const_r.test_grads = {'c':6.0}
+division_const_r.test_dots = {'c':6.0}
 basiclist.append(division_const_r)
 
 negative = ClientRequestTestCase("negative")
@@ -223,18 +225,18 @@ negative.stmtr4 = "real, target :: c; c= -a"
 negative.stmtr8 = "double precision, target :: c; c= -a"
 negative.stmtp = "c= -a"
 negative.vals = {'a':1.0}
-negative.grads = {'a':2.0}
+negative.dots = {'a':2.0}
 negative.test_vals = {'c':-1.0}
-negative.test_grads = {'c':-2.0}
+negative.test_dots = {'c':-2.0}
 basiclist.append(negative)
 
 negative_0 = ClientRequestTestCase("negative_0")
 negative_0.include = "__attribute__((noinline)) double minus(double x){ return -x; }"
 negative_0.stmtd = "double c = minus(minus(a));" # the outer minus() computes -(-0.0) i.e. (0x80.. xor 0x80..)
 negative_0.vals = {'a':0.0}
-negative_0.grads = {'a':1.0}
+negative_0.dots = {'a':1.0}
 negative_0.test_vals = {'c':0.0}
-negative_0.test_grads = {'c':1.0}
+negative_0.test_dots = {'c':1.0}
 basiclist.append(negative_0)
 
 ### Advances arithmetic and trigonometric operations ###
@@ -250,9 +252,9 @@ abs_plus.stmtr4 = "real, target :: c; c = abs(a)"
 abs_plus.stmtr8 = "double precision, target :: c; c = abs(a)"
 abs_plus.stmtp = "c = abs(a)"
 abs_plus.vals = {'a':1.0}
-abs_plus.grads = {'a':2.0}
+abs_plus.dots = {'a':2.0}
 abs_plus.test_vals = {'c':1.0}
-abs_plus.test_grads = {'c':2.0}
+abs_plus.test_dots = {'c':2.0}
 basiclist.append(abs_plus)
 
 abs_minus = ClientRequestTestCase("abs_minus")
@@ -266,9 +268,9 @@ abs_minus.stmtr4 = "real, target :: c; c = abs(a)"
 abs_minus.stmtr8 = "double precision, target :: c; c = abs(a)"
 abs_minus.stmtp = "c = abs(a)"
 abs_minus.vals = {'a':-1.0}
-abs_minus.grads = {'a':2.0}
+abs_minus.dots = {'a':2.0}
 abs_minus.test_vals = {'c':1.0}
-abs_minus.test_grads = {'c':-2.0}
+abs_minus.test_dots = {'c':-2.0}
 basiclist.append(abs_minus)
 
 sqrt = ClientRequestTestCase("sqrt")
@@ -281,9 +283,9 @@ sqrt.stmtr4 = "real, target :: c; c = sqrt(a)"
 sqrt.stmtr8 = "double precision, target :: c; c = sqrt(a)"
 sqrt.stmtp = "c = np.sqrt(a)"
 sqrt.vals = {'a':4.0}
-sqrt.grads = {'a':1.0}
+sqrt.dots = {'a':1.0}
 sqrt.test_vals = {'c':2.0}
-sqrt.test_grads = {'c':0.25}
+sqrt.test_dots = {'c':0.25}
 basiclist.append(sqrt)
 
 # if pow(a,b) is implemented as a*a for b==2., 
@@ -298,9 +300,9 @@ pow_2.stmtr4 = "real, target :: c; c = a**b"
 pow_2.stmtr8 = "double precision, target :: c; c = a**b"
 pow_2.stmtp = "c = a**b"
 pow_2.vals = {'a':4.0,'b':2.0}
-pow_2.grads = {'a':1.6,'b':1.9}
+pow_2.dots = {'a':1.6,'b':1.9}
 pow_2.test_vals = {'c':4.0**2}
-pow_2.test_grads = {'c':1.6*2*4.0 + 1.9*4.0**2*np.log(4)}
+pow_2.test_dots = {'c':1.6*2*4.0 + 1.9*4.0**2*np.log(4)}
 basiclist.append(pow_2)
 
 pow_both = ClientRequestTestCase("pow_both")
@@ -313,9 +315,9 @@ pow_both.stmtr4 = "real, target :: c; c = a**b"
 pow_both.stmtr8 = "double precision, target :: c; c = a**b"
 pow_both.stmtp = "c = a**b"
 pow_both.vals = {'a':4.0,'b':3.0}
-pow_both.grads = {'a':1.6,'b':1.9}
+pow_both.dots = {'a':1.6,'b':1.9}
 pow_both.test_vals = {'c':4.0**3.0}
-pow_both.test_grads = {'c':1.6*3*4.0**2 + 1.9*4.0**3.0*np.log(4)}
+pow_both.test_dots = {'c':1.6*3*4.0**2 + 1.9*4.0**3.0*np.log(4)}
 basiclist.append(pow_both)
 
 for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"1"), (-10.,"neg10"), (100.,"100")]:
@@ -329,9 +331,9 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.stmtr8 = "double precision, target :: c; c = sin(a)"
   sin.stmtp = "c = np.sin(a)"
   sin.vals = {'a':angle}
-  sin.grads = {'a':3.1}
+  sin.dots = {'a':3.1}
   sin.test_vals = {'c':np.sin(angle)}
-  sin.test_grads = {'c':np.cos(angle)*3.1}
+  sin.test_dots = {'c':np.cos(angle)*3.1}
   sin.disable = lambda arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
   basiclist.append(sin)
 
@@ -345,9 +347,9 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.stmtr8 = "double precision, target :: c; c = cos(a)"
   cos.stmtp = "c = np.cos(a)"
   cos.vals = {'a':angle}
-  cos.grads = {'a':2.7}
+  cos.dots = {'a':2.7}
   cos.test_vals = {'c':np.cos(angle)}
-  cos.test_grads = {'c':-np.sin(angle)*2.7}
+  cos.test_dots = {'c':-np.sin(angle)*2.7}
   cos.disable = lambda arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
   basiclist.append(cos)
 
@@ -361,9 +363,9 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   tan.stmtr8 = "double precision, target :: c; c = tan(a)"
   tan.stmtp = "c = np.tan(a)"
   tan.vals = {'a':angle}
-  tan.grads = {'a':1.0}
+  tan.dots = {'a':1.0}
   tan.test_vals = {'c':np.tan(angle)}
-  tan.test_grads = {'c':1./np.cos(angle)**2}
+  tan.test_dots = {'c':1./np.cos(angle)**2}
   basiclist.append(tan)
 
 exp = ClientRequestTestCase("exp")
@@ -376,9 +378,9 @@ exp.stmtr4 = "real, target :: c; c = exp(a)"
 exp.stmtr8 = "double precision, target :: c; c = exp(a)"
 exp.stmtp = "c = np.exp(a)"
 exp.vals = {'a':4}
-exp.grads = {'a':5.0}
+exp.dots = {'a':5.0}
 exp.test_vals = {'c':np.exp(4)}
-exp.test_grads = {'c':np.exp(4)*5.0}
+exp.test_dots = {'c':np.exp(4)*5.0}
 exp.disable = lambda arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
 basiclist.append(exp)
 
@@ -392,9 +394,9 @@ log.stmtr4 = "real, target :: c; c = log(a)"
 log.stmtr8 = "double precision, target :: c; c = log(a)"
 log.stmtp = "c = np.log(a)"
 log.vals = {'a':20}
-log.grads = {'a':1.0}
+log.dots = {'a':1.0}
 log.test_vals = {'c':np.log(20)}
-log.test_grads = {'c':0.05}
+log.test_dots = {'c':0.05}
 log.disable = lambda arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
 basiclist.append(log)
 
@@ -408,9 +410,9 @@ log10.stmtr4 = "real, target :: c; c = log10(a)"
 log10.stmtr8 = "double precision, target :: c; c = log10(a)"
 log10.stmtp = "c = np.log10(a)"
 log10.vals = {'a':0.01}
-log10.grads = {'a':1.0}
+log10.dots = {'a':1.0}
 log10.test_vals = {'c':-2}
-log10.test_grads = {'c':100/np.log(10)}
+log10.test_dots = {'c':100/np.log(10)}
 basiclist.append(log10)
 
 sinh = ClientRequestTestCase("sinh")
@@ -423,9 +425,9 @@ sinh.stmtr4 = "real, target :: c; c = sinh(a)"
 sinh.stmtr8 = "double precision, target :: c; c = sinh(a)"
 sinh.stmtp = "c = np.sinh(a)"
 sinh.vals = {'a':2.0}
-sinh.grads = {'a':1.0}
+sinh.dots = {'a':1.0}
 sinh.test_vals = {'c':np.sinh(2.0)}
-sinh.test_grads = {'c':np.cosh(2.0)}
+sinh.test_dots = {'c':np.cosh(2.0)}
 basiclist.append(sinh)
 
 cosh = ClientRequestTestCase("cosh")
@@ -438,9 +440,9 @@ cosh.stmtr4 = "real, target :: c; c = cosh(a)"
 cosh.stmtr8 = "double precision, target :: c; c = cosh(a)"
 cosh.stmtp = "c = np.cosh(a)"
 cosh.vals = {'a':-2.0}
-cosh.grads = {'a':1.0}
+cosh.dots = {'a':1.0}
 cosh.test_vals = {'c':np.cosh(-2.0)}
-cosh.test_grads = {'c':np.sinh(-2.0)}
+cosh.test_dots = {'c':np.sinh(-2.0)}
 basiclist.append(cosh)
 
 tanh = ClientRequestTestCase("tanh")
@@ -453,9 +455,9 @@ tanh.stmtr4 = "real, target :: c; c = tanh(a)"
 tanh.stmtr8 = "double precision, target :: c; c = tanh(a)"
 tanh.stmtp = "c = np.tanh(a)"
 tanh.vals = {'a':-0.5}
-tanh.grads = {'a':1.0}
+tanh.dots = {'a':1.0}
 tanh.test_vals = {'c':np.tanh(-0.5)}
-tanh.test_grads = {'c':1-np.tanh(-0.5)**2}
+tanh.test_dots = {'c':1-np.tanh(-0.5)**2}
 basiclist.append(tanh)
 
 asin = ClientRequestTestCase("asin")
@@ -468,9 +470,9 @@ asin.stmtr4 = "real, target :: c; c = asin(a)"
 asin.stmtr8 = "double precision, target :: c; c = asin(a)"
 asin.stmtp = "c = np.arcsin(a)"
 asin.vals = {'a':0.9}
-asin.grads = {'a':1.0}
+asin.dots = {'a':1.0}
 asin.test_vals = {'c':np.arcsin(0.9)}
-asin.test_grads = {'c':1/np.sqrt(1-0.9**2)}
+asin.test_dots = {'c':1/np.sqrt(1-0.9**2)}
 basiclist.append(asin)
 
 acos = ClientRequestTestCase("acos")
@@ -483,9 +485,9 @@ acos.stmtr4 = "real, target :: c; c = acos(a)"
 acos.stmtr8 = "double precision, target :: c; c = acos(a)"
 acos.stmtp = "c = np.arccos(a)"
 acos.vals = {'a':-0.4}
-acos.grads = {'a':1.0}
+acos.dots = {'a':1.0}
 acos.test_vals = {'c':np.arccos(-0.4)}
-acos.test_grads = {'c':-1/np.sqrt(1-(-0.4)**2)}
+acos.test_dots = {'c':-1/np.sqrt(1-(-0.4)**2)}
 basiclist.append(acos)
 
 atan = ClientRequestTestCase("atan")
@@ -498,9 +500,9 @@ atan.stmtr4 = "real, target :: c; c = atan(a)"
 atan.stmtr8 = "double precision, target :: c; c = atan(a)"
 atan.stmtp = "c = np.arctan(a)"
 atan.vals = {'a':100}
-atan.grads = {'a':1.0}
+atan.dots = {'a':1.0}
 atan.test_vals = {'c':np.arctan(100)}
-atan.test_grads = {'c':1/(1+100**2)}
+atan.test_dots = {'c':1/(1+100**2)}
 basiclist.append(atan)
 
 atan2 = ClientRequestTestCase("atan2")
@@ -513,9 +515,9 @@ atan2.stmtr4 = "real, target :: c; c = atan2(a,b)"
 atan2.stmtr8 = "double precision, target :: c; c = atan2(a,b)"
 atan2.stmtp = "c = np.arctan2(a,b)"
 atan2.vals = {'a':3,'b':4}
-atan2.grads = {'a':1.3, 'b':1.5}
+atan2.dots = {'a':1.3, 'b':1.5}
 atan2.test_vals = {'c':np.arctan2(3,4)}
-atan2.test_grads = {'c':1.3*(-4)/(3**2+4**2) + 1.5*3/(3**2+4**2)}
+atan2.test_dots = {'c':1.3*(-4)/(3**2+4**2) + 1.5*3/(3**2+4**2)}
 basiclist.append(atan2)
 
 floor = ClientRequestTestCase("floor")
@@ -528,9 +530,9 @@ floor.stmtr4 = "real, target :: c; c = floor(a)"
 floor.stmtr8 = "double precision, target :: c; c = floor(a)"
 floor.stmtp = "c = np.floor(a)"
 floor.vals = {'a':2.0}
-floor.grads = {'a':1.0}
+floor.dots = {'a':1.0}
 floor.test_vals = {'c':2.0}
-floor.test_grads = {'c':0.0}
+floor.test_dots = {'c':0.0}
 basiclist.append(floor)
 
 ceil = ClientRequestTestCase("ceil")
@@ -543,9 +545,9 @@ ceil.stmtr4 = "real, target :: c; c = ceiling(a)"
 ceil.stmtr8 = "double precision, target :: c; c = ceiling(a)"
 ceil.stmtp = "c = np.ceil(a)"
 ceil.vals = {'a':2.1}
-ceil.grads = {'a':1.0}
+ceil.dots = {'a':1.0}
 ceil.test_vals = {'c':3.0}
-ceil.test_grads = {'c':0.0}
+ceil.test_dots = {'c':0.0}
 basiclist.append(ceil)
 
 ldexp = ClientRequestTestCase("ldexp")
@@ -556,9 +558,9 @@ ldexp.stmtf = "float c = ldexpf(a,-3);"
 ldexp.stmtl = "long double c = ldexpl(a,-3);"
 ldexp.stmtp = "c = np.ldexp(a,-3)"
 ldexp.vals = {'a':2.4}
-ldexp.grads = {'a':-1.0}
+ldexp.dots = {'a':-1.0}
 ldexp.test_vals = {'c':0.3}
-ldexp.test_grads = {'c':-1.0/8}
+ldexp.test_dots = {'c':-1.0/8}
 basiclist.append(ldexp)
 
 frexp = ClientRequestTestCase("frexp")
@@ -569,9 +571,9 @@ frexp.stmtf = "int e; float c = frexpf(a,&e); float ee = e;"
 frexp.stmtl = "int e; long double c = frexpl(a,&e); long double ee=e;"
 frexp.stmtp = "c, e = np.frexp(a); ee=1.0*e"
 frexp.vals = {'a':-5.0}
-frexp.grads = {'a':-1.0}
+frexp.dots = {'a':-1.0}
 frexp.test_vals = {'c':-5.0/8, 'ee':3.0}
-frexp.test_grads = {'c':-1.0/8, 'ee':0.0}
+frexp.test_dots = {'c':-1.0/8, 'ee':0.0}
 basiclist.append(frexp)
 
 ### Memory operations from string.h ###
@@ -582,9 +584,9 @@ memcpy.stmtd = "double aa[3],ac[3],c; aa[1] = a; memcpy(ac,aa,3*sizeof(double));
 memcpy.stmtf = "float aa[3],ac[3],c; aa[1] = a; memcpy(ac,aa,3*sizeof(float)); c=ac[1];"
 memcpy.stmtl = "long double aa[3],ac[3],c; aa[1] = a; memcpy(ac,aa,3*sizeof(long double)); c=ac[1];"
 memcpy.vals = {'a':-12.34}
-memcpy.grads = {'a':-56.78}
+memcpy.dots = {'a':-56.78}
 memcpy.test_vals = {'c':-12.34}
-memcpy.test_grads = {'c':-56.78}
+memcpy.test_dots = {'c':-56.78}
 basiclist.append(memcpy)
 
 memmove = ClientRequestTestCase("memmove")
@@ -593,9 +595,9 @@ memmove.stmtd = "double aa[3],c; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*si
 memmove.stmtf = "float aa[3],c; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(float)); c=aa[1];"
 memmove.stmtl = "long double aa[3],c; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(long double)); c=aa[1];"
 memmove.vals = {'a':-12.34}
-memmove.grads = {'a':-56.78}
+memmove.dots = {'a':-56.78}
 memmove.test_vals = {'c':-12.34*3.14}
-memmove.test_grads = {'c':-56.78*3.14}
+memmove.test_dots = {'c':-56.78*3.14}
 basiclist.append(memmove)
 
 memset = ClientRequestTestCase("memset")
@@ -604,9 +606,9 @@ memset.stmtd = "memset(&a,0,sizeof(double));"
 memset.stmtf = "memset(&a,0,sizeof(float));"
 memset.stmtl = "memset(&a,0,sizeof(long double));"
 memset.vals = {'a':-12.34}
-memset.grads = {'a':-56.78}
+memset.dots = {'a':-56.78}
 memset.test_vals = {'a':0.0}
-memset.test_grads = {'a':0.0}
+memset.test_dots = {'a':0.0}
 basiclist.append(memset)
 
 
@@ -621,9 +623,9 @@ ifbranch.stmtr8 = "double precision, target :: c; if(a<1) then; c = 2+a; else; c
 ifbranch.stmtp = "if a<1:\n  c = 2+a\nelse:\n  c = 2*a\n"
 ifbranch.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
 ifbranch.vals = {'a':0.0}
-ifbranch.grads = {'a':1.0}
+ifbranch.dots = {'a':1.0}
 ifbranch.test_vals = {'c':2.0}
-ifbranch.test_grads = {'c':1.0}
+ifbranch.test_dots = {'c':1.0}
 basiclist.append(ifbranch)
 
 elsebranch = ClientRequestTestCase("elsebranch")
@@ -635,9 +637,9 @@ elsebranch.stmtr8 = "double precision, target :: c; if(a<-1) then; c = 2+a; else
 elsebranch.stmtp = "if a<-1:\n  c = 2+a\nelse:\n  c = 2*a\n"
 elsebranch.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
 elsebranch.vals = {'a':0.0}
-elsebranch.grads = {'a':1.0}
+elsebranch.dots = {'a':1.0}
 elsebranch.test_vals = {'c':0.0}
-elsebranch.test_grads = {'c':2.0}
+elsebranch.test_dots = {'c':2.0}
 basiclist.append(elsebranch)
 
 ternary_true = ClientRequestTestCase("ternary_true")
@@ -649,9 +651,9 @@ ternary_true.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtp = "c = (3*a) if (a>-1) else (a*a)"
 ternary_true.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
 ternary_true.vals = {'a':10.0}
-ternary_true.grads = {'a':1.0}
+ternary_true.dots = {'a':1.0}
 ternary_true.test_vals = {'c':30.0}
-ternary_true.test_grads = {'c':3.0}
+ternary_true.test_dots = {'c':3.0}
 basiclist.append(ternary_true)
 
 ternary_false = ClientRequestTestCase("ternary_false")
@@ -663,9 +665,9 @@ ternary_false.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)
 ternary_false.stmtp = "c = (3*a) if (a>-1) else (a*a)"
 ternary_false.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
 ternary_false.vals = {'a':-10.0}
-ternary_false.grads = {'a':1.0}
+ternary_false.dots = {'a':1.0}
 ternary_false.test_vals = {'c':100.0}
-ternary_false.test_grads = {'c':-20.0}
+ternary_false.test_dots = {'c':-20.0}
 basiclist.append(ternary_false)
 
 
@@ -677,9 +679,9 @@ addition_forloop.stmtr4 = "real, target :: c = 0; integer :: i; do i=0, 9; c=c+a
 addition_forloop.stmtr8 = "double precision, target :: c = 0; integer :: i; do i=0, 9; c=c+a; end do"
 addition_forloop.stmtp = "c=0\nfor i in range(10):\n  c+=a"
 addition_forloop.vals = {'a':2.0}
-addition_forloop.grads = {'a':1.0}
+addition_forloop.dots = {'a':1.0}
 addition_forloop.test_vals = {'c':20.0}
-addition_forloop.test_grads = {'c':10.0}
+addition_forloop.test_dots = {'c':10.0}
 basiclist.append(addition_forloop)
 
 multiplication_forloop = ClientRequestTestCase("multiplication_forloop")
@@ -690,9 +692,9 @@ multiplication_forloop.stmtr4 = "real, target :: c = 1; integer :: i; do i=0, 9;
 multiplication_forloop.stmtr8 = "double precision, target :: c = 1; integer :: i; do i=0, 9; c=c*a; end do"
 multiplication_forloop.stmtp = "c=1\nfor i in range(10):\n  c*=a"
 multiplication_forloop.vals = {'a':2.0}
-multiplication_forloop.grads = {'a':1.0}
+multiplication_forloop.dots = {'a':1.0}
 multiplication_forloop.test_vals = {'c':1024.0}
-multiplication_forloop.test_grads = {'c':5120.0}
+multiplication_forloop.test_dots = {'c':5120.0}
 basiclist.append(multiplication_forloop)
 
 addition_whileloop = ClientRequestTestCase("addition_whileloop")
@@ -704,9 +706,9 @@ addition_whileloop.stmtr8 = "double precision, target :: c = 0; do while(c<19); 
 addition_whileloop.stmtp = "c=0\nwhile c<19:\n  c=c+a"
 addition_whileloop.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
 addition_whileloop.vals = {'a':2.0}
-addition_whileloop.grads = {'a':1.0}
+addition_whileloop.dots = {'a':1.0}
 addition_whileloop.test_vals = {'c':20.0}
-addition_whileloop.test_grads = {'c':10.0}
+addition_whileloop.test_dots = {'c':10.0}
 basiclist.append(addition_whileloop)
 
 multiplication_whileloop = ClientRequestTestCase("multiplication_whileloop")
@@ -718,9 +720,9 @@ multiplication_whileloop.stmtr8 = "double precision, target :: c = 1; do while(c
 multiplication_whileloop.stmtp = "c=1\nwhile c<1023:\n  c=c*a"
 multiplication_whileloop.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
 multiplication_whileloop.vals = {'a':2.0}
-multiplication_whileloop.grads = {'a':1.0}
+multiplication_whileloop.dots = {'a':1.0}
 multiplication_whileloop.test_vals = {'c':1024.0}
-multiplication_whileloop.test_grads = {'c':5120.0}
+multiplication_whileloop.test_dots = {'c':5120.0}
 basiclist.append(multiplication_whileloop)
 
 addition_dowhileloop = ClientRequestTestCase("addition_dowhileloop")
@@ -728,9 +730,9 @@ addition_dowhileloop.stmtd = "double c = 0; do c+=a; while(c<19);"
 addition_dowhileloop.stmtf = "float c = 0; do c+=a; while(c<19);"
 addition_dowhileloop.stmtl = "long double c = 0; do c+=a; while(c<19);"
 addition_dowhileloop.vals = {'a':2.0}
-addition_dowhileloop.grads = {'a':1.0}
+addition_dowhileloop.dots = {'a':1.0}
 addition_dowhileloop.test_vals = {'c':20.0}
-addition_dowhileloop.test_grads = {'c':10.0}
+addition_dowhileloop.test_dots = {'c':10.0}
 basiclist.append(addition_dowhileloop)
 
 multiplication_dowhileloop = ClientRequestTestCase("multiplication_dowhileloop")
@@ -738,9 +740,9 @@ multiplication_dowhileloop.stmtd = "double c = 1; do c*=a; while(c<1023);"
 multiplication_dowhileloop.stmtf = "float c = 1; do c*=a; while(c<1023);"
 multiplication_dowhileloop.stmtl = "long double c = 1; do c*=a; while(c<1023);"
 multiplication_dowhileloop.vals = {'a':2.0}
-multiplication_dowhileloop.grads = {'a':1.0}
+multiplication_dowhileloop.dots = {'a':1.0}
 multiplication_dowhileloop.test_vals = {'c':1024.0}
-multiplication_dowhileloop.test_grads = {'c':5120.0}
+multiplication_dowhileloop.test_dots = {'c':5120.0}
 basiclist.append(multiplication_dowhileloop)
 
 addition_recursion = ClientRequestTestCase("addition_recursion")
@@ -754,9 +756,9 @@ addition_recursion.stmtf = "float c = ff(10,a);"
 addition_recursion.stmtl = "long double c = fl(10,a);"
 addition_recursion.stmtp = "def f(n,x):\n  if n==0:\n    return 0.\n  else:\n    return x+f(n-1,x)\nc=f(10,a)"
 addition_recursion.vals = {'a':2.0}
-addition_recursion.grads = {'a':1.0}
+addition_recursion.dots = {'a':1.0}
 addition_recursion.test_vals = {'c':20.0}
-addition_recursion.test_grads = {'c':10.0}
+addition_recursion.test_dots = {'c':10.0}
 basiclist.append(addition_recursion)
 
 multiplication_recursion = ClientRequestTestCase("multiplication_recursion")
@@ -770,9 +772,9 @@ multiplication_recursion.stmtf = "float c = ff(10,a);"
 multiplication_recursion.stmtl = "long double c = fl(10,a);"
 multiplication_recursion.stmtp = "def f(n,x):\n  if n==0:\n    return 1.\n  else:\n    return x*f(n-1,x)\nc=f(10,a)"
 multiplication_recursion.vals = {'a':2.0}
-multiplication_recursion.grads = {'a':1.0}
+multiplication_recursion.dots = {'a':1.0}
 multiplication_recursion.test_vals = {'c':1024.0}
-multiplication_recursion.test_grads = {'c':5120.0}
+multiplication_recursion.test_dots = {'c':5120.0}
 basiclist.append(multiplication_recursion)
 
 ### Auto-Vectorization ###
@@ -800,9 +802,9 @@ for (name, op, c_val, c_grad) in [
   autovectorization.stmtr4 = "real, dimension(16) :: a_arr, b_arr, c_arr; real, target :: c = 0; "+autovectorization_stmtbody_fortran
   autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, b_arr, c_arr; double precision, target :: c = 0; "+autovectorization_stmtbody_fortran
   autovectorization.vals = {'a':10.0,'b':-1.0}
-  autovectorization.grads = {'a':2.0,'b':3.0}
+  autovectorization.dots = {'a':2.0,'b':3.0}
   autovectorization.test_vals = {'c':c_val}
-  autovectorization.test_grads = {'c':c_grad}
+  autovectorization.test_dots = {'c':c_grad}
   basiclist.append(autovectorization)
 
 for (name, cfun, ffun, c_val, c_grad) in [ 
@@ -832,9 +834,9 @@ for (name, cfun, ffun, c_val, c_grad) in [
   autovectorization.ldflags = "-lm"
   autovectorization.include = "#include <math.h>"
   autovectorization.vals = {'a':10.0}
-  autovectorization.grads = {'a':2.0}
+  autovectorization.dots = {'a':2.0}
   autovectorization.test_vals = {'c':c_val}
-  autovectorization.test_grads = {'c':c_grad}
+  autovectorization.test_dots = {'c':c_grad}
   basiclist.append(autovectorization)
 
 ### OpenMP ###
@@ -861,14 +863,14 @@ for(int i=0; i<100; i++){
 omp_critical.stmtf = None
 omp_critical.stmtl = None
 omp_critical.vals = {'a':1.0}
-omp_critical.grads = {'a':3.0}
+omp_critical.dots = {'a':3.0}
 omp_test_sum_val=0
 omp_test_sum_grad=0
 for i in range(100):
   omp_test_sum_val += np.sin(i*1.0)
   omp_test_sum_grad += np.cos(i*1.0)*i*3.0
 omp_critical.test_vals = {'sum':omp_test_sum_val}
-omp_critical.test_grads = {'sum':omp_test_sum_grad}
+omp_critical.test_dots = {'sum':omp_test_sum_grad}
 basiclist.append(omp_critical)
 
 omp_atomic = ClientRequestTestCase("omp_atomic")
@@ -887,14 +889,14 @@ for(int i=0; i<100; i++){
 omp_atomic.stmtf = None
 omp_atomic.stmtl = None
 omp_atomic.vals = {'a':1.0}
-omp_atomic.grads = {'a':3.0}
+omp_atomic.dots = {'a':3.0}
 omp_test_sum_val=0
 omp_test_sum_grad=0
 for i in range(100):
   omp_test_sum_val += np.sin(i*1.0)
   omp_test_sum_grad += np.cos(i*1.0)*i*3.0
 omp_atomic.test_vals = {'sum':omp_test_sum_val}
-omp_atomic.test_grads = {'sum':omp_test_sum_grad}
+omp_atomic.test_dots = {'sum':omp_test_sum_grad}
 omp_atomic.disable = lambda arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
 basiclist.append(omp_atomic)
 
@@ -913,14 +915,14 @@ for(int i=0; i<100; i++){
 omp_reduction.stmtf = None
 omp_reduction.stmtl = None
 omp_reduction.vals = {'a':1.0}
-omp_reduction.grads = {'a':3.0}
+omp_reduction.dots = {'a':3.0}
 omp_test_sum_val=0
 omp_test_sum_grad=0
 for i in range(100):
   omp_test_sum_val += np.sin(i*1.0)
   omp_test_sum_grad += np.cos(i*1.0)*i*3.0
 omp_reduction.test_vals = {'sum':omp_test_sum_val}
-omp_reduction.test_grads = {'sum':omp_test_sum_grad}
+omp_reduction.test_dots = {'sum':omp_test_sum_grad}
 omp_reduction.disable = lambda arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
 basiclist.append(omp_reduction)
 
@@ -929,9 +931,9 @@ exponentadd = ClientRequestTestCase("exponentadd")
 exponentadd.stmtd = "double c = a; *((char*)&c+6) += 0x10;"
 exponentadd.stmtf = "float c = a; *((char*)&c+2) += 0xf0;"
 exponentadd.vals = {'a':3.14}
-exponentadd.grads = {'a': -42.0}
+exponentadd.dots = {'a': -42.0}
 exponentadd.test_vals = {'c':6.28}
-exponentadd.test_grads = {'c':-84.0}
+exponentadd.test_dots = {'c':-84.0}
 exponentadd.disable = lambda arch, compiler, typename: True
 basiclist.append(exponentadd)
 
@@ -939,9 +941,9 @@ exponentsub = ClientRequestTestCase("exponentsub")
 exponentsub.stmtd = "double c = a; *((char*)&c+6) -= 0x10;"
 exponentsub.stmtf = "float c = a; *((char*)&c+2) -= 0xf0;"
 exponentsub.vals = {'a':3.14}
-exponentsub.grads = {'a': -42.0}
+exponentsub.dots = {'a': -42.0}
 exponentsub.test_vals = {'c':3}
-exponentsub.test_grads = {'c':-84.0}
+exponentsub.test_dots = {'c':-84.0}
 exponentsub.disable = lambda arch, compiler, typename: True
 basiclist.append(exponentadd)
 
@@ -953,9 +955,9 @@ constructornew.stmtf = "A<float>* a = new A<float>(x); float y=a->t; "
 constructornew.stmtl = "A<long double>* a = new A<long double>(x); long double y=a->t; "
 constructornew.disable = lambda arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
 constructornew.vals = {'x': 2.0}
-constructornew.grads = {'x': 3.0}
+constructornew.dots = {'x': 3.0}
 constructornew.test_vals = {'y': 4.0}
-constructornew.test_grads = {'y': 12.0}
+constructornew.test_dots = {'y': 12.0}
 basiclist.append(constructornew)
 
 virtualdispatch = ClientRequestTestCase("virtualdispatch")
@@ -985,9 +987,9 @@ virtualdispatch.stmtf = "B<float> b1(1,x), b2(3,4); b2 = static_cast<A<float> >(
 virtualdispatch.stmtl = "B<long double> b1(1,x), b2(3,4); b2 = static_cast<A<long double> >(b1); long double y = b2.t1;"
 virtualdispatch.disable = lambda arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
 virtualdispatch.vals = {'x': 2.}
-virtualdispatch.grads = {'x': 2.1}
+virtualdispatch.dots = {'x': 2.1}
 virtualdispatch.test_vals = {'y': 2.}
-virtualdispatch.test_grads = {'y': 2.1}
+virtualdispatch.test_dots = {'y': 2.1}
 basiclist.append(virtualdispatch)
 
 
@@ -1000,9 +1002,9 @@ addition_interactive.stmtl = "long double c = a+b;"
 addition_interactive.stmtr4 = "real :: c; c= a+b"
 addition_interactive.stmtr8 = "double precision :: c; c= a+b"
 addition_interactive.vals = {'a':1.0,'b':2.0}
-addition_interactive.grads = {'a':3.0,'b':4.0}
+addition_interactive.dots = {'a':3.0,'b':4.0}
 addition_interactive.test_vals = {'c':3.0}
-addition_interactive.test_grads = {'c':7.0}
+addition_interactive.test_dots = {'c':7.0}
 basiclist.append(addition_interactive)
 
 multiplication_interactive = InteractiveTestCase("multiplication_interactive")
@@ -1012,9 +1014,9 @@ multiplication_interactive.stmtl = "long double c = a*b;"
 multiplication_interactive.stmtr4 = "real :: c; c= a*b"
 multiplication_interactive.stmtr8 = "double precision :: c; c= a*b"
 multiplication_interactive.vals = {'a':1.0,'b':2.0}
-multiplication_interactive.grads = {'a':3.0,'b':4.0}
+multiplication_interactive.dots = {'a':3.0,'b':4.0}
 multiplication_interactive.test_vals = {'c':2.0}
-multiplication_interactive.test_grads = {'c':10.0}
+multiplication_interactive.test_dots = {'c':10.0}
 basiclist.append(multiplication_interactive)
 
 sin_100_interactive = InteractiveTestCase("sin_100_interactive")
@@ -1026,9 +1028,9 @@ sin_100_interactive.stmtl = "long double c = sinl(a);"
 sin_100_interactive.stmtr4 = "real :: c; c= sin(a)"
 sin_100_interactive.stmtr8 = "double precision :: c; c= sin(a)"
 sin_100_interactive.vals = {'a':100}
-sin_100_interactive.grads = {'a':3.1}
+sin_100_interactive.dots = {'a':3.1}
 sin_100_interactive.test_vals = {'c':np.sin(100)}
-sin_100_interactive.test_grads = {'c':np.cos(100)*3.1}
+sin_100_interactive.test_dots = {'c':np.cos(100)*3.1}
 basiclist.append(sin_100_interactive)
 
 

@@ -78,9 +78,11 @@ class TestCase:
     # set the others stmtX to None
     self.include = "" # Code pasted above main function
     self.vals = {} # Assigns values to input variables used by stmt
-    self.grads = {} # Assigns gradients to input variables used by stmt
+    self.dots = {} # Assigns dot values to input variables used by stmt
+    self.bars = {} # Assigns bar values to output variables used by stmt
     self.test_vals = {} # Expected values of output variables computed by stmt
-    self.test_grads = {} # Expected gradients of output variables computed by stmt
+    self.test_dots = {} # Expected dot values of output variables computed by stmt
+    self.test_bars = {} # Expected bar values of input variables computed by stmt
     self.timeout = 10 # Timeout for execution in Valgrind, in seconds
     self.cflags = "" # Additional flags for the C compiler
     self.cflags_clang = None # Additional flags for the C compiler, if clang is used
@@ -180,8 +182,8 @@ class InteractiveTestCase(TestCase):
     gdb.stdin.write("break "+self.source_filename+":"+str(self.line_before_stmt)+"\n")
     gdb.stdin.write("break "+self.source_filename+":"+str(self.line_after_stmt)+"\n")
     gdb.stdin.write("continue\n")
-    # set gradients and continue
-    for var in self.grads:
+    # set dot values and continue
+    for var in self.dots:
       gdb.stdin.write("print &"+var+"\n")
       while True:
         line = gdb.stdout.readline()
@@ -189,7 +191,7 @@ class InteractiveTestCase(TestCase):
         r = re.search(r"\$\d+ = \("+self.type["gdbptype"]+"\) (0x[0-9a-f]+)\s?", line.strip())
         if r:
           pointer = r.group(1)
-          gdb.stdin.write("monitor "+self.type["set"]+" "+pointer+" "+str(self.grads[var])+"\n")
+          gdb.stdin.write("monitor "+self.type["set"]+" "+pointer+" "+str(self.dots[var])+"\n")
           break
     gdb.stdin.write("continue\n")
     # check values
@@ -204,8 +206,8 @@ class InteractiveTestCase(TestCase):
           if abs(computed_value-self.test_vals[var]) > self.type["tol"]:
             self.errmsg += "VALUES DISAGREE: "+var+" stored="+str(self.test_vals[var])+" computed="+str(computed_value)+"\n"
           break
-    # check gradients
-    for var in self.test_grads:
+    # check dot values
+    for var in self.test_dots:
       gdb.stdin.write("print &"+var+"\n")
       while True:
         line = gdb.stdout.readline()
@@ -220,9 +222,9 @@ class InteractiveTestCase(TestCase):
         self.gdb_log += line
         r = re.search("dot value: ([0-9.\-]+)$", line.strip())
         if r:
-          computed_gradient = float(r.group(1))
-          if abs(computed_gradient-self.test_grads[var]) > self.type["tol"]:
-            self.errmsg += "GRADIENTS DISAGREE: "+var+" stored="+str(self.test_grads[var])+" computed="+str(computed_gradient)+"\n"
+          computed_dot = float(r.group(1))
+          if abs(computed_dot-self.test_dots[var]) > self.type["tol"]:
+            self.errmsg += "DOT VALUES DISAGREE: "+var+" stored="+str(self.test_dots[var])+" computed="+str(computed_dot)+"\n"
           break
     # finish
     gdb.stdin.write("continue\n")
@@ -269,7 +271,7 @@ class ClientRequestTestCase(TestCase):
       self.code += "int main(){\n  int ret=0;\n"
       self.code += "".join([f"  {self.type['ctype']} {var} = {self.vals[var]};\n" for var in self.vals]) 
       self.code += "  {\n"
-      self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = {self.grads[var]}; VALGRIND_SET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.grads])
+      self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = {self.dots[var]}; VALGRIND_SET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.dots])
       self.code += "  }\n"
       self.code += "  " + self.stmt + "\n"
       self.code += "  {\n"
@@ -288,21 +290,21 @@ class ClientRequestTestCase(TestCase):
             std::cout << "VALUES DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_vals[var]}) << " computed=" << {var} << "\\n"; ret = 1;
           """
         self.code += f""" }} """
-      # check gradients
-      for var in self.test_grads:
+      # check dot values
+      for var in self.test_dots:
         self.code += f"""
           {self.type['ctype']} _derivative_of_{var} = 0.; 
           VALGRIND_GET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});
-          if(_derivative_of_{var} < {self.test_grads[var]-self.type["tol"]} 
-              || _derivative_of_{var} > {self.test_grads[var]+self.type["tol"]}) {{
+          if(_derivative_of_{var} < {self.test_dots[var]-self.type["tol"]} 
+              || _derivative_of_{var} > {self.test_dots[var]+self.type["tol"]}) {{
         """ 
         if c:
           self.code += f"""
-            printf("GRADIENTS DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_grads[var]}, _derivative_of_{var}); ret = 1; 
+            printf("DOT VALUES DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_dots[var]}, _derivative_of_{var}); ret = 1; 
           """
         else:
           self.code += f"""
-            std::cout << "GRADIENTS DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_grads[var]}) << " computed=" << _derivative_of_{var} << "\\n"; ret=1;
+            std::cout << "DOT VALUES DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_dots[var]}) << " computed=" << _derivative_of_{var} << "\\n"; ret=1;
           """
         self.code += f""" }} """
       self.code += "  }\n"
@@ -317,10 +319,10 @@ class ClientRequestTestCase(TestCase):
       """
       for var in self.vals:
         self.code += f"{self.type['ftype']}, target :: {var} = {str_fortran(self.vals[var])}\n"
-      for var in self.grads:
+      for var in self.dots:
         self.code += f"""
           block
-          {self.type['ftype']}, target :: derivative_of_{var} = {str_fortran(self.grads[var])}
+          {self.type['ftype']}, target :: derivative_of_{var} = {str_fortran(self.dots[var])}
           call valgrind_set_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
           end block
         """
@@ -334,14 +336,14 @@ class ClientRequestTestCase(TestCase):
             ret = 1
           end if
         """
-      # check gradients
-      for var in self.test_grads:
+      # check dot values
+      for var in self.test_dots:
         self.code += f"""
           block
           {self.type['ftype']}, target :: derivative_of_{var} = 0
           call valgrind_get_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
-          if(derivative_of_{var} < {str_fortran(self.test_grads[var]-self.type["tol"])} .or. derivative_of_{var} > {str_fortran(self.test_grads[var]+self.type["tol"])}) then
-            print *, "GRADIENTS DISAGREE: {var} stored=", {str_fortran(self.test_grads[var])}, " computed=", derivative_of_{var}
+          if(derivative_of_{var} < {str_fortran(self.test_dots[var]-self.type["tol"])} .or. derivative_of_{var} > {str_fortran(self.test_dots[var]+self.type["tol"])}) then
+            print *, "DOT VALUES DISAGREE: {var} stored=", {str_fortran(self.test_dots[var])}, " computed=", derivative_of_{var}
             ret = 1
           end if
           end block
@@ -356,32 +358,32 @@ class ClientRequestTestCase(TestCase):
       # NumPy tests perform the same calculation 16 times
       if self.type['pytype']=='float':
         self_vals = self.vals
-        self_grads = self.grads
+        self_dots = self.dots
         self_test_vals = self.test_vals
-        self_test_grads = self.test_grads
+        self_test_dots = self.test_dots
       elif self.type['pytype'] in ['np.float64', 'np.float32']:
         self_vals = { (var+'['+str(i)+']'):self.vals[var] for var in self.vals for i in range(16) }
-        self_grads = { (var+'['+str(i)+']'):self.grads[var] for var in self.grads for i in range(16) }
+        self_dots = { (var+'['+str(i)+']'):self.dots[var] for var in self.dots for i in range(16) }
         self_test_vals = { (var+'['+str(i)+']'):self.test_vals[var] for var in self.test_vals for i in range(16) }
-        self_test_grads = { (var+'['+str(i)+']'):self.test_grads[var] for var in self.test_grads for i in range(16) }
+        self_test_dots = { (var+'['+str(i)+']'):self.test_dots[var] for var in self.test_dots for i in range(16) }
         for var in self.vals:
           self.code += f"{var} = np.empty(16,dtype={self.type['pytype']})\n"
       for var in self_vals:
         self.code += f"{var} = {self_vals[var]}\n"
-      for var in self_grads:
-        self.code += f"{var} = derivgrind.set_derivative({var}, {self_grads[var]})\n"
+      for var in self_dots:
+        self.code += f"{var} = derivgrind.set_derivative({var}, {self_dots[var]})\n"
       self.code += self.stmt + "\n"
       if self.type['pytype'] in ['np.float64','np.float32']:
-        for var in self.test_grads:
+        for var in self.test_dots:
           self.code += f"derivative_of_{var} = np.empty(16,dtype={self.type['pytype']})\n"
       for var in self_test_vals:
         self.code += f'if {var} < {self_test_vals[var]-self.type["tol"]} or {var} > {self_test_vals[var]+self.type["tol"]}:\n'
         self.code += f'  print("VALUES DISAGREE: {var} stored=", {self_test_vals[var]}, "computed=", {var})\n'
         self.code +=  '  ret = 1\n' 
-      for var in self_test_grads:
+      for var in self_test_dots:
         self.code += f'derivative_of_{var} = derivgrind.get_derivative({var})\n'
-        self.code += f'if derivative_of_{var} < {self_test_grads[var]-self.type["tol"]} or derivative_of_{var} > {self_test_grads[var]+self.type["tol"]}:\n'
-        self.code += f'  print("GRADIENTS DISAGREE: {var} stored=", {self_test_grads[var]}, "computed=", derivative_of_{var})\n'
+        self.code += f'if derivative_of_{var} < {self_test_dots[var]-self.type["tol"]} or derivative_of_{var} > {self_test_dots[var]+self.type["tol"]}:\n'
+        self.code += f'  print("DOT VALUES DISAGREE: {var} stored=", {self_test_dots[var]}, "computed=", derivative_of_{var})\n'
         self.code +=  '  ret = 1\n' 
       self.code += "exit(ret)\n"
 
