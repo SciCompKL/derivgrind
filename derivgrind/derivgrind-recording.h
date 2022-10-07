@@ -1,7 +1,8 @@
 #ifndef DERIVGRIND_RECORDING_H
 #define DERIVGRIND_RECORDING_H
 
-#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 /*! \file derivgrind-recording.h
  * Helper macros for simple marking of 
@@ -27,7 +28,7 @@ static double const dg_one = 1.;
  */
 #define DG_INPUTF(var) \
 { \
-  int fd = open("dg-inputs", O_RDWR|O_CREAT|O_APPEND);\
+  int fd = open("dg-inputs", O_WRONLY|O_APPEND);\
   unsigned long long index = DG_INPUT(var);\
   write(fd,&index,8);\
   close(fd);\
@@ -48,7 +49,7 @@ static double const dg_one = 1.;
  */
 #define DG_OUTPUTF(var) \
 { \
-  int fd = open("dg-outputs", O_RDWR|O_CREAT|O_APPEND);\
+  int fd = open("dg-outputs", O_WRONLY|O_APPEND);\
   unsigned long long index = DG_OUTPUT(var);\
   write(fd,&index,8);\
   close(fd);\
@@ -58,9 +59,9 @@ static double const dg_one = 1.;
  */
 #define DG_CLEARF \
 { \
-  int fd = open("dg-inputs", O_RDWR|O_CREAT|O_TRUNC);\
+  int fd = open("dg-inputs", O_WRONLY|O_CREAT|O_TRUNC,0777);\
   close(fd); \
-  fd = open("dg-outputs", O_RDWR|O_CREAT|O_TRUNC);\
+  fd = open("dg-outputs", O_WRONLY|O_CREAT|O_TRUNC,0777);\
   close(fd); \
 }
 
