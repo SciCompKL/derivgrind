@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
 
 /*! \file tape-evaluation.cpp
  * Simple program to perform the "backpropagation" / tape evaluation 
@@ -13,11 +14,16 @@
 
 void print_usage(){
   std::cerr << 
-    "Usage: ./tape-evaluation tapefile [output index=output bar value]...\n"
-    "  tapefile    .. Path to the tape file recorded by Derivgrind.\n"
-    "  output index.. Index of output variable as assigned by Derivgrind.\n"
+    "Usage: ./tape-evaluation tapefile [input index]... [output index=output bar value]...\n"
+    "  tapefile     .. Path to the tape file recorded by Derivgrind.\n"
+    "  input index  .. Index of input variable as assigned by Derivgrind.\n"
+    "  output index .. Index of output variable as assigned by Derivgrind.\n"
     "  output bar value   .. Bar value of output.\n" 
-    "If no outputs were specified, they are read from the file dg-outputs.\n";
+    "If at least one input or output is specified, the adjoints of the inputs\n"
+    "are written to stdout.\n"
+    "If no inputs and outputs are specified, they are read from the files\n"
+    "dg-input-indices dg-output-indices dg-output-adjoints and the input\n"
+    "adjoints are written to dg-input-adjoints.\n" ;
 }
 
 unsigned long long sizeOfStream(std::ifstream& stream){
@@ -38,35 +44,64 @@ int main(int argc, char* argv[]){
 
   // initialize adjoint vector
   unsigned long long nIndex = tapesize / 32;
-  double* adjoint = new double[nIndex];
+  double* adjointvec = new double[nIndex];
   for(int index=0; index<nIndex; index++)
-    adjoint[index] = 0.;
+    adjointvec[index] = 0.;
 
   // set bar values of output variables
   if(argc==2){ // from file
-    std::ifstream outputindices("dg-outputindices",std::ios::binary);
-    std::ifstream outputadjoints("dg-outputadjoints",std::ios::binary);
-    unsigned long long nOutput = sizeOfStream(outputindices) / 8;
-    if(nOutput != sizeOfStream(outputadjoints)/8){
-      std::cerr << "Sizes of dg-outputindices and dg-outputadjoints mismatch." << std::endl;
-      return 1;
-    }
-    for(unsigned long long iOutput=0; iOutput<nOutput; iOutput++){
+    std::ifstream outputindices("dg-output-indices");
+    if(!outputindices.good()){ std::cerr << "Error: while opening dg-output-indices." << std::endl; return 1; }
+    std::ifstream outputadjoints("dg-output-adjoints");
+    if(!outputadjoints.good()){ std::cerr << "Error: while opening dg-output-adjoints." << std::endl; return 1; }
+    while(true){
       unsigned long long index;
-      outputindices.read(reinterpret_cast<char*>(&index),8);
-      double barvalue;
-      outputadjoints.read(reinterpret_cast<char*>(&barvalue),8);
-      adjoint[index] = barvalue;
+      outputindices >> index;
+      double adjoint;
+      outputadjoints >> adjoint;
+      if(outputindices.eof() ^ outputadjoints.eof()){
+        std::cerr << "Error: Sizes of dg-outputindices and dg-outputadjoints mismatch." << std::endl;
+        return 1;
+      } else if(outputindices.eof() && outputadjoints.eof()){
+        break;
+      }
+      if(adjointvec[index]!=0.){
+        std::cerr << "Warning: The output index " << index << " is specified multiple times, I'm summing up." << std::endl;
+      }
+      adjointvec[index] += adjoint;
     }
   } else { // from command-line arguments
-    unsigned long long nOutput = argc-2;
-    for(unsigned long long iOutput=0; iOutput<nOutput; iOutput++){
-      std::string arg(argv[2+iOutput]);
+    for(unsigned long long iArg=2; iArg<argc; iArg++){
+      std::string arg(argv[iArg]);
       int eq = arg.find("=");
-      if(eq==-1){ print_usage(); return 1; }
+      if(eq==-1) continue; // specifies an input
       unsigned long long index = stoll(arg.substr(0,eq));
       double barvalue = stod(arg.substr(eq+1));
-      adjoint[index] = barvalue;
+      if(adjointvec[index]!=0.){
+        std::cerr << "Warning: The output index " << index << " is specified multiple times, I'm summing up." << std::endl;
+      }
+      adjointvec[index] += barvalue;
+    }
+  }
+
+  // collect input variables
+  std::vector<unsigned long long> inputindices_list;
+  if(argc==2){ // from file
+    std::ifstream inputindices("dg-input-indices");
+    if(!inputindices.good()){ std::cerr << "Error: while opening dg-input-indices." << std::endl; return 1; }
+    while(true){
+      unsigned long long index;
+      inputindices >> index;
+      if(inputindices.eof()) break;
+      inputindices_list.push_back(index);
+    }
+  } else { // from command-line arguments
+    for(unsigned long long iArg=2; iArg<argc; iArg++){
+      std::string arg(argv[iArg]);
+      int eq = arg.find("=");
+      if(eq!=-1) continue; // specifies an output
+      unsigned long long index = stoll(arg);
+      inputindices_list.push_back(index);
     }
   }
 
@@ -78,14 +113,28 @@ int main(int argc, char* argv[]){
     double diff1 = *reinterpret_cast<double*>(&tape[4*iIndex+2]);
     double diff2 = *reinterpret_cast<double*>(&tape[4*iIndex+3]);
     if(index1==0 && index2==0){ // input variable
-      std::cout << "Input variable " << iIndex << " with adjoint value " << adjoint[iIndex] << std::endl;
+      // Right now we get input indices from the user, but we might also do something like this:
+      //std::cout << "Input variable " << iIndex << " with adjoint value " << adjointvec[iIndex] << std::endl;
     } else { // variable depends on one or two other variables
-      adjoint[index1] += adjoint[iIndex] * diff1;
-      if(index2!=0) adjoint[index2] += adjoint[iIndex] * diff2;
+      adjointvec[index1] += adjointvec[iIndex] * diff1;
+      if(index2!=0) adjointvec[index2] += adjointvec[iIndex] * diff2;
     }
   }
+
+  // output adjoints of inputs
+  if(argc==2){ // to file
+    std::ofstream outputindices("dg-input-adjoints");
+    for(unsigned long long index : inputindices_list){
+      outputindices << adjointvec[index] << std::endl;
+    }
+  } else { // to stdout
+    for(unsigned long long index : inputindices_list){
+      std::cout << adjointvec[index] << std::endl;
+    }
+  }
+
   delete[] tape;
-  delete[] adjoint;
+  delete[] adjointvec;
 }
 
 

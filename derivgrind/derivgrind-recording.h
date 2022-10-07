@@ -28,9 +28,9 @@ static double const dg_one = 1.;
  */
 #define DG_INPUTF(var) \
 { \
-  int fd = open("dg-inputs", O_WRONLY|O_APPEND);\
+  int fd = open("dg-input-indices", O_WRONLY|O_APPEND);\
   unsigned long long index = DG_INPUT(var);\
-  write(fd,&index,8);\
+  dprintf(fd,"%llu\n",index);\
   close(fd);\
 }
 
@@ -49,9 +49,9 @@ static double const dg_one = 1.;
  */
 #define DG_OUTPUTF(var) \
 { \
-  int fd = open("dg-outputs", O_WRONLY|O_APPEND);\
+  int fd = open("dg-output-indices", O_WRONLY|O_APPEND);\
   unsigned long long index = DG_OUTPUT(var);\
-  write(fd,&index,8);\
+  dprintf(fd,"%llu\n",index);\
   close(fd);\
 }
 
@@ -59,9 +59,9 @@ static double const dg_one = 1.;
  */
 #define DG_CLEARF \
 { \
-  int fd = open("dg-inputs", O_WRONLY|O_CREAT|O_TRUNC,0777);\
+  int fd = open("dg-input-indices", O_WRONLY|O_CREAT|O_TRUNC,0777);\
   close(fd); \
-  fd = open("dg-outputs", O_WRONLY|O_CREAT|O_TRUNC,0777);\
+  fd = open("dg-output-indices", O_WRONLY|O_CREAT|O_TRUNC,0777);\
   close(fd); \
 }
 
