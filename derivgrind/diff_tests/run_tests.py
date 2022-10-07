@@ -236,7 +236,7 @@ division_const_r.dots = {'a':3.0}
 division_const_r.bars = {'c':20.0}
 division_const_r.test_vals = {'c':4.0}
 division_const_r.test_dots = {'c':6.0}
-division_const_r.test_dots = {'c':40.0}
+division_const_r.test_bars = {'c':40.0}
 basiclist.append(division_const_r)
 
 negative = ClientRequestTestCase("negative")
@@ -248,8 +248,10 @@ negative.stmtr8 = "double precision, target :: c; c= -a"
 negative.stmtp = "c= -a"
 negative.vals = {'a':1.0}
 negative.dots = {'a':2.0}
+negative.bars = {'c':1.0}
 negative.test_vals = {'c':-1.0}
 negative.test_dots = {'c':-2.0}
+negative.test_bars = {'a':-1.0}
 basiclist.append(negative)
 
 negative_0 = ClientRequestTestCase("negative_0")
@@ -257,8 +259,10 @@ negative_0.include = "__attribute__((noinline)) double minus(double x){ return -
 negative_0.stmtd = "double c = minus(minus(a));" # the outer minus() computes -(-0.0) i.e. (0x80.. xor 0x80..)
 negative_0.vals = {'a':0.0}
 negative_0.dots = {'a':1.0}
+negative_0.bars = {'c':1.0}
 negative_0.test_vals = {'c':0.0}
 negative_0.test_dots = {'c':1.0}
+negative_0.test_bars = {'a':1.0}
 basiclist.append(negative_0)
 
 ### Advances arithmetic and trigonometric operations ###
@@ -275,8 +279,10 @@ abs_plus.stmtr8 = "double precision, target :: c; c = abs(a)"
 abs_plus.stmtp = "c = abs(a)"
 abs_plus.vals = {'a':1.0}
 abs_plus.dots = {'a':2.0}
+abs_plus.bars = {'c':1.0}
 abs_plus.test_vals = {'c':1.0}
 abs_plus.test_dots = {'c':2.0}
+abs_plus.test_bars = {'a':1.0}
 basiclist.append(abs_plus)
 
 abs_minus = ClientRequestTestCase("abs_minus")
@@ -291,8 +297,10 @@ abs_minus.stmtr8 = "double precision, target :: c; c = abs(a)"
 abs_minus.stmtp = "c = abs(a)"
 abs_minus.vals = {'a':-1.0}
 abs_minus.dots = {'a':2.0}
+abs_minus.bars = {'c':2.0}
 abs_minus.test_vals = {'c':1.0}
 abs_minus.test_dots = {'c':-2.0}
+abs_minus.test_bars = {'a':-2.0}
 basiclist.append(abs_minus)
 
 sqrt = ClientRequestTestCase("sqrt")
@@ -306,8 +314,10 @@ sqrt.stmtr8 = "double precision, target :: c; c = sqrt(a)"
 sqrt.stmtp = "c = np.sqrt(a)"
 sqrt.vals = {'a':4.0}
 sqrt.dots = {'a':1.0}
+sqrt.bars = {'c':1.0}
 sqrt.test_vals = {'c':2.0}
 sqrt.test_dots = {'c':0.25}
+sqrt.test_bars = {'a':0.25}
 basiclist.append(sqrt)
 
 # if pow(a,b) is implemented as a*a for b==2., 
