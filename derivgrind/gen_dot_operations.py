@@ -272,14 +272,14 @@ for Op, op in [("And","and"), ("Or","or"), ("Xor","xor")]:
     the_op.disable_print_results = True # because many are not floating-point operations
     IROp_Infos += [ the_op ]
 
-# Pass-through unary operations
-ops = ["F32toF64"]
+# Unary operations that simply move data and/or set data to zero, apply them analogously to dot values and indices.
+ops = []
 for i in ["32","64"]:
   ops += [f"ReinterpI{i}asF{i}",f"ReinterpF{i}asI{i}"]
 for j in ["","HI"]:
   ops += [f"16{j}to8", f"32{j}to16", f"64{j}to32", f"V128{j}to64", f"128{j}to64"]
 ops += ["64to8","32to8","64to16","V256toV128_0","V256toV128_1","64UtoV128","32UtoV128","V128to32"]
-ops += ["ZeroHI64ofV128", "ZeroHI96ofV128", "ZeroHI112ofV128", "ZeroHI120ofV128"]
+ops += ["ZeroHI64ofV128", "ZeroHI96ofV128", "ZeroHI112ofV128", "ZeroHI120ofV128"] # the latter two might be misused? TODO
 for j1 in [8,16,32,64]:
   for j2 in [8,16,32,64]:
     if j1<j2:
@@ -287,7 +287,15 @@ for j1 in [8,16,32,64]:
 for op in ops:
   the_op = IROp_Info(f"Iop_{op}",1,[1])
   the_op.dotcode = dv(f"IRExpr_Unop(Iop_{op},d1)")
+  the_op.barcode = f"IRExpr* indexLo = IRExpr_Unop(Iop_{op},i1Lo);\nIRExpr* indexHi = IRExpr_Unop(Iop_{op},i1Hi);"
   IROp_Infos += [the_op]
+
+# Conversion F32 -> F64: Apply analogously to dot values, and add zero bytes to indices.
+the_op = IROp_Info("Iop_F32toF64",1,[1])
+the_op.dotcode = dv("IRExpr_Unop(Iop_F32toF64,d1)")
+the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpF64asI64,IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),IRExpr_Unop(Iop_ReinterpF32asI32,i1{HiLo})));" for HiLo in ["Lo","Hi"]])
+ops = ["F32toF64"]
+
 
 # Zero-derivative unary operations
 for op in ["I32StoF64", "I32UtoF64"]:
