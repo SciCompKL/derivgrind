@@ -272,7 +272,7 @@ for Op, op in [("And","and"), ("Or","or"), ("Xor","xor")]:
     the_op.disable_print_results = True # because many are not floating-point operations
     IROp_Infos += [ the_op ]
 
-# Unary operations that simply move data and/or set data to zero, apply them analogously to dot values and indices.
+# Unary operations that simply move data and/or set data to zero, apply them analogously to dot value and index.
 ops = []
 for i in ["32","64"]:
   ops += [f"ReinterpI{i}asF{i}",f"ReinterpF{i}asI{i}"]
@@ -290,10 +290,10 @@ for op in ops:
   the_op.barcode = f"IRExpr* indexLo = IRExpr_Unop(Iop_{op},i1Lo);\nIRExpr* indexHi = IRExpr_Unop(Iop_{op},i1Hi);"
   IROp_Infos += [the_op]
 
-# Conversion F32 -> F64: Apply analogously to dot values, and add zero bytes to indices.
+# Conversion F32 -> F64: Apply analogously to dot value, and add zero bytes to index.
 the_op = IROp_Info("Iop_F32toF64",1,[1])
 the_op.dotcode = dv("IRExpr_Unop(Iop_F32toF64,d1)")
-the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpF64asI64,IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),IRExpr_Unop(Iop_ReinterpF32asI32,i1{HiLo})));" for HiLo in ["Lo","Hi"]])
+the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),IRExpr_Unop(Iop_ReinterpF32asI32,i1{HiLo})));" for HiLo in ["Lo","Hi"]])
 ops = ["F32toF64"]
 
 
@@ -301,9 +301,10 @@ ops = ["F32toF64"]
 for op in ["I32StoF64", "I32UtoF64"]:
   the_op = IROp_Info(f"Iop_{op}",1,[])
   the_op.dotcode = dv("IRExpr_Const(IRConst_F64i(0))")
+  the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64, IRExpr_Const(IRConst_U64(0)));" for HiLo in ["Lo","Hi"]])
   IROp_Infos += [the_op]
 
-# Pass-through binary operations
+# Binary operations that move data, apply analogously to dot values and indices.
 ops = []
 ops += [f"Iop_{n}HLto{2*n}" for n in [8,16,32,64]]
 ops += ["Iop_64HLtoV128", "Iop_V128HLtoV256"]
@@ -312,26 +313,31 @@ ops += [f"Iop_Interleave{hilo}{n}x{128//n}" for hilo in ["HI","LO"] for n in [8,
 for op in ops:
   the_op = IROp_Info(op,2,[1,2])
   the_op.dotcode = dv(f"IRExpr_Binop({op},d1,d2)")
+  the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Binop({op},i1{HiLo},i2{HiLo});" for HiLo in ["Lo","Hi"]])
   IROp_Infos += [the_op]
 
-# Partial pass-through binary operation
+# Conversion F64 -> F32: Apply analogously to dot value, and cut bytes from index.
 f64tof32 = IROp_Info("Iop_F64toF32",2,[2])
 f64tof32.dotcode = dv(f64tof32.apply("arg1","d2"))
+f64tof32.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,IRExpr_Unop(Iop_ReinterpF64asI64,i1{HiLo})));" for HiLo in ["Lo","Hi"]])
 IROp_Infos += [f64tof32]
 
 # Zero-derivative binary operations
 for op in ["I64StoF64","I64UtoF64","RoundF64toInt"]:
   the_op = IROp_Info(f"Iop_{op}",2,[],8,1,False)
   the_op.dotcode = dv("IRExpr_Const(IRConst_F64i(0))")
+  the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Const(IRConst_U64(0)));" for HiLo in ["Lo","Hi"]])
   IROp_Infos += [the_op]
 for op in ["I64StoF32","I64UtoF32","I32StoF32","I32UtoF32"]:
   the_op = IROp_Info(f"Iop_{op}",2,[],4,1,False)
   the_op.dotcode = dv("IRExpr_Const(IRConst_F32i(0))")
+  the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Const(IRConst_U32(0)));" for HiLo in ["Lo","Hi"]])
   IROp_Infos += [the_op]
 
-# Pass-through quarternary operations
+# Quaternary operation that moves data, apply analogously to dot values and indices.
 i64x4tov256 = IROp_Info("Iop_64x4toV256",4,[1,2,3,4])
 i64x4tov256.dotcode = dv("IRExpr_Qop(Iop_64x4toV256,d1,d2,d3,d4)")
+i64x4tov256.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Qop(Iop_64x4toV256,i1{HiLo},i2{HiLo},i3{HiLo},i4{HiLo});" for HiLo in ["Lo","Hi"]])
 IROp_Infos += [i64x4tov256]
 
 
