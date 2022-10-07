@@ -68,9 +68,9 @@ addition.stmtr8 = "double precision, target :: c; c= a+b"
 addition.stmtp = "c = a+b"
 addition.vals = {'a':1.0,'b':2.0}
 addition.dots = {'a':3.0,'b':4.0}
+addition.bars = {'c':1.0}
 addition.test_vals = {'c':3.0}
 addition.test_dots = {'c':7.0}
-addition.bars = {'c':1.0}
 addition.test_bars = {'a':1.0,'b':1.0}
 basiclist.append(addition)
 
@@ -83,8 +83,10 @@ addition_const_l.stmtr8 = "double precision, target :: c; c= 0.3d0+a"
 addition_const_l.stmtp = "c = 0.3 + a"
 addition_const_l.vals = {'a':1.0}
 addition_const_l.dots = {'a':2.0}
+addition_const_l.bars = {'c':10.0}
 addition_const_l.test_vals = {'c':1.3}
 addition_const_l.test_dots = {'c':2.0}
+addition_const_l.test_bars = {'a':10.0}
 basiclist.append(addition_const_l)
 
 addition_const_r = ClientRequestTestCase("addition_const_r")
@@ -96,8 +98,10 @@ addition_const_r.stmtr8 = "double precision, target :: c; c= a+0.3d0"
 addition_const_r.stmtp = "c = a + 0.3"
 addition_const_r.vals = {'a':1.0}
 addition_const_r.dots = {'a':2.0}
+addition_const_r.bars = {'c':-20.0}
 addition_const_r.test_vals = {'c':1.3}
 addition_const_r.test_dots = {'c':2.0}
+addition_const_r.test_bars = {'a':-20.0}
 basiclist.append(addition_const_r)
 
 subtraction = ClientRequestTestCase("subtraction")
@@ -109,8 +113,10 @@ subtraction.stmtr8 = "double precision, target :: c; c= a-b"
 subtraction.stmtp = "c = a - b"
 subtraction.vals = {'a':1.0,'b':2.0}
 subtraction.dots = {'a':3.0,'b':4.0}
+subtraction.bars = {'c':1.0}
 subtraction.test_vals = {'c':-1.0}
 subtraction.test_dots = {'c':-1.0}
+subtraction.test_bars = {'a':1.0,'b':-1.0}
 basiclist.append(subtraction)
 
 subtraction_const_l = ClientRequestTestCase("subtraction_const_l")
@@ -122,8 +128,10 @@ subtraction_const_l.stmtr8 = "double precision, target :: c; c= 0.3d0-a"
 subtraction_const_l.stmtp = "c = 0.3 - a"
 subtraction_const_l.vals = {'a':1.0}
 subtraction_const_l.dots = {'a':2.0}
+subtraction_const_l.bars = {'c':10.0}
 subtraction_const_l.test_vals = {'c':-0.7}
 subtraction_const_l.test_dots = {'c':-2.0}
+subtraction_const_l.test_bars = {'a':-10.0}
 basiclist.append(subtraction_const_l)
 
 subtraction_const_r = ClientRequestTestCase("subtraction_const_r")
@@ -135,8 +143,10 @@ subtraction_const_r.stmtr8 = "double precision, target :: c; c= a-0.5d0"
 subtraction_const_r.stmtp = "c = a - 0.5"
 subtraction_const_r.vals = {'a':1.0}
 subtraction_const_r.dots = {'a':2.0}
+subtraction_const_r.bars = {'c':20.0}
 subtraction_const_r.test_vals = {'c':0.5}
 subtraction_const_r.test_dots = {'c':2.0}
+subtraction_const_r.test_bars = {'a':-20.0}
 basiclist.append(subtraction_const_r)
 
 multiplication = ClientRequestTestCase("multiplication")
@@ -148,8 +158,10 @@ multiplication.stmtr8 = "double precision, target :: c; c= a*b"
 multiplication.stmtp = "c = a * b"
 multiplication.vals = {'a':1.0,'b':2.0}
 multiplication.dots = {'a':3.0,'b':4.0}
+multiplication.bars = {'c':1.0}
 multiplication.test_vals = {'c':2.0}
 multiplication.test_dots = {'c':10.0}
+multiplication.test_bars = {'a':2.0,'b':1.0}
 basiclist.append(multiplication)
 
 multiplication_const_l = ClientRequestTestCase("multiplication_const_l")
@@ -161,8 +173,10 @@ multiplication_const_l.stmtr8 = "double precision, target :: c; c = 0.3d0 * a"
 multiplication_const_l.stmtp = "c = 0.3 * a"
 multiplication_const_l.vals = {'a':2.0}
 multiplication_const_l.dots = {'a':3.0}
+multiplication_const_l.bars = {'c':10.0}
 multiplication_const_l.test_vals = {'c':0.6}
 multiplication_const_l.test_dots = {'c':0.9}
+multiplication_const_l.test_bars = {'a':3.0}
 basiclist.append(multiplication_const_l)
 
 multiplication_const_r = ClientRequestTestCase("multiplication_const_r")
@@ -174,8 +188,10 @@ multiplication_const_r.stmtr8 = "double precision, target :: c; c = a * 0.5d0"
 multiplication_const_r.stmtp = "c = a * 0.5"
 multiplication_const_r.vals = {'a':2.0}
 multiplication_const_r.dots = {'a':3.0}
+multiplication_const_r.bars = {'c':20.0}
 multiplication_const_r.test_vals = {'c':1.0}
 multiplication_const_r.test_dots = {'c':1.5}
+multiplication_const_r.test_bars = {'a':10.0}
 basiclist.append(multiplication_const_r)
 
 division = ClientRequestTestCase("division")
@@ -187,8 +203,10 @@ division.stmtr8 = "double precision, target :: c; c = a/b"
 division.stmtp = "c = a/b"
 division.vals = {'a':1.0,'b':2.0}
 division.dots = {'a':5.0,'b':4.0}
+division.bars = {'c':1.0}
 division.test_vals = {'c':0.5}
 division.test_dots = {'c':1.5}
+division.test_bars = {'a':0.5,'b':-0.25}
 basiclist.append(division)
 
 division_const_l = ClientRequestTestCase("division_const_l")
@@ -200,8 +218,10 @@ division_const_l.stmtr8 = "double precision, target :: c; c = 0.3d0 / a"
 division_const_l.stmtp = "c = 0.3/a"
 division_const_l.vals = {'a':2.0}
 division_const_l.dots = {'a':3.0}
+division_const_l.bars = {'c':10.0}
 division_const_l.test_vals = {'c':0.15}
 division_const_l.test_dots = {'c':-9/40}
+division_const_l.test_bars = {'a':-0.75}
 basiclist.append(division_const_l)
 
 division_const_r = ClientRequestTestCase("division_const_r")
@@ -213,8 +233,10 @@ division_const_r.stmtr8 = "double precision, target :: c; c = a / 0.5d0"
 division_const_r.stmtp = "c = a/0.5"
 division_const_r.vals = {'a':2.0}
 division_const_r.dots = {'a':3.0}
+division_const_r.bars = {'c':20.0}
 division_const_r.test_vals = {'c':4.0}
 division_const_r.test_dots = {'c':6.0}
+division_const_r.test_dots = {'c':40.0}
 basiclist.append(division_const_r)
 
 negative = ClientRequestTestCase("negative")
