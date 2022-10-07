@@ -334,7 +334,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.dots = {'a':3.1}
   sin.test_vals = {'c':np.sin(angle)}
   sin.test_dots = {'c':np.cos(angle)*3.1}
-  sin.disable = lambda arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+  sin.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
   basiclist.append(sin)
 
   cos = ClientRequestTestCase("cos_"+angletext)
@@ -350,7 +350,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.dots = {'a':2.7}
   cos.test_vals = {'c':np.cos(angle)}
   cos.test_dots = {'c':-np.sin(angle)*2.7}
-  cos.disable = lambda arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+  cos.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
   basiclist.append(cos)
 
   tan = ClientRequestTestCase("tan_"+angletext)
@@ -381,7 +381,7 @@ exp.vals = {'a':4}
 exp.dots = {'a':5.0}
 exp.test_vals = {'c':np.exp(4)}
 exp.test_dots = {'c':np.exp(4)*5.0}
-exp.disable = lambda arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+exp.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
 basiclist.append(exp)
 
 log = ClientRequestTestCase("log")
@@ -397,7 +397,7 @@ log.vals = {'a':20}
 log.dots = {'a':1.0}
 log.test_vals = {'c':np.log(20)}
 log.test_dots = {'c':0.05}
-log.disable = lambda arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+log.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
 basiclist.append(log)
 
 log10 = ClientRequestTestCase("log10")
@@ -621,7 +621,7 @@ ifbranch.stmtl = "long double c; if(a<1) c = 2+a; else c = 2*a; "
 ifbranch.stmtr4 = "real, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end if"
 ifbranch.stmtr8 = "double precision, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end if"
 ifbranch.stmtp = "if a<1:\n  c = 2+a\nelse:\n  c = 2*a\n"
-ifbranch.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
+ifbranch.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 ifbranch.vals = {'a':0.0}
 ifbranch.dots = {'a':1.0}
 ifbranch.test_vals = {'c':2.0}
@@ -635,7 +635,7 @@ elsebranch.stmtl = "long double c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.stmtr4 = "real, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.stmtr8 = "double precision, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.stmtp = "if a<-1:\n  c = 2+a\nelse:\n  c = 2*a\n"
-elsebranch.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
+elsebranch.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 elsebranch.vals = {'a':0.0}
 elsebranch.dots = {'a':1.0}
 elsebranch.test_vals = {'c':0.0}
@@ -649,7 +649,7 @@ ternary_true.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_true.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtp = "c = (3*a) if (a>-1) else (a*a)"
-ternary_true.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
+ternary_true.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 ternary_true.vals = {'a':10.0}
 ternary_true.dots = {'a':1.0}
 ternary_true.test_vals = {'c':30.0}
@@ -663,7 +663,7 @@ ternary_false.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_false.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_false.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_false.stmtp = "c = (3*a) if (a>-1) else (a*a)"
-ternary_false.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
+ternary_false.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 ternary_false.vals = {'a':-10.0}
 ternary_false.dots = {'a':1.0}
 ternary_false.test_vals = {'c':100.0}
@@ -704,7 +704,7 @@ addition_whileloop.stmtl = "long double c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtr4 = "real, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.stmtr8 = "double precision, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.stmtp = "c=0\nwhile c<19:\n  c=c+a"
-addition_whileloop.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
+addition_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 addition_whileloop.vals = {'a':2.0}
 addition_whileloop.dots = {'a':1.0}
 addition_whileloop.test_vals = {'c':20.0}
@@ -718,7 +718,7 @@ multiplication_whileloop.stmtl = "long double c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtr4 = "real, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.stmtr8 = "double precision, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.stmtp = "c=1\nwhile c<1023:\n  c=c*a"
-multiplication_whileloop.disable = lambda arch, compiler, typename : typename in ["np64", "np32"]
+multiplication_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 multiplication_whileloop.vals = {'a':2.0}
 multiplication_whileloop.dots = {'a':1.0}
 multiplication_whileloop.test_vals = {'c':1024.0}
@@ -897,7 +897,7 @@ for i in range(100):
   omp_test_sum_grad += np.cos(i*1.0)*i*3.0
 omp_atomic.test_vals = {'sum':omp_test_sum_val}
 omp_atomic.test_dots = {'sum':omp_test_sum_grad}
-omp_atomic.disable = lambda arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
+omp_atomic.disable = lambda mode, arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
 basiclist.append(omp_atomic)
 
 omp_reduction = ClientRequestTestCase("omp_reduction")
@@ -923,7 +923,7 @@ for i in range(100):
   omp_test_sum_grad += np.cos(i*1.0)*i*3.0
 omp_reduction.test_vals = {'sum':omp_test_sum_val}
 omp_reduction.test_dots = {'sum':omp_test_sum_grad}
-omp_reduction.disable = lambda arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
+omp_reduction.disable = lambda mode, arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
 basiclist.append(omp_reduction)
 
 ### Misusing integer and logic operations for floating-point arithmetics ###
@@ -934,7 +934,7 @@ exponentadd.vals = {'a':3.14}
 exponentadd.dots = {'a': -42.0}
 exponentadd.test_vals = {'c':6.28}
 exponentadd.test_dots = {'c':-84.0}
-exponentadd.disable = lambda arch, compiler, typename: True
+exponentadd.disable = lambda mode, arch, compiler, typename: True
 basiclist.append(exponentadd)
 
 exponentsub = ClientRequestTestCase("exponentsub")
@@ -944,7 +944,7 @@ exponentsub.vals = {'a':3.14}
 exponentsub.dots = {'a': -42.0}
 exponentsub.test_vals = {'c':3}
 exponentsub.test_dots = {'c':-84.0}
-exponentsub.disable = lambda arch, compiler, typename: True
+exponentsub.disable = lambda mode, arch, compiler, typename: True
 basiclist.append(exponentadd)
 
 ### C++ tests ###
@@ -953,7 +953,7 @@ constructornew.include = "template<typename T> struct A { T t; A(T t): t(t*t) {}
 constructornew.stmtd = "A<double>* a = new A<double>(x); double y=a->t; "
 constructornew.stmtf = "A<float>* a = new A<float>(x); float y=a->t; "
 constructornew.stmtl = "A<long double>* a = new A<long double>(x); long double y=a->t; "
-constructornew.disable = lambda arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
+constructornew.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
 constructornew.vals = {'x': 2.0}
 constructornew.dots = {'x': 3.0}
 constructornew.test_vals = {'y': 4.0}
@@ -985,7 +985,7 @@ class B : public A<T> {
 virtualdispatch.stmtd = "B<double> b1(1,x), b2(3,4); b2 = static_cast<A<double> >(b1); double y = b2.t1;"
 virtualdispatch.stmtf = "B<float> b1(1,x), b2(3,4); b2 = static_cast<A<float> >(b1); float y = b2.t1;"
 virtualdispatch.stmtl = "B<long double> b1(1,x), b2(3,4); b2 = static_cast<A<long double> >(b1); long double y = b2.t1;"
-virtualdispatch.disable = lambda arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
+virtualdispatch.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
 virtualdispatch.vals = {'x': 2.}
 virtualdispatch.dots = {'x': 2.1}
 virtualdispatch.test_vals = {'y': 2.}
@@ -1036,61 +1036,67 @@ basiclist.append(sin_100_interactive)
 
 ### Take "cross product" with other configuation options ###
 testlist = []
-for test_arch in ["x86", "amd64"]:
-  for test_compiler in ["gcc", "g++", "clang", "clang++", "gfortran", "python"]:
-    if test_compiler in ["gcc", "g++","clang","clang++"]:
-      test_type_list = ["double", "float", "longdouble"]
-    elif test_compiler in ["gfortran"]:
-      test_type_list = ["real4", "real8"]
-    elif test_compiler=='python':
-      test_type_list = ["float","np64","np32"]
-    for test_type in test_type_list:
-      for basictest in basiclist:
-        test = copy.deepcopy(basictest)
-        test.name = test_arch+"_"+test_compiler+"_"+test_type+"_"+basictest.name
+for test_mode in ["dot", "bar"]:
+  for test_arch in ["x86", "amd64"]:
+    for test_compiler in ["gcc", "g++", "clang", "clang++", "gfortran", "python"]:
+      if test_compiler in ["gcc", "g++","clang","clang++"]:
+        test_type_list = ["double", "float", "longdouble"]
+      elif test_compiler in ["gfortran"]:
+        test_type_list = ["real4", "real8"]
+      elif test_compiler=='python':
+        test_type_list = ["float","np64","np32"]
+      for test_type in test_type_list:
+        for basictest in basiclist:
+          test = copy.deepcopy(basictest)
+          test.name = test_mode+"_"+test_arch+"_"+test_compiler+"_"+test_type+"_"+basictest.name
 
-        if test_arch == "x86":
-          test.arch = 32
-        elif test_arch == "amd64":
-          test.arch = 64
+          if test_arch == "x86":
+            test.arch = 32
+          elif test_arch == "amd64":
+            test.arch = 64
 
-        test.compiler = test_compiler
-        if test_compiler == "python":
-          # If the Python interpreter is 64-bit, disable the 32-bit Python tests
-          # and vice versa. 
-          if sys.maxsize > 2**32: # if 64 bit
-            old = test.disable
-            test.disable = lambda arch, compiler, typename : old(arch,compiler,typename) or arch=="x86"
+          test.compiler = test_compiler
+          if test_compiler == "python":
+            # If the Python interpreter is 64-bit, disable the 32-bit Python tests
+            # and vice versa. 
+            if sys.maxsize > 2**32: # if 64 bit
+              old = test.disable
+              test.disable = lambda mode, arch, compiler, typename : old(mode,arch,compiler,typename) or arch=="x86"
+            else:
+              old = test.disable
+              test.disable = lambda mode, arch, compiler, typename : old(mode,arch,compiler,typename) or arch=="amd64"
+
+          if test_type == "double":
+            test.stmt = test.stmtd
+            test.type = TYPE_DOUBLE
+          elif test_compiler in ["gcc","g++","clang","clang++"] and test_type == "float":
+            test.stmt = test.stmtf
+            test.type = TYPE_FLOAT
+          elif test_type == "longdouble":
+            test.stmt = test.stmtl
+            test.type = TYPE_LONG_DOUBLE
+          elif test_type == "real4":
+            test.stmt = test.stmtr4
+            test.type = TYPE_REAL4
+          elif test_type == "real8":
+            test.stmt = test.stmtr8
+            test.type = TYPE_REAL8
+          elif test_compiler=='python' and test_type == "float":
+            test.stmt = test.stmtp
+            test.type = TYPE_PYTHONFLOAT
+          elif test_type == "np64":
+            test.stmt = test.stmtp
+            test.type = TYPE_NUMPYFLOAT64
+          elif test_type == "np32":
+            test.stmt = test.stmtp
+            test.type = TYPE_NUMPYFLOAT32
+
+          if test_mode=='dot':
+            test.mode='d'
           else:
-            old = test.disable
-            test.disable = lambda arch, compiler, typename : old(arch,compiler,typename) or arch=="amd64"
-
-        if test_type == "double":
-          test.stmt = test.stmtd
-          test.type = TYPE_DOUBLE
-        elif test_compiler in ["gcc","g++","clang","clang++"] and test_type == "float":
-          test.stmt = test.stmtf
-          test.type = TYPE_FLOAT
-        elif test_type == "longdouble":
-          test.stmt = test.stmtl
-          test.type = TYPE_LONG_DOUBLE
-        elif test_type == "real4":
-          test.stmt = test.stmtr4
-          test.type = TYPE_REAL4
-        elif test_type == "real8":
-          test.stmt = test.stmtr8
-          test.type = TYPE_REAL8
-        elif test_compiler=='python' and test_type == "float":
-          test.stmt = test.stmtp
-          test.type = TYPE_PYTHONFLOAT
-        elif test_type == "np64":
-          test.stmt = test.stmtp
-          test.type = TYPE_NUMPYFLOAT64
-        elif test_type == "np32":
-          test.stmt = test.stmtp
-          test.type = TYPE_NUMPYFLOAT32
-        if test.stmt!=None and not test.disable(test_arch, test_compiler, test_type):
-          testlist.append(test)
+            test.mode='b'
+          if test.stmt!=None and not test.disable(test_mode, test_arch, test_compiler, test_type):
+            testlist.append(test)
 
 ### Run testcases ###
 if not selected_testcase:

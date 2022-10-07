@@ -67,6 +67,7 @@ class TestCase:
   """Basic data for a DerivGrind test case."""
   def __init__(self, name):
     self.name = name # Name of TestCase
+    self.mode = 'd' # 'd': dot/forward, 'b': bar/recording
     self.stmtd = None # Code to be run in C/C++ main function for double test
     self.stmtf = None # Code to be run in C/C++ main function for float test
     self.stmtl = None # Code to be run in C/C++ main function for long double test
@@ -90,7 +91,7 @@ class TestCase:
     self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
     self.type = TYPE_DOUBLE # TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE (for C/C++), TYPE_REAL4, TYPE_REAL8 (for Fortran)
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
-    self.disable = lambda arch, language, typename : False # if True, test will not be run
+    self.disable = lambda mode, arch, language, typename : False # if True, test will not be run
     self.compiler = "gcc" # gcc, g++, gfortran, python
 
 class InteractiveTestCase(TestCase):
@@ -267,11 +268,18 @@ class ClientRequestTestCase(TestCase):
       c = (self.compiler in ['gcc','clang'])
       self.code = "#include <stdio.h>\n" if c else "#include <iostream>\n"
       self.code += "#include <valgrind/derivgrind.h>\n"
+      if self.mode=='b':
+        self.code += "#include <valgrind/derivgrind-recording.h>\n"
       self.code += self.include + "\n"
       self.code += "int main(){\n  int ret=0;\n"
+      if self.mode=='b':
+        self.code += "DG_CLEARF;\n"
       self.code += "".join([f"  {self.type['ctype']} {var} = {self.vals[var]};\n" for var in self.vals]) 
       self.code += "  {\n"
-      self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = {self.dots[var]}; VALGRIND_SET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.dots])
+      if self.mode=='d':
+        self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = {self.dots[var]}; VALGRIND_SET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.dots])
+      elif self.mode=='b':
+        self.code += "".join([f"    DG_INPUTF({var});\n" for var in self.test_bars])
       self.code += "  }\n"
       self.code += "  " + self.stmt + "\n"
       self.code += "  {\n"
@@ -290,23 +298,28 @@ class ClientRequestTestCase(TestCase):
             std::cout << "VALUES DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_vals[var]}) << " computed=" << {var} << "\\n"; ret = 1;
           """
         self.code += f""" }} """
-      # check dot values
-      for var in self.test_dots:
-        self.code += f"""
-          {self.type['ctype']} _derivative_of_{var} = 0.; 
-          VALGRIND_GET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});
-          if(_derivative_of_{var} < {self.test_dots[var]-self.type["tol"]} 
-              || _derivative_of_{var} > {self.test_dots[var]+self.type["tol"]}) {{
-        """ 
-        if c:
+      if self.mode=='d':
+        # check dot values
+        for var in self.test_dots:
           self.code += f"""
-            printf("DOT VALUES DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_dots[var]}, _derivative_of_{var}); ret = 1; 
-          """
-        else:
-          self.code += f"""
-            std::cout << "DOT VALUES DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_dots[var]}) << " computed=" << _derivative_of_{var} << "\\n"; ret=1;
-          """
-        self.code += f""" }} """
+            {self.type['ctype']} _derivative_of_{var} = 0.; 
+            VALGRIND_GET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});
+            if(_derivative_of_{var} < {self.test_dots[var]-self.type["tol"]} 
+                || _derivative_of_{var} > {self.test_dots[var]+self.type["tol"]}) {{
+          """ 
+          if c:
+            self.code += f"""
+              printf("DOT VALUES DISAGREE: {var} stored={self.type["format"]} computed={self.type["format"]}\\n",({self.type["ctype"]}){self.test_dots[var]}, _derivative_of_{var}); ret = 1; 
+            """
+          else:
+            self.code += f"""
+              std::cout << "DOT VALUES DISAGREE: {var} stored=" << (({self.type["ctype"]}) {self.test_dots[var]}) << " computed=" << _derivative_of_{var} << "\\n"; ret=1;
+            """
+          self.code += f""" }} """
+      elif self.mode=='b':
+        # register output variables
+        for var in self.bars:
+          self.code += f"DG_OUTPUTF({var});\n"
       self.code += "  }\n"
       self.code += "  return ret;\n}\n"
     elif self.compiler=='gfortran':
@@ -421,9 +434,20 @@ class ClientRequestTestCase(TestCase):
       environ["PYTHONPATH"] += ":"+environ["PWD"]+"/python"
     else:
       commands = ['./TestCase_exec']
-    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=derivgrind"]+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
+    maybereverse = ["--record=rec"] if self.mode=='b' else []
+    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
+    if self.mode=='b': # evaluate tape
+      with open("dg-output-adjoints","w") as outputadjoints:
+        for var in self.bars: # same order as in the client code
+          print(str(self.bars[var]), file=outputadjoints)
+      tapeevaluation = subprocess.run(["../tape-evaluation","rec"],env=environ)
+      with open("dg-input-adjoints","r") as inputadjoints:
+        for var in self.test_bars: # same order as in the client code
+          bar = float(inputadjoints.readline())
+          if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
+            self.errmsg += f"BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
     
 
   def run(self):
