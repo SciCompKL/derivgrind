@@ -350,8 +350,10 @@ pow_both.stmtr8 = "double precision, target :: c; c = a**b"
 pow_both.stmtp = "c = a**b"
 pow_both.vals = {'a':4.0,'b':3.0}
 pow_both.dots = {'a':1.6,'b':1.9}
+pow_both.bars = {'c':1.0}
 pow_both.test_vals = {'c':4.0**3.0}
 pow_both.test_dots = {'c':1.6*3*4.0**2 + 1.9*4.0**3.0*np.log(4)}
+pow_both.test_bars = {'a':3.0*4.0**2.0, 'b':(np.log(4.0)*4.0**3.0)}
 basiclist.append(pow_both)
 
 for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"1"), (-10.,"neg10"), (100.,"100")]:
@@ -366,8 +368,10 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.stmtp = "c = np.sin(a)"
   sin.vals = {'a':angle}
   sin.dots = {'a':3.1}
+  sin.bars = {'c':3.1}
   sin.test_vals = {'c':np.sin(angle)}
   sin.test_dots = {'c':np.cos(angle)*3.1}
+  sin.test_bars = {'a':np.cos(angle)*3.1}
   sin.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
   basiclist.append(sin)
 
@@ -382,8 +386,10 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.stmtp = "c = np.cos(a)"
   cos.vals = {'a':angle}
   cos.dots = {'a':2.7}
+  cos.bars = {'c':2.7}
   cos.test_vals = {'c':np.cos(angle)}
   cos.test_dots = {'c':-np.sin(angle)*2.7}
+  cos.test_bars = {'a':-np.sin(angle)*2.7}
   cos.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
   basiclist.append(cos)
 
@@ -398,8 +404,10 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   tan.stmtp = "c = np.tan(a)"
   tan.vals = {'a':angle}
   tan.dots = {'a':1.0}
+  tan.bars = {'c':1.0}
   tan.test_vals = {'c':np.tan(angle)}
   tan.test_dots = {'c':1./np.cos(angle)**2}
+  tan.test_bars = {'a':1./np.cos(angle)**2}
   basiclist.append(tan)
 
 exp = ClientRequestTestCase("exp")
@@ -413,8 +421,10 @@ exp.stmtr8 = "double precision, target :: c; c = exp(a)"
 exp.stmtp = "c = np.exp(a)"
 exp.vals = {'a':4}
 exp.dots = {'a':5.0}
+exp.bars = {'c':5.0}
 exp.test_vals = {'c':np.exp(4)}
 exp.test_dots = {'c':np.exp(4)*5.0}
+exp.test_bars = {'a':np.exp(4)*5.0}
 exp.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
 basiclist.append(exp)
 
@@ -429,8 +439,10 @@ log.stmtr8 = "double precision, target :: c; c = log(a)"
 log.stmtp = "c = np.log(a)"
 log.vals = {'a':20}
 log.dots = {'a':1.0}
+log.bars = {'c':1.0}
 log.test_vals = {'c':np.log(20)}
 log.test_dots = {'c':0.05}
+log.test_bars = {'a':0.05}
 log.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
 basiclist.append(log)
 
@@ -445,8 +457,10 @@ log10.stmtr8 = "double precision, target :: c; c = log10(a)"
 log10.stmtp = "c = np.log10(a)"
 log10.vals = {'a':0.01}
 log10.dots = {'a':1.0}
+log10.bars = {'c':1.0}
 log10.test_vals = {'c':-2}
 log10.test_dots = {'c':100/np.log(10)}
+log10.test_bars = {'a':100/np.log(10)}
 basiclist.append(log10)
 
 sinh = ClientRequestTestCase("sinh")
@@ -460,8 +474,10 @@ sinh.stmtr8 = "double precision, target :: c; c = sinh(a)"
 sinh.stmtp = "c = np.sinh(a)"
 sinh.vals = {'a':2.0}
 sinh.dots = {'a':1.0}
+sinh.bars = {'c':1.0}
 sinh.test_vals = {'c':np.sinh(2.0)}
 sinh.test_dots = {'c':np.cosh(2.0)}
+sinh.test_bars = {'a':np.cosh(2.0)}
 basiclist.append(sinh)
 
 cosh = ClientRequestTestCase("cosh")
@@ -475,8 +491,10 @@ cosh.stmtr8 = "double precision, target :: c; c = cosh(a)"
 cosh.stmtp = "c = np.cosh(a)"
 cosh.vals = {'a':-2.0}
 cosh.dots = {'a':1.0}
+cosh.bars = {'c':1.0}
 cosh.test_vals = {'c':np.cosh(-2.0)}
 cosh.test_dots = {'c':np.sinh(-2.0)}
+cosh.test_bars = {'a':np.sinh(-2.0)}
 basiclist.append(cosh)
 
 tanh = ClientRequestTestCase("tanh")
@@ -490,8 +508,10 @@ tanh.stmtr8 = "double precision, target :: c; c = tanh(a)"
 tanh.stmtp = "c = np.tanh(a)"
 tanh.vals = {'a':-0.5}
 tanh.dots = {'a':1.0}
+tanh.bars = {'c':1.0}
 tanh.test_vals = {'c':np.tanh(-0.5)}
 tanh.test_dots = {'c':1-np.tanh(-0.5)**2}
+tanh.test_bars = {'a':1-np.tanh(-0.5)**2}
 basiclist.append(tanh)
 
 asin = ClientRequestTestCase("asin")
@@ -505,8 +525,10 @@ asin.stmtr8 = "double precision, target :: c; c = asin(a)"
 asin.stmtp = "c = np.arcsin(a)"
 asin.vals = {'a':0.9}
 asin.dots = {'a':1.0}
+asin.bars = {'c':1.0}
 asin.test_vals = {'c':np.arcsin(0.9)}
 asin.test_dots = {'c':1/np.sqrt(1-0.9**2)}
+asin.test_bars = {'a':1/np.sqrt(1-0.9**2)}
 basiclist.append(asin)
 
 acos = ClientRequestTestCase("acos")
@@ -520,8 +542,10 @@ acos.stmtr8 = "double precision, target :: c; c = acos(a)"
 acos.stmtp = "c = np.arccos(a)"
 acos.vals = {'a':-0.4}
 acos.dots = {'a':1.0}
+acos.bars = {'c':1.0}
 acos.test_vals = {'c':np.arccos(-0.4)}
 acos.test_dots = {'c':-1/np.sqrt(1-(-0.4)**2)}
+acos.test_bars = {'a':-1/np.sqrt(1-(-0.4)**2)}
 basiclist.append(acos)
 
 atan = ClientRequestTestCase("atan")
@@ -535,8 +559,10 @@ atan.stmtr8 = "double precision, target :: c; c = atan(a)"
 atan.stmtp = "c = np.arctan(a)"
 atan.vals = {'a':100}
 atan.dots = {'a':1.0}
+atan.bars = {'c':1.0}
 atan.test_vals = {'c':np.arctan(100)}
 atan.test_dots = {'c':1/(1+100**2)}
+atan.test_bars = {'a':1/(1+100**2)}
 basiclist.append(atan)
 
 atan2 = ClientRequestTestCase("atan2")
@@ -550,8 +576,10 @@ atan2.stmtr8 = "double precision, target :: c; c = atan2(a,b)"
 atan2.stmtp = "c = np.arctan2(a,b)"
 atan2.vals = {'a':3,'b':4}
 atan2.dots = {'a':1.3, 'b':1.5}
+atan2.bars = {'c':1.0}
 atan2.test_vals = {'c':np.arctan2(3,4)}
 atan2.test_dots = {'c':1.3*(-4)/(3**2+4**2) + 1.5*3/(3**2+4**2)}
+atan2.test_bars = {'a':(-4)/(3**2+4**2), 'b':3/(3**2+4**2)}
 basiclist.append(atan2)
 
 floor = ClientRequestTestCase("floor")
@@ -565,8 +593,10 @@ floor.stmtr8 = "double precision, target :: c; c = floor(a)"
 floor.stmtp = "c = np.floor(a)"
 floor.vals = {'a':2.0}
 floor.dots = {'a':1.0}
+floor.bars = {'c':1.0}
 floor.test_vals = {'c':2.0}
 floor.test_dots = {'c':0.0}
+floor.test_bars = {'a':0.0}
 basiclist.append(floor)
 
 ceil = ClientRequestTestCase("ceil")
@@ -580,8 +610,10 @@ ceil.stmtr8 = "double precision, target :: c; c = ceiling(a)"
 ceil.stmtp = "c = np.ceil(a)"
 ceil.vals = {'a':2.1}
 ceil.dots = {'a':1.0}
+ceil.bars = {'c':1.0}
 ceil.test_vals = {'c':3.0}
 ceil.test_dots = {'c':0.0}
+ceil.test_bars = {'a':0.0}
 basiclist.append(ceil)
 
 ldexp = ClientRequestTestCase("ldexp")
@@ -593,8 +625,10 @@ ldexp.stmtl = "long double c = ldexpl(a,-3);"
 ldexp.stmtp = "c = np.ldexp(a,-3)"
 ldexp.vals = {'a':2.4}
 ldexp.dots = {'a':-1.0}
+ldexp.bars = {'c':-1.0}
 ldexp.test_vals = {'c':0.3}
 ldexp.test_dots = {'c':-1.0/8}
+ldexp.test_bars = {'a':-1.0/8}
 basiclist.append(ldexp)
 
 frexp = ClientRequestTestCase("frexp")
@@ -606,8 +640,10 @@ frexp.stmtl = "int e; long double c = frexpl(a,&e); long double ee=e;"
 frexp.stmtp = "c, e = np.frexp(a); ee=1.0*e"
 frexp.vals = {'a':-5.0}
 frexp.dots = {'a':-1.0}
+frexp.bars = {'c':-1.0,'ee':100.0}
 frexp.test_vals = {'c':-5.0/8, 'ee':3.0}
 frexp.test_dots = {'c':-1.0/8, 'ee':0.0}
+frexp.test_bars = {'a':-1.0/8}
 basiclist.append(frexp)
 
 ### Memory operations from string.h ###
