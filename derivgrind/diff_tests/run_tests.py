@@ -700,8 +700,10 @@ ifbranch.stmtp = "if a<1:\n  c = 2+a\nelse:\n  c = 2*a\n"
 ifbranch.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 ifbranch.vals = {'a':0.0}
 ifbranch.dots = {'a':1.0}
+ifbranch.bars = {'c':1.0}
 ifbranch.test_vals = {'c':2.0}
 ifbranch.test_dots = {'c':1.0}
+ifbranch.test_bars = {'a':1.0}
 basiclist.append(ifbranch)
 
 elsebranch = ClientRequestTestCase("elsebranch")
@@ -714,8 +716,10 @@ elsebranch.stmtp = "if a<-1:\n  c = 2+a\nelse:\n  c = 2*a\n"
 elsebranch.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 elsebranch.vals = {'a':0.0}
 elsebranch.dots = {'a':1.0}
+elsebranch.bars = {'c':1.0}
 elsebranch.test_vals = {'c':0.0}
 elsebranch.test_dots = {'c':2.0}
+elsebranch.test_bars = {'a':2.0}
 basiclist.append(elsebranch)
 
 ternary_true = ClientRequestTestCase("ternary_true")
@@ -728,8 +732,10 @@ ternary_true.stmtp = "c = (3*a) if (a>-1) else (a*a)"
 ternary_true.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 ternary_true.vals = {'a':10.0}
 ternary_true.dots = {'a':1.0}
+ternary_true.bars = {'c':1.0}
 ternary_true.test_vals = {'c':30.0}
 ternary_true.test_dots = {'c':3.0}
+ternary_true.test_bars = {'a':3.0}
 basiclist.append(ternary_true)
 
 ternary_false = ClientRequestTestCase("ternary_false")
@@ -742,8 +748,10 @@ ternary_false.stmtp = "c = (3*a) if (a>-1) else (a*a)"
 ternary_false.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 ternary_false.vals = {'a':-10.0}
 ternary_false.dots = {'a':1.0}
+ternary_false.bars = {'c':1.0}
 ternary_false.test_vals = {'c':100.0}
 ternary_false.test_dots = {'c':-20.0}
+ternary_false.test_bars = {'a':-20.0}
 basiclist.append(ternary_false)
 
 
@@ -756,8 +764,10 @@ addition_forloop.stmtr8 = "double precision, target :: c = 0; integer :: i; do i
 addition_forloop.stmtp = "c=0\nfor i in range(10):\n  c+=a"
 addition_forloop.vals = {'a':2.0}
 addition_forloop.dots = {'a':1.0}
+addition_forloop.bars = {'c':1.0}
 addition_forloop.test_vals = {'c':20.0}
 addition_forloop.test_dots = {'c':10.0}
+addition_forloop.test_bars = {'a':10.0}
 basiclist.append(addition_forloop)
 
 multiplication_forloop = ClientRequestTestCase("multiplication_forloop")
@@ -769,8 +779,10 @@ multiplication_forloop.stmtr8 = "double precision, target :: c = 1; integer :: i
 multiplication_forloop.stmtp = "c=1\nfor i in range(10):\n  c*=a"
 multiplication_forloop.vals = {'a':2.0}
 multiplication_forloop.dots = {'a':1.0}
+multiplication_forloop.bars = {'c':1.0}
 multiplication_forloop.test_vals = {'c':1024.0}
 multiplication_forloop.test_dots = {'c':5120.0}
+multiplication_forloop.test_bars = {'a':5120.0}
 basiclist.append(multiplication_forloop)
 
 addition_whileloop = ClientRequestTestCase("addition_whileloop")
@@ -783,8 +795,10 @@ addition_whileloop.stmtp = "c=0\nwhile c<19:\n  c=c+a"
 addition_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 addition_whileloop.vals = {'a':2.0}
 addition_whileloop.dots = {'a':1.0}
+addition_whileloop.bars = {'c':1.0}
 addition_whileloop.test_vals = {'c':20.0}
 addition_whileloop.test_dots = {'c':10.0}
+addition_whileloop.test_bars = {'a':10.0}
 basiclist.append(addition_whileloop)
 
 multiplication_whileloop = ClientRequestTestCase("multiplication_whileloop")
@@ -797,8 +811,10 @@ multiplication_whileloop.stmtp = "c=1\nwhile c<1023:\n  c=c*a"
 multiplication_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
 multiplication_whileloop.vals = {'a':2.0}
 multiplication_whileloop.dots = {'a':1.0}
+multiplication_whileloop.bars = {'c':1.0}
 multiplication_whileloop.test_vals = {'c':1024.0}
 multiplication_whileloop.test_dots = {'c':5120.0}
+multiplication_whileloop.test_bars = {'a':5120.0}
 basiclist.append(multiplication_whileloop)
 
 addition_dowhileloop = ClientRequestTestCase("addition_dowhileloop")
@@ -807,8 +823,10 @@ addition_dowhileloop.stmtf = "float c = 0; do c+=a; while(c<19);"
 addition_dowhileloop.stmtl = "long double c = 0; do c+=a; while(c<19);"
 addition_dowhileloop.vals = {'a':2.0}
 addition_dowhileloop.dots = {'a':1.0}
+addition_dowhileloop.bars = {'c':1.0}
 addition_dowhileloop.test_vals = {'c':20.0}
 addition_dowhileloop.test_dots = {'c':10.0}
+addition_dowhileloop.test_bars = {'a':10.0}
 basiclist.append(addition_dowhileloop)
 
 multiplication_dowhileloop = ClientRequestTestCase("multiplication_dowhileloop")
@@ -817,8 +835,10 @@ multiplication_dowhileloop.stmtf = "float c = 1; do c*=a; while(c<1023);"
 multiplication_dowhileloop.stmtl = "long double c = 1; do c*=a; while(c<1023);"
 multiplication_dowhileloop.vals = {'a':2.0}
 multiplication_dowhileloop.dots = {'a':1.0}
+multiplication_dowhileloop.bars = {'c':1.0}
 multiplication_dowhileloop.test_vals = {'c':1024.0}
 multiplication_dowhileloop.test_dots = {'c':5120.0}
+multiplication_dowhileloop.test_bars = {'a':5120.0}
 basiclist.append(multiplication_dowhileloop)
 
 addition_recursion = ClientRequestTestCase("addition_recursion")
@@ -833,8 +853,10 @@ addition_recursion.stmtl = "long double c = fl(10,a);"
 addition_recursion.stmtp = "def f(n,x):\n  if n==0:\n    return 0.\n  else:\n    return x+f(n-1,x)\nc=f(10,a)"
 addition_recursion.vals = {'a':2.0}
 addition_recursion.dots = {'a':1.0}
+addition_recursion.bars = {'c':1.0}
 addition_recursion.test_vals = {'c':20.0}
 addition_recursion.test_dots = {'c':10.0}
+addition_recursion.test_bars = {'a':10.0}
 basiclist.append(addition_recursion)
 
 multiplication_recursion = ClientRequestTestCase("multiplication_recursion")
@@ -849,8 +871,10 @@ multiplication_recursion.stmtl = "long double c = fl(10,a);"
 multiplication_recursion.stmtp = "def f(n,x):\n  if n==0:\n    return 1.\n  else:\n    return x*f(n-1,x)\nc=f(10,a)"
 multiplication_recursion.vals = {'a':2.0}
 multiplication_recursion.dots = {'a':1.0}
+multiplication_recursion.bars = {'c':1.0}
 multiplication_recursion.test_vals = {'c':1024.0}
 multiplication_recursion.test_dots = {'c':5120.0}
+multiplication_recursion.test_bars = {'a':5120.0}
 basiclist.append(multiplication_recursion)
 
 ### Auto-Vectorization ###
