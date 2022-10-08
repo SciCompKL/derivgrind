@@ -215,9 +215,10 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
   div.dotcode = dv(div.apply(arg1,sub.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,arg2,d3)),mul.apply(arg1,arg3,arg3)))
   sqrt.dotcode = dv(div.apply(arg1,d2,mul.apply(arg1,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(arg1,arg2))))
 
-  if fpsize==4: # convert I64 parts to F32 or F64
-    arg2_part_f = f"IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,{arg2}_part))"
-    arg3_part_f = f"IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,{arg3}_part))"
+  if fpsize==4: # argument values are provided as I64, reinterpret them as F32 or F64 and convert to F64
+  # this F64 value is then used for the computation of the partial derivatives written to the tape
+    arg2_part_f = f"IRExpr_Unop(Iop_F32toF64,IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,{arg2}_part)))"
+    arg3_part_f = f"IRExpr_Unop(Iop_F32toF64,IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,{arg3}_part)))"
   else:
     arg2_part_f = f"IRExpr_Unop(Iop_ReinterpI64asF64,{arg2}_part)"
     arg3_part_f = f"IRExpr_Unop(Iop_ReinterpI64asF64,{arg3}_part)"
