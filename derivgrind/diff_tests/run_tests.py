@@ -236,7 +236,7 @@ division_const_r.dots = {'a':3.0}
 division_const_r.bars = {'c':20.0}
 division_const_r.test_vals = {'c':4.0}
 division_const_r.test_dots = {'c':6.0}
-division_const_r.test_bars = {'c':40.0}
+division_const_r.test_bars = {'a':40.0}
 basiclist.append(division_const_r)
 
 negative = ClientRequestTestCase("negative")
@@ -333,8 +333,10 @@ pow_2.stmtr8 = "double precision, target :: c; c = a**b"
 pow_2.stmtp = "c = a**b"
 pow_2.vals = {'a':4.0,'b':2.0}
 pow_2.dots = {'a':1.6,'b':1.9}
+pow_2.bars = {'c':1.0}
 pow_2.test_vals = {'c':4.0**2}
 pow_2.test_dots = {'c':1.6*2*4.0 + 1.9*4.0**2*np.log(4)}
+pow_2.test_bars = {'a':2*4.0**1,'b':(np.log(4.0)*4.0**2)}
 basiclist.append(pow_2)
 
 pow_both = ClientRequestTestCase("pow_both")

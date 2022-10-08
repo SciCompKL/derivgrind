@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <iomanip>
 
 /*! \file tape-evaluation.cpp
  * Simple program to perform the "backpropagation" / tape evaluation 
@@ -60,7 +61,7 @@ int main(int argc, char* argv[]){
       double adjoint;
       outputadjoints >> adjoint;
       if(outputindices.eof() ^ outputadjoints.eof()){
-        std::cerr << "Error: Sizes of dg-outputindices and dg-outputadjoints mismatch." << std::endl;
+        std::cerr << "Error: Sizes of dg-output-indices and dg-output-adjoints mismatch." << std::endl;
         return 1;
       } else if(outputindices.eof() && outputadjoints.eof()){
         break;
@@ -123,9 +124,9 @@ int main(int argc, char* argv[]){
 
   // output adjoints of inputs
   if(argc==2){ // to file
-    std::ofstream outputindices("dg-input-adjoints");
+    std::ofstream inputadjoints("dg-input-adjoints");
     for(unsigned long long index : inputindices_list){
-      outputindices << adjointvec[index] << std::endl;
+      inputadjoints << std::setprecision(16) << adjointvec[index] << std::endl;
     }
   } else { // to stdout
     for(unsigned long long index : inputindices_list){
