@@ -146,7 +146,7 @@ subtraction_const_r.dots = {'a':2.0}
 subtraction_const_r.bars = {'c':20.0}
 subtraction_const_r.test_vals = {'c':0.5}
 subtraction_const_r.test_dots = {'c':2.0}
-subtraction_const_r.test_bars = {'a':-20.0}
+subtraction_const_r.test_bars = {'a':20.0}
 basiclist.append(subtraction_const_r)
 
 multiplication = ClientRequestTestCase("multiplication")
