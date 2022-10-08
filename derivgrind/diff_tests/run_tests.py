@@ -909,9 +909,9 @@ for (name, op, c_val, c_dot, a_bar, b_bar) in [
   autovectorization.test_bars = {'a':a_bar, 'b':b_bar}
   basiclist.append(autovectorization)
 
-for (name, cfun, ffun, c_val, c_grad) in [ 
-  ("abs", "fabs", "abs", 1200.,240.),
-  ("negative", "-", "-", 64.,16.),
+for (name, cfun, ffun, c_val, grad) in [ 
+  ("abs", "fabs", "abs", 1200.,120.),
+  ("negative", "-", "-", 64.,8.),
   ]:
   autovectorization = ClientRequestTestCase(name+"_autovectorization")
   cfun_suffix = {"d":"","f":"f","l":"l"}
@@ -936,9 +936,11 @@ for (name, cfun, ffun, c_val, c_grad) in [
   autovectorization.ldflags = "-lm"
   autovectorization.include = "#include <math.h>"
   autovectorization.vals = {'a':10.0}
-  autovectorization.dots = {'a':2.0}
+  autovectorization.dots = {'a':1.0}
+  autovectorization.bars = {'c':1.0}
   autovectorization.test_vals = {'c':c_val}
-  autovectorization.test_dots = {'c':c_grad}
+  autovectorization.test_dots = {'c':grad}
+  autovectorization.test_bars = {'a':grad}
   basiclist.append(autovectorization)
 
 ### OpenMP ###
@@ -965,14 +967,16 @@ for(int i=0; i<100; i++){
 omp_critical.stmtf = None
 omp_critical.stmtl = None
 omp_critical.vals = {'a':1.0}
-omp_critical.dots = {'a':3.0}
+omp_critical.dots = {'a':1.0}
+omp_critical.bars = {'sum':1.0}
 omp_test_sum_val=0
 omp_test_sum_grad=0
 for i in range(100):
   omp_test_sum_val += np.sin(i*1.0)
-  omp_test_sum_grad += np.cos(i*1.0)*i*3.0
+  omp_test_sum_grad += np.cos(i*1.0)*i
 omp_critical.test_vals = {'sum':omp_test_sum_val}
 omp_critical.test_dots = {'sum':omp_test_sum_grad}
+omp_critical.test_bars = {'a':omp_test_sum_grad}
 basiclist.append(omp_critical)
 
 omp_atomic = ClientRequestTestCase("omp_atomic")
@@ -991,14 +995,16 @@ for(int i=0; i<100; i++){
 omp_atomic.stmtf = None
 omp_atomic.stmtl = None
 omp_atomic.vals = {'a':1.0}
-omp_atomic.dots = {'a':3.0}
+omp_atomic.dots = {'a':1.0}
+omp_atomic.bars = {'sum':1.0}
 omp_test_sum_val=0
 omp_test_sum_grad=0
 for i in range(100):
   omp_test_sum_val += np.sin(i*1.0)
-  omp_test_sum_grad += np.cos(i*1.0)*i*3.0
+  omp_test_sum_grad += np.cos(i*1.0)*i
 omp_atomic.test_vals = {'sum':omp_test_sum_val}
 omp_atomic.test_dots = {'sum':omp_test_sum_grad}
+omp_atomic.test_bars = {'a':omp_test_sum_grad}
 omp_atomic.disable = lambda mode, arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
 basiclist.append(omp_atomic)
 
@@ -1017,14 +1023,16 @@ for(int i=0; i<100; i++){
 omp_reduction.stmtf = None
 omp_reduction.stmtl = None
 omp_reduction.vals = {'a':1.0}
-omp_reduction.dots = {'a':3.0}
+omp_reduction.dots = {'a':1.0}
+omp_reduction.bars = {'sum':1.0}
 omp_test_sum_val=0
 omp_test_sum_grad=0
 for i in range(100):
   omp_test_sum_val += np.sin(i*1.0)
-  omp_test_sum_grad += np.cos(i*1.0)*i*3.0
+  omp_test_sum_grad += np.cos(i*1.0)*i
 omp_reduction.test_vals = {'sum':omp_test_sum_val}
 omp_reduction.test_dots = {'sum':omp_test_sum_grad}
+omp_reduction.test_bars = {'a':omp_test_sum_grad}
 omp_reduction.disable = lambda mode, arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
 basiclist.append(omp_reduction)
 
@@ -1034,18 +1042,22 @@ exponentadd.stmtd = "double c = a; *((char*)&c+6) += 0x10;"
 exponentadd.stmtf = "float c = a; *((char*)&c+2) += 0xf0;"
 exponentadd.vals = {'a':3.14}
 exponentadd.dots = {'a': -42.0}
+exponentadd.bars = {'c': 1.0}
 exponentadd.test_vals = {'c':6.28}
 exponentadd.test_dots = {'c':-84.0}
+exponentadd.test_bars = {'a':2.0}
 exponentadd.disable = lambda mode, arch, compiler, typename: True
 basiclist.append(exponentadd)
 
 exponentsub = ClientRequestTestCase("exponentsub")
 exponentsub.stmtd = "double c = a; *((char*)&c+6) -= 0x10;"
 exponentsub.stmtf = "float c = a; *((char*)&c+2) -= 0xf0;"
-exponentsub.vals = {'a':3.14}
-exponentsub.dots = {'a': -42.0}
-exponentsub.test_vals = {'c':3}
-exponentsub.test_dots = {'c':-84.0}
+exponentsub.vals = {'a':6.28}
+exponentsub.dots = {'a': -84.0}
+exponentsub.bars = {'c': 1.0}
+exponentsub.test_vals = {'c':3.14}
+exponentsub.test_dots = {'c':-42.0}
+exponentsub.test_bars = {'a':0.5}
 exponentsub.disable = lambda mode, arch, compiler, typename: True
 basiclist.append(exponentadd)
 
@@ -1058,8 +1070,10 @@ constructornew.stmtl = "A<long double>* a = new A<long double>(x); long double y
 constructornew.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
 constructornew.vals = {'x': 2.0}
 constructornew.dots = {'x': 3.0}
+constructornew.bars = {'y': 1.0}
 constructornew.test_vals = {'y': 4.0}
 constructornew.test_dots = {'y': 12.0}
+constructornew.test_bars = {'x': 4.0}
 basiclist.append(constructornew)
 
 virtualdispatch = ClientRequestTestCase("virtualdispatch")
@@ -1090,8 +1104,10 @@ virtualdispatch.stmtl = "B<long double> b1(1,x), b2(3,4); b2 = static_cast<A<lon
 virtualdispatch.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
 virtualdispatch.vals = {'x': 2.}
 virtualdispatch.dots = {'x': 2.1}
+virtualdispatch.bars = {'y': 2.1}
 virtualdispatch.test_vals = {'y': 2.}
 virtualdispatch.test_dots = {'y': 2.1}
+virtualdispatch.test_bars = {'x': 2.1}
 basiclist.append(virtualdispatch)
 
 
