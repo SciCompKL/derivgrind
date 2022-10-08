@@ -376,6 +376,8 @@ class ClientRequestTestCase(TestCase):
       """
     elif self.compiler == "python":
       self.code = "import numpy as np\nimport derivgrind\nret = 0\n"
+      if self.mode=='b':
+        self.code += "derivgrind.clearf()\n"
       # NumPy tests perform the same calculation 16 times
       if self.type['pytype']=='float':
         self_vals = self.vals
@@ -392,20 +394,27 @@ class ClientRequestTestCase(TestCase):
       for var in self_vals:
         self.code += f"{var} = {self_vals[var]}\n"
       for var in self_dots:
-        self.code += f"{var} = derivgrind.set_derivative({var}, {self_dots[var]})\n"
+        if self.mode=='d':
+          self.code += f"{var} = derivgrind.set_derivative({var}, {self_dots[var]})\n"
+        elif self.mode=='b':
+          self.code += f"{var} = derivgrind.inputf({var})\n"
       self.code += self.stmt + "\n"
-      if self.type['pytype'] in ['np.float64','np.float32']:
+      if self.mode=='d' and self.type['pytype'] in ['np.float64','np.float32']:
         for var in self.test_dots:
           self.code += f"derivative_of_{var} = np.empty(16,dtype={self.type['pytype']})\n"
       for var in self_test_vals:
         self.code += f'if {var} < {self_test_vals[var]-self.type["tol"]} or {var} > {self_test_vals[var]+self.type["tol"]}:\n'
         self.code += f'  print("VALUES DISAGREE: {var} stored=", {self_test_vals[var]}, "computed=", {var})\n'
         self.code +=  '  ret = 1\n' 
-      for var in self_test_dots:
-        self.code += f'derivative_of_{var} = derivgrind.get_derivative({var})\n'
-        self.code += f'if derivative_of_{var} < {self_test_dots[var]-self.type["tol"]} or derivative_of_{var} > {self_test_dots[var]+self.type["tol"]}:\n'
-        self.code += f'  print("DOT VALUES DISAGREE: {var} stored=", {self_test_dots[var]}, "computed=", derivative_of_{var})\n'
-        self.code +=  '  ret = 1\n' 
+      if self.mode=='d':
+        for var in self_test_dots:
+          self.code += f'derivative_of_{var} = derivgrind.get_derivative({var})\n'
+          self.code += f'if derivative_of_{var} < {self_test_dots[var]-self.type["tol"]} or derivative_of_{var} > {self_test_dots[var]+self.type["tol"]}:\n'
+          self.code += f'  print("DOT VALUES DISAGREE: {var} stored=", {self_test_dots[var]}, "computed=", derivative_of_{var})\n'
+          self.code +=  '  ret = 1\n' 
+      elif self.mode=='b':
+        for var in self_test_dots:
+          self.code += f'derivgrind.outputf({var})\n'
       self.code += "exit(ret)\n"
 
 
@@ -448,14 +457,18 @@ class ClientRequestTestCase(TestCase):
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
     if self.mode=='b': # evaluate tape
       with open("dg-output-adjoints","w") as outputadjoints:
+        # NumPy testcases are repeated 16 times
+        repetitions = 16 if self.compiler=='python' and self.type["pytype"] in ["np.float32","np.float64"] else 1
         for var in self.bars: # same order as in the client code
-          print(str(self.bars[var]), file=outputadjoints)
+          for i in range(repetitions):
+            print(str(self.bars[var]), file=outputadjoints)
       tapeevaluation = subprocess.run(["../tape-evaluation","rec"],env=environ)
       with open("dg-input-adjoints","r") as inputadjoints:
         for var in self.test_bars: # same order as in the client code
-          bar = float(inputadjoints.readline())
-          if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
-            self.errmsg += f"BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
+          for i in range(repetitions):
+            bar = float(inputadjoints.readline())
+            if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
+              self.errmsg += f"BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
     
 
   def run(self):

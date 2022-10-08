@@ -32,12 +32,14 @@
 
 #include <pybind11/pybind11.h>
 #include <valgrind/derivgrind.h>
+#include <valgrind/derivgrind-recording.h>
 
 namespace py = pybind11;
 
 PYBIND11_MODULE(derivgrind, m){
   m.doc() = "Wrapper for DerivGrind client requests.";
 
+  // Forward mode
   m.def( "set_derivative", [](double val, double grad)->double { 
     double ret = val; 
     VALGRIND_SET_DERIVATIVE(&ret, &grad, 8);
@@ -57,5 +59,18 @@ PYBIND11_MODULE(derivgrind, m){
     float grad; 
     VALGRIND_GET_DERIVATIVE(&val, &grad, 4);
     return grad; 
+  });
+
+  // Recording mode
+  m.def( "inputf", [](double val)->double {
+    double ret = val;
+    DG_INPUTF(ret);
+    return ret;
+  });
+  m.def( "outputf", [](double val)->void {
+    DG_OUTPUTF(val);
+  });
+  m.def( "clearf", [](void)->void {
+    DG_CLEARF;
   });
 }
