@@ -64,6 +64,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdio.h>
 
 /*! \file derivgrind-recording.h
  * Helper macros for simple marking of 

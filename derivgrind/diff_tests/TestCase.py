@@ -332,13 +332,18 @@ class ClientRequestTestCase(TestCase):
       """
       for var in self.vals:
         self.code += f"{self.type['ftype']}, target :: {var} = {str_fortran(self.vals[var])}\n"
+      if self.mode=='b':
+        self.code += "call dg_clearf()\n"
       for var in self.dots:
-        self.code += f"""
-          block
-          {self.type['ftype']}, target :: derivative_of_{var} = {str_fortran(self.dots[var])}
-          call valgrind_set_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
-          end block
-        """
+        if self.mode=='d':
+          self.code += f"""
+            block
+            {self.type['ftype']}, target :: derivative_of_{var} = {str_fortran(self.dots[var])}
+            call valgrind_set_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
+            end block
+          """
+        elif self.mode=='b':
+          self.code += f"call dg_inputf(c_loc({var}))\n"
       self.code += "block\n"
       self.code += self.stmt + "\n"
       # check values
@@ -349,18 +354,21 @@ class ClientRequestTestCase(TestCase):
             ret = 1
           end if
         """
-      # check dot values
+      # forward mode: check dot values of outputs / recording mode: register outputs
       for var in self.test_dots:
-        self.code += f"""
-          block
-          {self.type['ftype']}, target :: derivative_of_{var} = 0
-          call valgrind_get_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
-          if(derivative_of_{var} < {str_fortran(self.test_dots[var]-self.type["tol"])} .or. derivative_of_{var} > {str_fortran(self.test_dots[var]+self.type["tol"])}) then
-            print *, "DOT VALUES DISAGREE: {var} stored=", {str_fortran(self.test_dots[var])}, " computed=", derivative_of_{var}
-            ret = 1
-          end if
-          end block
-        """
+        if self.mode=='d':
+          self.code += f"""
+            block
+            {self.type['ftype']}, target :: derivative_of_{var} = 0
+            call valgrind_get_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
+            if(derivative_of_{var} < {str_fortran(self.test_dots[var]-self.type["tol"])} .or. derivative_of_{var} > {str_fortran(self.test_dots[var]+self.type["tol"])}) then
+              print *, "DOT VALUES DISAGREE: {var} stored=", {str_fortran(self.test_dots[var])}, " computed=", derivative_of_{var}
+              ret = 1
+            end if
+            end block
+          """
+        elif self.mode=='b':
+          self.code += f"call dg_outputf(c_loc({var}))\n"
       self.code += """
         end block
         call exit(ret)
