@@ -650,24 +650,28 @@ basiclist.append(frexp)
 
 memcpy = ClientRequestTestCase("memcpy")
 memcpy.include = "#include <string.h>"
-memcpy.stmtd = "double aa[3],ac[3],c; aa[1] = a; memcpy(ac,aa,3*sizeof(double)); c=ac[1];"
-memcpy.stmtf = "float aa[3],ac[3],c; aa[1] = a; memcpy(ac,aa,3*sizeof(float)); c=ac[1];"
-memcpy.stmtl = "long double aa[3],ac[3],c; aa[1] = a; memcpy(ac,aa,3*sizeof(long double)); c=ac[1];"
+memcpy.stmtd = "double aa[3],ac[3],c,d; aa[1] = a; aa[2] = 100*a; memcpy(ac,aa,3*sizeof(double)); c=ac[1]; d=ac[2];"
+memcpy.stmtf = "float aa[3],ac[3],c,d; aa[1] = a; aa[2] = 100*a; memcpy(ac,aa,3*sizeof(float)); c=ac[1]; d=ac[2];"
+memcpy.stmtl = "long double aa[3],ac[3],c,d; aa[1] = a; aa[2] = 100*a; memcpy(ac,aa,3*sizeof(long double)); c=ac[1]; d=ac[2];"
 memcpy.vals = {'a':-12.34}
 memcpy.dots = {'a':-56.78}
-memcpy.test_vals = {'c':-12.34}
-memcpy.test_dots = {'c':-56.78}
+memcpy.bars = {'c':1,'d':3}
+memcpy.test_vals = {'c':-12.34,'d':-1234}
+memcpy.test_dots = {'c':-56.78,'d':-5678}
+memcpy.test_bars = {'a':301.0}
 basiclist.append(memcpy)
 
 memmove = ClientRequestTestCase("memmove")
 memmove.include = "#include <string.h>"
-memmove.stmtd = "double aa[3],c; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(double)); c=aa[1];"
-memmove.stmtf = "float aa[3],c; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(float)); c=aa[1];"
-memmove.stmtl = "long double aa[3],c; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(long double)); c=aa[1];"
+memmove.stmtd = "double aa[3],c,d; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(double)); c=aa[1]; d=aa[2];"
+memmove.stmtf = "float aa[3],c,d; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(float)); c=aa[1]; d=aa[2];"
+memmove.stmtl = "long double aa[3],c,d; aa[0] = 3.14*a; aa[1] = a; memmove(aa+1,aa,2*sizeof(long double)); c=aa[1]; d=aa[2];"
 memmove.vals = {'a':-12.34}
 memmove.dots = {'a':-56.78}
-memmove.test_vals = {'c':-12.34*3.14}
-memmove.test_dots = {'c':-56.78*3.14}
+memmove.bars = {'c':2,'d':15}
+memmove.test_vals = {'c':-12.34*3.14,'d':-12.34}
+memmove.test_dots = {'c':-56.78*3.14,'d':-56.78}
+memmove.test_bars = {'a':3.14*2+15}
 basiclist.append(memmove)
 
 memset = ClientRequestTestCase("memset")
@@ -677,8 +681,10 @@ memset.stmtf = "memset(&a,0,sizeof(float));"
 memset.stmtl = "memset(&a,0,sizeof(long double));"
 memset.vals = {'a':-12.34}
 memset.dots = {'a':-56.78}
+memset.bars = {'a':1.0}
 memset.test_vals = {'a':0.0}
 memset.test_dots = {'a':0.0}
+memset.test_bars = {'a':0.0}
 basiclist.append(memset)
 
 
