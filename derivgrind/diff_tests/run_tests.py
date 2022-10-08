@@ -878,11 +878,11 @@ multiplication_recursion.test_bars = {'a':5120.0}
 basiclist.append(multiplication_recursion)
 
 ### Auto-Vectorization ###
-for (name, op, c_val, c_grad) in [ 
-  ("addition", "+", 1184.,288.),
-  ("subtraction", "-", 1216., 192.),
-  ("multiplication", "*", -1200., 3360.),
-  ("division", "/", -1200., -3840.0)
+for (name, op, c_val, c_dot, a_bar, b_bar) in [ 
+  ("addition", "+", 1184.,288.,120.,16.),
+  ("subtraction", "-", 1216., 192., 120., -16.),
+  ("multiplication", "*", -1200., 3360., -120., 1200.),
+  ("division", "/", -1200., -3840.0, -120., -1200.)
   ]:
   autovectorization = ClientRequestTestCase(name+"_autovectorization")
   autovectorization_stmtbody_c = f"""
@@ -903,8 +903,10 @@ for (name, op, c_val, c_grad) in [
   autovectorization.stmtr8 = "double precision, dimension(16) :: a_arr, b_arr, c_arr; double precision, target :: c = 0; "+autovectorization_stmtbody_fortran
   autovectorization.vals = {'a':10.0,'b':-1.0}
   autovectorization.dots = {'a':2.0,'b':3.0}
+  autovectorization.bars = {'c':1.0}
   autovectorization.test_vals = {'c':c_val}
-  autovectorization.test_dots = {'c':c_grad}
+  autovectorization.test_dots = {'c':c_dot}
+  autovectorization.test_bars = {'a':a_bar, 'b':b_bar}
   basiclist.append(autovectorization)
 
 for (name, cfun, ffun, c_val, c_grad) in [ 

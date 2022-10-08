@@ -319,7 +319,7 @@ for op in ops:
 # Conversion F64 -> F32: Apply analogously to dot value, and cut bytes from index.
 f64tof32 = IROp_Info("Iop_F64toF32",2,[2])
 f64tof32.dotcode = dv(f64tof32.apply("arg1","d2"))
-f64tof32.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,IRExpr_Unop(Iop_ReinterpF64asI64,i1{HiLo})));" for HiLo in ["Lo","Hi"]])
+f64tof32.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,IRExpr_Unop(Iop_ReinterpF64asI64,i2{HiLo})));" for HiLo in ["Lo","Hi"]])
 IROp_Infos += [f64tof32]
 
 # Zero-derivative binary operations
