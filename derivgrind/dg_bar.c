@@ -14,7 +14,7 @@
 #include "dg_bar.h"
 #include "dg_bar_tape.h"
 
-//#include "dg_dot_bitwise.h"
+#include "dg_bar_bitwise.h"
 
 //! First layer of shadow memory for the lower 4 byte of the 8-byte indices.
 void* sm_barLo = NULL;

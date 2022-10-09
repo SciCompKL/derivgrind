@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------*/
-/*--- Handling of logical operations.                 dg_logical.c ---*/
+/*--- Handling of logical operations.             dg_dot_bitwise.c ---*/
 /*--------------------------------------------------------------------*/
 
 /*
@@ -33,11 +33,13 @@
 
 #include "dg_dot_bitwise.h"
 
-/*! \file dg_logical.c
- *  Define functions for AD handling of logical operations.
+/*! \file dg_dot_bitwise.c
+ *  Define functions for forward-mode AD handling of logical operations.
+ *
+ *  See \ref ad_handling_bitwise for details.
  */
 
-/*! \page ad_handling_logical AD handling of logical operations
+/*! \page ad_handling_bitwise AD handling of bitwise logical operations
  *
  *  Generally, DerivGrind ignores non-copy operations on discrete datatypes,
  *  such as Add64. That's because reinterpreting a floating-point number as
@@ -53,11 +55,11 @@
  *  numbers.
  *
  *  Additionally, "and" with 0b11...1 and "or" with 0b00...0 does not change the
- *  other operand, so we should keep its derivative.
+ *  other operand and might be used in a masking pattern.
  *
  */
 
-/*! Building block to apply 32-bit AD handling to both
+/*! Building block to apply 32-bit forward-mode AD handling to both
  *  halves of a 64-bit number.
  *  \param[in] fun32 - Function to be called for both 32-bit halves.
  */
