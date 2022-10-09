@@ -25,7 +25,7 @@ ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2){
 }
 
 void dg_bar_tape_initialize(const HChar* filename){
-  fd = VG_(fd_open)(filename,VKI_O_WRONLY,VKI_O_CREAT);
+  fd = VG_(fd_open)(filename,VKI_O_WRONLY|VKI_O_CREAT|VKI_O_TRUNC,0777);
   if(fd==-1){
     VG_(printf)("Cannot open tape file at path '%s'.", filename );
     tl_assert(False);
