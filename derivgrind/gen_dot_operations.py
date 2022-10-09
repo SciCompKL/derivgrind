@@ -251,21 +251,34 @@ for Op, op in [("Min", "min"), ("Max", "max")]:
   for suffix,fpsize,simdsize,llo in [p32Fx2,p32Fx4,p32F0x4,p64Fx2,p64F0x2,p32Fx8,p64Fx4]:
     the_op = IROp_Info(f"Iop_{Op}{suffix}", 2, [1,2], fpsize, simdsize, llo)
     the_op.dotcode = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"dotvalue":"dotvalue_part"}, fpsize, simdsize, f'IRExpr* dotvalue_part = mkIRExprCCall(Ity_I64,0,"dg_dot_arithmetic_{op}{fpsize*8}", &dg_dot_arithmetic_{op}{fpsize*8}, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
+    the_op.barcode = applyComponentwisely({"arg1":"arg1_part","i1Lo":"i1Lo_part","i1Hi":"i1Hi_part","arg2":"arg2_part","i2Lo":"i2Lo_part","i2Hi":"i2Hi_part"}, {"indexLo":"indexLo_part","indexHi":"indexHi_part"}, fpsize, simdsize, f'IRExpr* indexInt_part = mkIRExprCCall(Ity_I64,0,"dg_bar_arithmetic_{op}{fpsize*8}", &dg_bar_arithmetic_{op}{fpsize*8}, mkIRExprVec_6(arg1_part, i1Lo_part, i1Hi_part, arg2_part, i2Lo_part,i2Hi_part));\nIRExpr* indexLo_part = IRExpr_Binop(Iop_32HLto64, IRExpr_Const(IRConst_U32(0)), IRExpr_Unop(Iop_64to32, indexInt_part));\nIRExpr* indexHi_part = IRExpr_Binop(Iop_32HLto64, IRExpr_Const(IRConst_U32(0)), IRExpr_Unop(Iop_64HIto32, indexInt_part));  ') 
     IROp_Infos += [ the_op ]
 # fused multiply-add
 for Op in ["Add", "Sub"]:
   for suffix,fpsize,simdsize,llo in [pF64,pF32]:
     the_op = IROp_Info(f"Iop_M{Op}{suffix}", 4, [2,3,4], fpsize,simdsize,llo)
     the_op.dotcode = dv(f"IRExpr_Triop(Iop_{Op}{suffix}, arg1, IRExpr_Triop(Iop_{Op}{suffix},arg1,d2,arg3), IRExpr_Qop(Iop_M{Op}{suffix},arg1,arg2,d3,d4))")
+    if fpsize==4:  # conversion to F64, see above
+      arg2_part_f = "IRExpr_Unop(Iop_F32toF64,IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,arg2_part)))"
+      arg3_part_f = "IRExpr_Unop(Iop_F32toF64,IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,arg3_part)))"
+      arg4_part_f = "IRExpr_Unop(Iop_F32toF64,IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,arg4_part)))"
+    else:
+      arg2_part_f = "IRExpr_Unop(Iop_ReinterpI64asF64,arg2_part)"
+      arg3_part_f = "IRExpr_Unop(Iop_ReinterpI64asF64,arg3_part)"
+      arg4_part_f = "IRExpr_Unop(Iop_ReinterpI64asF64,arg4_part)"
+    the_op.barcode = createBarCode(the_op, [2,3,4], [arg3_part_f, arg2_part_f, f"IRExpr_Const(IRConst_F64({'1.' if Op=='Add' else '-1.'}))"], fpsize, simdsize,llo)
     IROp_Infos += [ the_op ]
 
 # Miscellaneous
 scalef64 = IROp_Info("Iop_ScaleF64",  3, [2], 8, 1, False)
 scalef64.dotcode = dv(scalef64.apply("arg1","d2","arg3"))
+scalef64.barcode = createBarCode(scalef64, [2], ["IRExpr_Triop(Iop_ScaleF64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)"], 8, 1, False)
 yl2xf64 = IROp_Info("Iop_Yl2xF64", 3, [2,3], 8, 1, False)
 yl2xf64.dotcode = dv("IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xF64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),arg3)))")
+yl2xf64.barcode = createBarCode(yl2xf64, [2,3], ["IRExpr_Triop(Iop_Yl2xF64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)",  "IRExpr_Triop(Iop_DivF64,arg1,arg2,IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)), arg3))"], 8, 1, False)
 yl2xp1f64 = IROp_Info("Iop_Yl2xp1F64", 3, [2,3], 8, 1, False)
 yl2xp1f64.dotcode = dv("IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xp1F64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.))))))")
+yl2xp1f64.barcode = createBarCode(yl2xp1f64, [2,3], ["IRExpr_Triop(Iop_Yl2xp1F64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)",  "IRExpr_Triop(Iop_DivF64,arg1,arg2,IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.)))))"], 8, 1, False)
 IROp_Infos += [ scalef64, yl2xf64, yl2xp1f64 ]
 
 ### Bitwise logical instructions. ###
