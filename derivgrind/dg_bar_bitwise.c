@@ -118,13 +118,13 @@ VG_REGPARM(0) ULong dg_bar_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong 
 /*--- OR <-> negative abs ---*/
 // compare with 0b100...0 and 0b00...0
 #define DG_HANDLE_OR(fptype, inttype, x, y) \
-  if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) && x##iLo == 0 && x##iHi == 0 ){ /* 0b10..0 */ \
+  if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) && *(UInt*)&x##iLo == 0 && *(UInt*)&x##iHi == 0 ){ /* 0b10..0 */ \
     fptype y_f = *(fptype*)&y; \
     ULong yi = assemble64x2to64(y##iLo,y##iHi); \
     if(y_f<=0) return yi; \
     else return tapeAddStatement(yi,0,-1.,0); \
   } \
-  else if( x == 0 && x##iLo==0 && x##iHi==0 ){ /* 0b0..0 */ \
+  else if( x == 0 && *(UInt*)&x##iLo==0 && *(UInt*)&x##iHi==0 ){ /* 0b0..0 */ \
     return assemble64x2to64(y##iLo,y##iHi); \
   }
 
@@ -144,7 +144,7 @@ VG_REGPARM(0) ULong dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y
 // compare with 0b100...0
 
 #define DG_HANDLE_XOR(fptype, inttype, x, y) \
-  if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) && x##iLo == 0 && x##iHi == 0 ){ \
+  if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) && *(UInt*)&x##iLo == 0 && *(UInt*)&x##iHi == 0 ){ \
     ULong yi = assemble64x2to64(y##iLo,y##iHi); \
     return tapeAddStatement(yi,0,-1.,0); \
   }

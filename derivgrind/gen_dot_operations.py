@@ -234,6 +234,7 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
 for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1),("64Fx2",8,2),("32Fx2",4,2),("32Fx4",4,4)]:
   neg = IROp_Info(f"Iop_Neg{suffix}", 1,[1],fpsize,simdsize,False)
   neg.dotcode = dv(neg.apply("d1"))
+  neg.barcode = createBarCode(neg, [1], ["IRExpr_Const(IRConst_F64(-1.))"], fpsize, simdsize, False)
   IROp_Infos += [ neg ]
 # Abs 
 for suffix,fpsize,simdsize,llo in [pF64,pF32]: # p64Fx2, p32Fx2, p32Fx4 exist, but AD logic is different
