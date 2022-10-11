@@ -1121,8 +1121,10 @@ addition_interactive.stmtr4 = "real :: c; c= a+b"
 addition_interactive.stmtr8 = "double precision :: c; c= a+b"
 addition_interactive.vals = {'a':1.0,'b':2.0}
 addition_interactive.dots = {'a':3.0,'b':4.0}
+addition_interactive.bars = {'c':1.0}
 addition_interactive.test_vals = {'c':3.0}
 addition_interactive.test_dots = {'c':7.0}
+addition_interactive.test_bars = {'a':1.0,'b':1.0}
 basiclist.append(addition_interactive)
 
 multiplication_interactive = InteractiveTestCase("multiplication_interactive")
@@ -1133,8 +1135,10 @@ multiplication_interactive.stmtr4 = "real :: c; c= a*b"
 multiplication_interactive.stmtr8 = "double precision :: c; c= a*b"
 multiplication_interactive.vals = {'a':1.0,'b':2.0}
 multiplication_interactive.dots = {'a':3.0,'b':4.0}
+multiplication_interactive.bars = {'c':-3.14}
 multiplication_interactive.test_vals = {'c':2.0}
 multiplication_interactive.test_dots = {'c':10.0}
+multiplication_interactive.test_bars = {'a':-6.28,'b':-3.14}
 basiclist.append(multiplication_interactive)
 
 sin_100_interactive = InteractiveTestCase("sin_100_interactive")
@@ -1147,8 +1151,10 @@ sin_100_interactive.stmtr4 = "real :: c; c= sin(a)"
 sin_100_interactive.stmtr8 = "double precision :: c; c= sin(a)"
 sin_100_interactive.vals = {'a':100}
 sin_100_interactive.dots = {'a':3.1}
+sin_100_interactive.bars = {'c':3.1}
 sin_100_interactive.test_vals = {'c':np.sin(100)}
 sin_100_interactive.test_dots = {'c':np.cos(100)*3.1}
+sin_100_interactive.test_bars = {'a':np.cos(100)*3.1}
 basiclist.append(sin_100_interactive)
 
 

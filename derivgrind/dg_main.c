@@ -250,6 +250,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         ULong setIndex = tapeAddStatement(0,0,0.,0.);
         shadowSet(sm_barLo,(void*)address,(void*)&setIndex,4);
         shadowSet(sm_barHi,(void*)address,(void*)&setIndex+4,4);
+        VG_(gdb_printf)("index: %llu\n",setIndex);
         return True;
       }
     }

@@ -165,10 +165,30 @@ class InteractiveTestCase(TestCase):
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
 
   def run_code_in_vgdb(self):
+    # in reverse mode, clear index and adjoints files
+    if self.mode=='b':
+      try:
+        os.remove("dg-input-indices")
+      except OSError:
+        pass
+      try:
+        os.remove("dg-input-adjoints")
+      except OSError:
+        pass
+      try:
+        os.remove("dg-output-indices")
+      except OSError:
+        pass
+      try:
+        os.remove("dg-output-adjoints")
+      except OSError:
+        pass
+    # logs are shown in case of failure
     self.valgrind_log = ""
     self.gdb_log = ""
     # start Valgrind and extract "target remote" line
-    valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=derivgrind", "--vgdb-error=0", "./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
+    maybereverse = ["--record=rec"] if self.mode=='b' else []
+    valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=derivgrind", "--vgdb-error=0"]+maybereverse+["./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     while True:
       line = valgrind.stdout.readline()
       self.valgrind_log += line
@@ -183,17 +203,39 @@ class InteractiveTestCase(TestCase):
     gdb.stdin.write("break "+self.source_filename+":"+str(self.line_before_stmt)+"\n")
     gdb.stdin.write("break "+self.source_filename+":"+str(self.line_after_stmt)+"\n")
     gdb.stdin.write("continue\n")
-    # set dot values and continue
-    for var in self.dots:
-      gdb.stdin.write("print &"+var+"\n")
-      while True:
-        line = gdb.stdout.readline()
-        self.gdb_log += line
-        r = re.search(r"\$\d+ = \("+self.type["gdbptype"]+"\) (0x[0-9a-f]+)\s?", line.strip())
-        if r:
-          pointer = r.group(1)
-          gdb.stdin.write("monitor "+self.type["set"]+" "+pointer+" "+str(self.dots[var])+"\n")
-          break
+    # "mark" inputs with monitor commands
+    if self.mode=='d': # forward mode, set dot values
+      for var in self.dots:
+        gdb.stdin.write("print &"+var+"\n")
+        while True:
+          line = gdb.stdout.readline()
+          self.gdb_log += line
+          r = re.search(r"\$\d+ = \("+self.type["gdbptype"]+"\) (0x[0-9a-f]+)\s?", line.strip())
+          if r:
+            pointer = r.group(1)
+            gdb.stdin.write("monitor "+self.type["set"]+" "+pointer+" "+str(self.dots[var])+"\n")
+            break
+    elif self.mode=='b': # reverse mode, assign and record indices
+      for var in self.test_bars:
+        gdb.stdin.write("print &"+var+"\n")
+        while True:
+          line = gdb.stdout.readline()
+          self.gdb_log += line
+          r = re.search(r"\$\d+ = \("+self.type["gdbptype"]+"\) (0x[0-9a-f]+)\s?", line.strip())
+          if r:
+            pointer = r.group(1)
+            break
+        gdb.stdin.write("monitor mark "+pointer+"\n")
+        while True:
+          line = gdb.stdout.readline()
+          self.gdb_log += line
+          r = re.search(r"index: (\d+)", line.strip())
+          if r:
+            index = int(r.group(1))
+            break
+        with open("dg-input-indices","a") as f:
+          f.writelines([str(index)+"\n"])
+    # execute statement
     gdb.stdin.write("continue\n")
     # check values
     for var in self.test_vals:
@@ -207,33 +249,66 @@ class InteractiveTestCase(TestCase):
           if abs(computed_value-self.test_vals[var]) > self.type["tol"]:
             self.errmsg += "VALUES DISAGREE: "+var+" stored="+str(self.test_vals[var])+" computed="+str(computed_value)+"\n"
           break
-    # check dot values
-    for var in self.test_dots:
-      gdb.stdin.write("print &"+var+"\n")
-      while True:
-        line = gdb.stdout.readline()
-        self.gdb_log += line
-        r = re.search(r"\$\d+ = \("+self.type["gdbptype"]+"\) (0x[0-9a-f]+)\s?", line.strip())
-        if r:
-          pointer = r.group(1)
-          gdb.stdin.write("monitor "+self.type["get"]+" "+pointer+"\n")
-          break
-      while True:
-        line = gdb.stdout.readline()
-        self.gdb_log += line
-        r = re.search("dot value: ([0-9.\-]+)$", line.strip())
-        if r:
-          computed_dot = float(r.group(1))
-          if abs(computed_dot-self.test_dots[var]) > self.type["tol"]:
-            self.errmsg += "DOT VALUES DISAGREE: "+var+" stored="+str(self.test_dots[var])+" computed="+str(computed_dot)+"\n"
-          break
-    # finish
+    # handle outputs with monitor commands
+    if self.mode=='d': # forward mode, check dot values
+      for var in self.test_dots:
+        gdb.stdin.write("print &"+var+"\n")
+        while True:
+          line = gdb.stdout.readline()
+          self.gdb_log += line
+          r = re.search(r"\$\d+ = \("+self.type["gdbptype"]+"\) (0x[0-9a-f]+)\s?", line.strip())
+          if r:
+            pointer = r.group(1)
+            gdb.stdin.write("monitor "+self.type["get"]+" "+pointer+"\n")
+            break
+        while True:
+          line = gdb.stdout.readline()
+          self.gdb_log += line
+          r = re.search("dot value: ([0-9.\-]+)$", line.strip())
+          if r:
+            computed_dot = float(r.group(1))
+            if abs(computed_dot-self.test_dots[var]) > self.type["tol"]:
+              self.errmsg += "DOT VALUES DISAGREE: "+var+" stored="+str(self.test_dots[var])+" computed="+str(computed_dot)+"\n"
+            break
+    elif self.mode=='b': # reverse mode, record indices
+      for var in self.bars:
+        gdb.stdin.write("print &"+var+"\n")
+        while True:
+          line = gdb.stdout.readline()
+          self.gdb_log += line
+          r = re.search(r"\$\d+ = \("+self.type["gdbptype"]+"\) (0x[0-9a-f]+)\s?", line.strip())
+          if r:
+            pointer = r.group(1)
+            break
+        gdb.stdin.write("monitor index "+pointer+"\n")
+        while True:
+          line = gdb.stdout.readline()
+          self.gdb_log += line
+          r = re.search(r"index: (\d+)", line.strip())
+          if r:
+            index = int(r.group(1))
+            break
+        with open("dg-output-indices","a") as f:
+          f.writelines([str(index)+"\n"])
+    # finish execution of client program under Valgrind
     gdb.stdin.write("continue\n")
     gdb.stdin.write("quit\n")
     (stdout_data, stderr_data) = valgrind.communicate()
     self.valgrind_log += stdout_data
     (stdout_data, stderr_data) = gdb.communicate()
     self.gdb_log += stdout_data
+    # for reverse mode, evaluate tape
+    if self.mode=='b':
+      with open("dg-output-adjoints","w") as outputadjoints:
+        for var in self.bars:
+          outputadjoints.writelines([str(self.bars[var])+"\n"])
+      tape_evaluation = subprocess.run(["../tape-evaluation", "rec"])
+      with open("dg-input-adjoints","r") as inputadjoints:
+        for var in self.test_bars:
+          bar = float(inputadjoints.readline())
+          if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
+            self.errmsg += f"BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
+
 
   def run(self):
     print("##### Running interactive test '"+self.name+"'... #####", flush=True)
