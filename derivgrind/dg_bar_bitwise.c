@@ -58,12 +58,11 @@ static ULong assemble64x2to64(ULong iLo, ULong iHi){
 #define DG_HANDLE_HALVES(fun32) \
   { \
     typedef union {ULong u64; struct {UInt u32_1, u32_2;} u32; } u; \
-    u result, x_u, xiLo_u, xiHi_u, y_u, yiLo_u, yiHi_u; \
+    u x_u, xiLo_u, xiHi_u, y_u, yiLo_u, yiHi_u; \
     x_u.u64 = x; xiLo_u.u64 = xiLo; xiHi_u.u64 = xiHi; \
     y_u.u64 = y; yiLo_u.u64 = yiLo; yiHi_u.u64 = yiHi; \
-    result.u32.u32_1 = fun32(x_u.u32.u32_1, xiLo_u.u32.u32_1, xiHi_u.u32.u32_1, y_u.u32.u32_1, yiLo_u.u32.u32_1, yiHi_u.u32.u32_1); \
-    result.u32.u32_2 = fun32(x_u.u32.u32_2, xiLo_u.u32.u32_2, xiHi_u.u32.u32_2, y_u.u32.u32_2, yiLo_u.u32.u32_2, yiHi_u.u32.u32_2); \
-    return result.u64; \
+    fun32(out,x_u.u32.u32_1, xiLo_u.u32.u32_1, xiHi_u.u32.u32_1, y_u.u32.u32_1, yiLo_u.u32.u32_1, yiHi_u.u32.u32_1); \
+    fun32((V128*)((UInt*)out+1),x_u.u32.u32_2, xiLo_u.u32.u32_2, xiHi_u.u32.u32_2, y_u.u32.u32_2, yiLo_u.u32.u32_2, yiHi_u.u32.u32_2); \
   }
 
 /*--- AND <-> abs ---*/
@@ -71,19 +70,27 @@ static ULong assemble64x2to64(ULong iLo, ULong iHi){
 /*! Building block for the AD handling of logical "and".
  *
  *  If x is equal to 0b0111..., assume that the operation
- *  computes abs(y) and return the index accordingly.
+ *  computes abs(y). If y>0, just return the index. If y<0,
+ *  create a new index on the tape and return it. Because of
+ *  this side effect, the function must be invoked through
+ *  a dirty call, not a CCall.
  */
 
-#define DG_HANDLE_AND(fptype, inttype, x, y) \
+#define DG_HANDLE_AND(out, fptype, inttype, x, y) \
   if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1))-1 ){ /* 0b01..1 */ \
     fptype y_f = *(fptype*)&y; \
-    ULong yi = assemble64x2to64(y##iLo,y##iHi); \
-    if(y_f>=0) return yi; \
-    else return tapeAddStatement(yi,0,-1.,0.); \
+    if(y_f>=0) { out->w32[0] = *(UInt*)&y##iLo; out->w32[2] = *(UInt*)&y##iHi; } \
+    else { \
+      ULong yi = assemble64x2to64(y##iLo, y##iHi); \
+      ULong minus_yi = tapeAddStatement(yi,0,-1.,0.); \
+      out->w32[0] = *(UInt*)&minus_yi; \
+      out->w32[2] = *((UInt*)&minus_yi+1); \
+    } \
   } \
   else if( x == (inttype)(-1) ){ /* 0b1..1 */ \
-    return assemble64x2to64(y##iLo,y##iHi); \
+    out->w32[0] = *(UInt*)&y##iLo; out->w32[2] = *(UInt*)&y##iHi; \
   }
+
 
 /*! AD handling of logical "and" for F32 type.
  *
@@ -97,10 +104,10 @@ static ULong assemble64x2to64(ULong iLo, ULong iHi){
  *  \param[in] yiHi - Higher 4 bytes of index of y.
  *  \returns Index of abs(x) or abs(y), if the other one is 0b0111.., otherwise zero.
  */
-VG_REGPARM(0) ULong dg_bar_bitwise_and32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
-  DG_HANDLE_AND(float,UInt, x, y)
-  else DG_HANDLE_AND(float,UInt, y, x)
-  else return 0x0;
+VG_REGPARM(0) void dg_bar_bitwise_and32(V128* out, UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
+  DG_HANDLE_AND(out, float,UInt, x, y)
+  else DG_HANDLE_AND(out, float,UInt, y, x)
+  else { out->w64[0] = out->w64[1] = 0x0; }
 }
 
 /*! AD handling of logical "and" for F32 and F64 type.
@@ -109,55 +116,62 @@ VG_REGPARM(0) ULong dg_bar_bitwise_and32(UInt x, UInt xiLo, UInt xiHi, UInt y, U
  * value operation on F64, treat it accordingly. Otherwise, it
  * might be a 32-bit absolute value operation on either half.
  */
-VG_REGPARM(0) ULong dg_bar_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
-  DG_HANDLE_AND(double,ULong, x, y)
-  else DG_HANDLE_AND(double,ULong, y, x)
+VG_REGPARM(0) void dg_bar_bitwise_and64(V128* out, ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
+  DG_HANDLE_AND(out, double,ULong, x, y)
+  else DG_HANDLE_AND(out, double,ULong, y, x)
   else DG_HANDLE_HALVES(dg_bar_bitwise_and32)
 }
 
 /*--- OR <-> negative abs ---*/
 // compare with 0b100...0 and 0b00...0
-#define DG_HANDLE_OR(fptype, inttype, x, y) \
+#define DG_HANDLE_OR(out, fptype, inttype, x, y) \
   if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) && *(UInt*)&x##iLo == 0 && *(UInt*)&x##iHi == 0 ){ /* 0b10..0 */ \
     fptype y_f = *(fptype*)&y; \
-    ULong yi = assemble64x2to64(y##iLo,y##iHi); \
-    if(y_f<=0) return yi; \
-    else return tapeAddStatement(yi,0,-1.,0); \
+    if(y_f<=0) { out->w32[0] = *(UInt*)&y##iLo; out->w32[2] = *(UInt*)&y##iHi; } \
+    else { \
+      ULong yi = assemble64x2to64(y##iLo,y##iHi); \
+      ULong minus_yi = tapeAddStatement(yi,0,-1.,0); \
+      out->w32[0] = *(UInt*)&minus_yi; \
+      out->w32[2] = *((UInt*)&minus_yi+1); \
+    } \
   } \
   else if( x == 0 && *(UInt*)&x##iLo==0 && *(UInt*)&x##iHi==0 ){ /* 0b0..0 */ \
-    return assemble64x2to64(y##iLo,y##iHi); \
+    out->w32[0] = *(UInt*)&y##iLo; out->w32[2] = *(UInt*)&y##iHi; \
   }
 
-VG_REGPARM(0) ULong dg_bar_bitwise_or32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
-  DG_HANDLE_OR(float,UInt, x, y)
-  else DG_HANDLE_OR(float,UInt, y, x)
-  else return 0x0;
+VG_REGPARM(0) void dg_bar_bitwise_or32(V128* out, UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
+  DG_HANDLE_OR(out, float,UInt, x, y)
+  else DG_HANDLE_OR(out, float,UInt, y, x)
+  else { out->w64[0] = out->w64[1] = 0x0; }
 }
 
-VG_REGPARM(0) ULong dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
-  DG_HANDLE_OR(double,ULong, x, y)
-  else DG_HANDLE_OR(double,ULong, y, x)
+VG_REGPARM(0) void dg_bar_bitwise_or64(V128* out, ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
+  DG_HANDLE_OR(out, double,ULong, x, y)
+  else DG_HANDLE_OR(out, double,ULong, y, x)
   else DG_HANDLE_HALVES(dg_bar_bitwise_or32)
 }
 
 /*--- XOR <-> negative ---*/
 // compare with 0b100...0
 
-#define DG_HANDLE_XOR(fptype, inttype, x, y) \
+#define DG_HANDLE_XOR(out, fptype, inttype, x, y) \
   if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) && *(UInt*)&x##iLo == 0 && *(UInt*)&x##iHi == 0 ){ \
     ULong yi = assemble64x2to64(y##iLo,y##iHi); \
-    return tapeAddStatement(yi,0,-1.,0); \
+    ULong minus_yi = tapeAddStatement(yi,0,-1.,0); \
+    out->w32[0] = *(UInt*)&minus_yi; \
+    out->w32[2] = *((UInt*)&minus_yi+1); \
+    VG_(printf)("minus_yi=%llu\n",minus_yi);\
   }
 
-VG_REGPARM(0) ULong dg_bar_bitwise_xor32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
-  DG_HANDLE_XOR(float,UInt, x, y)
-  else DG_HANDLE_XOR(float,UInt, y, x)
-  else return 0x0;
+VG_REGPARM(0) void dg_bar_bitwise_xor32(V128* out, UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
+  DG_HANDLE_XOR(out, float,UInt, x, y)
+  else DG_HANDLE_XOR(out, float,UInt, y, x)
+  else { out->w64[0] = out->w64[1] = 0x0; }
 }
 
-VG_REGPARM(0) ULong dg_bar_bitwise_xor64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
-  DG_HANDLE_XOR(double,ULong, x, y)
-  else DG_HANDLE_XOR(double,ULong, y, x)
+VG_REGPARM(0) void dg_bar_bitwise_xor64(V128* out, ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
+  DG_HANDLE_XOR(out, double,ULong, x, y)
+  else DG_HANDLE_XOR(out, double,ULong, y, x)
   else DG_HANDLE_HALVES(dg_bar_bitwise_xor32)
 }
 

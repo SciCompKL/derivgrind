@@ -57,6 +57,14 @@
  *  Additionally, "and" with 0b11...1 and "or" with 0b00...0 does not change the
  *  other operand and might be used in a masking pattern.
  *
+ *  In forward mode, we use CCalls that take values and dot values of both operands
+ *  as inputs and return the dot value of the output, or 0x0 if no floating-point
+ *  operation was recognized.
+ *
+ *  In reverse mode, we use dirty calls that take values and indices of both operands
+ *  as inputs and return a V128 (via Iex_VECRET). Its lower/higher 8 bytes are to be stored
+ *  in the lower/higher shadow memory layer, respectively.
+ *
  */
 
 /*! Building block to apply 32-bit forward-mode AD handling to both
