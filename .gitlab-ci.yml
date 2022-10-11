@@ -16,6 +16,7 @@ build:
   artifacts:
     paths:
       - install/
+      - derivgrind/tape-evaluation
 
 test_dot_x86:
   stage: test
