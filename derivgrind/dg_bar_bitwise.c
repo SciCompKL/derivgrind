@@ -40,6 +40,23 @@
  *  See \ref ad_handling_bitwise for details.
  */
 
+// The normal way to record bitwise logical operations with dirty calls
+// would be to pass the value and both layers of the shadow value to
+// the handler, and return a V128 (via another Iex_VECRET parameter)
+// that contains both layers of the shadow of the result.
+// This does not work because in total that makes 7 arguments, and on
+// amd64 only 6 arguments are currently supported.
+// We solve this by letting the handlers store their return value
+// in the following shared state, and providing two handlers to read
+// the shared state.
+static V128 dg_bar_bitwise_out;
+VG_REGPARM(0) ULong dg_bar_bitwise_get_lower(void){
+  return *(ULong*)&dg_bar_bitwise_out;
+}
+VG_REGPARM(0) ULong dg_bar_bitwise_get_higher(void){
+  return *((ULong*)&dg_bar_bitwise_out+1);
+}
+
 /*! Assemble lower 4 bytes of both arguments into 8-byte index.
  * \param[in] iLo - Lower four bytes determine lower four bytes of result.
  * \param[in] iHi - Lower four bytes determine higher four bytes of result.
@@ -61,8 +78,11 @@ static ULong assemble64x2to64(ULong iLo, ULong iHi){
     u x_u, xiLo_u, xiHi_u, y_u, yiLo_u, yiHi_u; \
     x_u.u64 = x; xiLo_u.u64 = xiLo; xiHi_u.u64 = xiHi; \
     y_u.u64 = y; yiLo_u.u64 = yiLo; yiHi_u.u64 = yiHi; \
-    fun32(out,x_u.u32.u32_1, xiLo_u.u32.u32_1, xiHi_u.u32.u32_1, y_u.u32.u32_1, yiLo_u.u32.u32_1, yiHi_u.u32.u32_1); \
-    fun32((V128*)((UInt*)out+1),x_u.u32.u32_2, xiLo_u.u32.u32_2, xiHi_u.u32.u32_2, y_u.u32.u32_2, yiLo_u.u32.u32_2, yiHi_u.u32.u32_2); \
+    fun32(x_u.u32.u32_2, xiLo_u.u32.u32_2, xiHi_u.u32.u32_2, y_u.u32.u32_2, yiLo_u.u32.u32_2, yiHi_u.u32.u32_2); \
+    V128 out_tmp = dg_bar_bitwise_out; \
+    fun32(x_u.u32.u32_1, xiLo_u.u32.u32_1, xiHi_u.u32.u32_1, y_u.u32.u32_1, yiLo_u.u32.u32_1, yiHi_u.u32.u32_1); \
+    dg_bar_bitwise_out.w32[1] = out_tmp.w32[0]; \
+    dg_bar_bitwise_out.w32[3] = out_tmp.w32[2]; \
   }
 
 /*--- AND <-> abs ---*/
@@ -104,10 +124,10 @@ static ULong assemble64x2to64(ULong iLo, ULong iHi){
  *  \param[in] yiHi - Higher 4 bytes of index of y.
  *  \returns Index of abs(x) or abs(y), if the other one is 0b0111.., otherwise zero.
  */
-VG_REGPARM(0) void dg_bar_bitwise_and32(V128* out, UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
-  DG_HANDLE_AND(out, float,UInt, x, y)
-  else DG_HANDLE_AND(out, float,UInt, y, x)
-  else { out->w64[0] = out->w64[1] = 0x0; }
+VG_REGPARM(0) void dg_bar_bitwise_and32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
+  DG_HANDLE_AND((&dg_bar_bitwise_out), float,UInt, x, y)
+  else DG_HANDLE_AND((&dg_bar_bitwise_out), float,UInt, y, x)
+  else { dg_bar_bitwise_out.w64[0] = dg_bar_bitwise_out.w64[1] = 0x0; }
 }
 
 /*! AD handling of logical "and" for F32 and F64 type.
@@ -116,9 +136,9 @@ VG_REGPARM(0) void dg_bar_bitwise_and32(V128* out, UInt x, UInt xiLo, UInt xiHi,
  * value operation on F64, treat it accordingly. Otherwise, it
  * might be a 32-bit absolute value operation on either half.
  */
-VG_REGPARM(0) void dg_bar_bitwise_and64(V128* out, ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
-  DG_HANDLE_AND(out, double,ULong, x, y)
-  else DG_HANDLE_AND(out, double,ULong, y, x)
+VG_REGPARM(0) void dg_bar_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
+  DG_HANDLE_AND((&dg_bar_bitwise_out), double,ULong, x, y)
+  else DG_HANDLE_AND((&dg_bar_bitwise_out), double,ULong, y, x)
   else DG_HANDLE_HALVES(dg_bar_bitwise_and32)
 }
 
@@ -139,15 +159,15 @@ VG_REGPARM(0) void dg_bar_bitwise_and64(V128* out, ULong x, ULong xiLo, ULong xi
     out->w32[0] = *(UInt*)&y##iLo; out->w32[2] = *(UInt*)&y##iHi; \
   }
 
-VG_REGPARM(0) void dg_bar_bitwise_or32(V128* out, UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
-  DG_HANDLE_OR(out, float,UInt, x, y)
-  else DG_HANDLE_OR(out, float,UInt, y, x)
-  else { out->w64[0] = out->w64[1] = 0x0; }
+VG_REGPARM(0) void dg_bar_bitwise_or32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
+  DG_HANDLE_OR((&dg_bar_bitwise_out), float,UInt, x, y)
+  else DG_HANDLE_OR((&dg_bar_bitwise_out), float,UInt, y, x)
+  else { dg_bar_bitwise_out.w64[0] = dg_bar_bitwise_out.w64[1] = 0x0; }
 }
 
-VG_REGPARM(0) void dg_bar_bitwise_or64(V128* out, ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
-  DG_HANDLE_OR(out, double,ULong, x, y)
-  else DG_HANDLE_OR(out, double,ULong, y, x)
+VG_REGPARM(0) void dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
+  DG_HANDLE_OR((&dg_bar_bitwise_out), double,ULong, x, y)
+  else DG_HANDLE_OR((&dg_bar_bitwise_out), double,ULong, y, x)
   else DG_HANDLE_HALVES(dg_bar_bitwise_or32)
 }
 
@@ -163,15 +183,15 @@ VG_REGPARM(0) void dg_bar_bitwise_or64(V128* out, ULong x, ULong xiLo, ULong xiH
     VG_(printf)("minus_yi=%llu\n",minus_yi);\
   }
 
-VG_REGPARM(0) void dg_bar_bitwise_xor32(V128* out, UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
-  DG_HANDLE_XOR(out, float,UInt, x, y)
-  else DG_HANDLE_XOR(out, float,UInt, y, x)
-  else { out->w64[0] = out->w64[1] = 0x0; }
+VG_REGPARM(0) void dg_bar_bitwise_xor32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
+  DG_HANDLE_XOR((&dg_bar_bitwise_out), float,UInt, x, y)
+  else DG_HANDLE_XOR((&dg_bar_bitwise_out), float,UInt, y, x)
+  else { dg_bar_bitwise_out.w64[0] = dg_bar_bitwise_out.w64[1] = 0x0; }
 }
 
-VG_REGPARM(0) void dg_bar_bitwise_xor64(V128* out, ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
-  DG_HANDLE_XOR(out, double,ULong, x, y)
-  else DG_HANDLE_XOR(out, double,ULong, y, x)
+VG_REGPARM(0) void dg_bar_bitwise_xor64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
+  DG_HANDLE_XOR((&dg_bar_bitwise_out), double,ULong, x, y)
+  else DG_HANDLE_XOR((&dg_bar_bitwise_out), double,ULong, y, x)
   else DG_HANDLE_HALVES(dg_bar_bitwise_xor32)
 }
 

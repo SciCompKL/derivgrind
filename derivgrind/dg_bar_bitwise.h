@@ -34,13 +34,16 @@
 
 #include "pub_tool_basics.h"
 
-VG_REGPARM(0) void dg_bar_bitwise_and32(V128* out, UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
-VG_REGPARM(0) void dg_bar_bitwise_and64(V128* out, ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
+VG_REGPARM(0) ULong dg_bar_bitwise_get_lower(void);
+VG_REGPARM(0) ULong dg_bar_bitwise_get_higher(void);
 
-VG_REGPARM(0) void dg_bar_bitwise_or32(V128* out, UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
-VG_REGPARM(0) void dg_bar_bitwise_or64(V128* out, ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
+VG_REGPARM(0) void dg_bar_bitwise_and32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
+VG_REGPARM(0) void dg_bar_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
 
-VG_REGPARM(0) void dg_bar_bitwise_xor32(V128* out, UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
-VG_REGPARM(0) void dg_bar_bitwise_xor64(V128* out, ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
+VG_REGPARM(0) void dg_bar_bitwise_or32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
+VG_REGPARM(0) void dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
+
+VG_REGPARM(0) void dg_bar_bitwise_xor32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
+VG_REGPARM(0) void dg_bar_bitwise_xor64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
 
 #endif // DG_BAR_BITWISE_H
