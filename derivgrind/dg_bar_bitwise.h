@@ -43,9 +43,4 @@ VG_REGPARM(0) ULong dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y
 VG_REGPARM(0) ULong dg_bar_bitwise_xor32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
 VG_REGPARM(0) ULong dg_bar_bitwise_xor64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
 
-VG_REGPARM(0) ULong dg_bar_arithmetic_min32(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
-VG_REGPARM(0) ULong dg_bar_arithmetic_min64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
-VG_REGPARM(0) ULong dg_bar_arithmetic_max32(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
-VG_REGPARM(0) ULong dg_bar_arithmetic_max64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
-
 #endif // DG_BAR_BITWISE_H

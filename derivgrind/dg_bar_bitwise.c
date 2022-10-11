@@ -161,20 +161,3 @@ VG_REGPARM(0) ULong dg_bar_bitwise_xor64(ULong x, ULong xiLo, ULong xiHi, ULong 
   else DG_HANDLE_HALVES(dg_bar_bitwise_xor32)
 }
 
-/*--- Min/Max ---*/
-VG_REGPARM(0) ULong dg_bar_arithmetic_min32(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
-  if( *(double*)&x < *(double*)&y ) return assemble64x2to64(xiLo,yiHi);
-  else return assemble64x2to64(yiLo,yiHi);
-}
-VG_REGPARM(0) ULong dg_bar_arithmetic_min64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
-  if( *(float*)&x < *(float*)&y ) return assemble64x2to64(xiLo,yiHi);
-  else return assemble64x2to64(yiLo,yiHi);
-}
-VG_REGPARM(0) ULong dg_bar_arithmetic_max32(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
-  if( *(double*)&x > *(double*)&y ) return assemble64x2to64(xiLo,yiHi);
-  else return assemble64x2to64(yiLo,yiHi);
-}
-VG_REGPARM(0) ULong dg_bar_arithmetic_max64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
-  if( *(float*)&x > *(float*)&y ) return assemble64x2to64(xiLo,yiHi);
-  else return assemble64x2to64(yiLo,yiHi);
-}

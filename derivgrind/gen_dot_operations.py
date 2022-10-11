@@ -251,7 +251,13 @@ for Op, op in [("Min", "min"), ("Max", "max")]:
   for suffix,fpsize,simdsize,llo in [p32Fx2,p32Fx4,p32F0x4,p64Fx2,p64F0x2,p32Fx8,p64Fx4]:
     the_op = IROp_Info(f"Iop_{Op}{suffix}", 2, [1,2], fpsize, simdsize, llo)
     the_op.dotcode = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"dotvalue":"dotvalue_part"}, fpsize, simdsize, f'IRExpr* dotvalue_part = mkIRExprCCall(Ity_I64,0,"dg_dot_arithmetic_{op}{fpsize*8}", &dg_dot_arithmetic_{op}{fpsize*8}, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
-    the_op.barcode = applyComponentwisely({"arg1":"arg1_part","i1Lo":"i1Lo_part","i1Hi":"i1Hi_part","arg2":"arg2_part","i2Lo":"i2Lo_part","i2Hi":"i2Hi_part"}, {"indexLo":"indexLo_part","indexHi":"indexHi_part"}, fpsize, simdsize, f'IRExpr* indexInt_part = mkIRExprCCall(Ity_I64,0,"dg_bar_arithmetic_{op}{fpsize*8}", &dg_bar_arithmetic_{op}{fpsize*8}, mkIRExprVec_6(arg1_part, i1Lo_part, i1Hi_part, arg2_part, i2Lo_part,i2Hi_part));\nIRExpr* indexLo_part = IRExpr_Binop(Iop_32HLto64, IRExpr_Const(IRConst_U32(0)), IRExpr_Unop(Iop_64to32, indexInt_part));\nIRExpr* indexHi_part = IRExpr_Binop(Iop_32HLto64, IRExpr_Const(IRConst_U32(0)), IRExpr_Unop(Iop_64HIto32, indexInt_part));  ') 
+    if fpsize==4:  # conversion to F64, see above
+      arg1_part_f = "IRExpr_Unop(Iop_F32toF64,IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,arg1_part)))"
+      arg2_part_f = "IRExpr_Unop(Iop_F32toF64,IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,arg2_part)))"
+    else:
+      arg1_part_f = "IRExpr_Unop(Iop_ReinterpI64asF64,arg1_part)"
+      arg2_part_f = "IRExpr_Unop(Iop_ReinterpI64asF64,arg2_part)"
+    the_op.barcode = createBarCode(the_op, [1,2], [f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{'F32' if fpsize==4 else 'F64'},{arg1_part_f},{arg2_part_f})),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})) )",     f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{'F32' if fpsize==4 else 'F64'},{arg1_part_f},{arg2_part_f})),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})) )"], fpsize, simdsize,llo)
     IROp_Infos += [ the_op ]
 # fused multiply-add
 for Op in ["Add", "Sub"]:
