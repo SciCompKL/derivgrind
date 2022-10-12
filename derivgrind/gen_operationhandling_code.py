@@ -1,4 +1,9 @@
-"""Create a list of C "case" statements handling VEX IR operations.
+"""Create a list of C "case" statements handling VEX IR operations
+to be #include'd into 
+- the dg_dot_operation function in dg_dot.c, in forward mode. The code may 
+  create CCalls to functions in dg_dot_bitwise.c, dg_dot_minmax.c.
+- the dg_bar_operation function in dg_bar.c, in recording mode. The code may
+  create dirty calls to functions in dg_bar_bitwise.c.
 """
 
 # Among the large set of VEX operations, there are always subset of operations 
@@ -8,7 +13,7 @@
 
 class IROp_Info:
   """Represents one Iop_...."""
-  def __init__(self,name,nargs,diffinputs,fpsize=None,simdsize=None,llo=None):
+  def __init__(self,name,nargs,diffinputs):
     """Constructor.
 
       @param name - C identifier of the IROp, e.g. Iop_Add64Fx2
@@ -21,9 +26,6 @@ class IROp_Info:
     self.name = name
     self.nargs = nargs
     self.diffinputs = diffinputs
-    self.fpsize = fpsize
-    self.simdsize = simdsize
-    self.llo = llo
     # C code computing dotvalue from arg1,arg2,.. and d1,d2,.., must be set after construction.
     self.dotcode = "" 
     self.barcode = ""
@@ -203,11 +205,11 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
     arg1 = None; arg2 = "arg1"; arg3 = "arg2"; d2 = "d1"; d3 = "d2";
   else:
     arg1 = "arg1"; arg2 = "arg2"; arg3 = "arg3"; d2 = "d2"; d3 = "d3";
-  add = IROp_Info(f"Iop_Add{suffix}",3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
-  sub = IROp_Info(f"Iop_Sub{suffix}",3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
-  mul = IROp_Info(f"Iop_Mul{suffix}",3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
-  div = IROp_Info(f"Iop_Div{suffix}",3-llo,[2-llo,3-llo],fpsize,simdsize,llo)
-  sqrt = IROp_Info(f"Iop_Sqrt{suffix}",2-llo,[2-llo],fpsize,simdsize,llo)
+  add = IROp_Info(f"Iop_Add{suffix}",3-llo,[2-llo,3-llo])
+  sub = IROp_Info(f"Iop_Sub{suffix}",3-llo,[2-llo,3-llo])
+  mul = IROp_Info(f"Iop_Mul{suffix}",3-llo,[2-llo,3-llo])
+  div = IROp_Info(f"Iop_Div{suffix}",3-llo,[2-llo,3-llo])
+  sqrt = IROp_Info(f"Iop_Sqrt{suffix}",2-llo,[2-llo])
 
   add.dotcode = dv(add.apply(arg1,d2,d3))
   sub.dotcode = dv(sub.apply(arg1,d2,d3))
@@ -232,13 +234,13 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
 
 # Neg - different set of SIMD setups, no rounding mode
 for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1),("64Fx2",8,2),("32Fx2",4,2),("32Fx4",4,4)]:
-  neg = IROp_Info(f"Iop_Neg{suffix}", 1,[1],fpsize,simdsize,False)
+  neg = IROp_Info(f"Iop_Neg{suffix}", 1,[1])
   neg.dotcode = dv(neg.apply("d1"))
   neg.barcode = createBarCode(neg, [1], ["IRExpr_Const(IRConst_F64(-1.))"], fpsize, simdsize, False)
   IROp_Infos += [ neg ]
 # Abs 
 for suffix,fpsize,simdsize,llo in [pF64,pF32]: # p64Fx2, p32Fx2, p32Fx4 exist, but AD logic is different
-  abs_ = IROp_Info(f"Iop_Abs{suffix}", 1, [1], fpsize, simdsize, False)
+  abs_ = IROp_Info(f"Iop_Abs{suffix}", 1, [1])
   abs_.dotcode = dv(f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}i(0)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)")
   if fpsize==4:  # conversion to F64, see above
     arg1_part_f = "IRExpr_Unop(Iop_F32toF64,IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,arg1_part)))"
@@ -249,7 +251,7 @@ for suffix,fpsize,simdsize,llo in [pF64,pF32]: # p64Fx2, p32Fx2, p32Fx4 exist, b
 # Min, Max
 for Op, op in [("Min", "min"), ("Max", "max")]:
   for suffix,fpsize,simdsize,llo in [p32Fx2,p32Fx4,p32F0x4,p64Fx2,p64F0x2,p32Fx8,p64Fx4]:
-    the_op = IROp_Info(f"Iop_{Op}{suffix}", 2, [1,2], fpsize, simdsize, llo)
+    the_op = IROp_Info(f"Iop_{Op}{suffix}", 2, [1,2])
     the_op.dotcode = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"dotvalue":"dotvalue_part"}, fpsize, simdsize, f'IRExpr* dotvalue_part = mkIRExprCCall(Ity_I64,0,"dg_dot_arithmetic_{op}{fpsize*8}", &dg_dot_arithmetic_{op}{fpsize*8}, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
     if fpsize==4:  # conversion to F64, see above
       arg1_part_f = "IRExpr_Unop(Iop_F32toF64,IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,arg1_part)))"
@@ -262,7 +264,7 @@ for Op, op in [("Min", "min"), ("Max", "max")]:
 # fused multiply-add
 for Op in ["Add", "Sub"]:
   for suffix,fpsize,simdsize,llo in [pF64,pF32]:
-    the_op = IROp_Info(f"Iop_M{Op}{suffix}", 4, [2,3,4], fpsize,simdsize,llo)
+    the_op = IROp_Info(f"Iop_M{Op}{suffix}", 4, [2,3,4])
     the_op.dotcode = dv(f"IRExpr_Triop(Iop_{Op}{suffix}, arg1, IRExpr_Triop(Iop_{Op}{suffix},arg1,d2,arg3), IRExpr_Qop(Iop_M{Op}{suffix},arg1,arg2,d3,d4))")
     if fpsize==4:  # conversion to F64, see above
       arg2_part_f = "IRExpr_Unop(Iop_F32toF64,IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,arg2_part)))"
@@ -276,13 +278,13 @@ for Op in ["Add", "Sub"]:
     IROp_Infos += [ the_op ]
 
 # Miscellaneous
-scalef64 = IROp_Info("Iop_ScaleF64",  3, [2], 8, 1, False)
+scalef64 = IROp_Info("Iop_ScaleF64",  3, [2])
 scalef64.dotcode = dv(scalef64.apply("arg1","d2","arg3"))
 scalef64.barcode = createBarCode(scalef64, [2], ["IRExpr_Triop(Iop_ScaleF64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)"], 8, 1, False)
-yl2xf64 = IROp_Info("Iop_Yl2xF64", 3, [2,3], 8, 1, False)
+yl2xf64 = IROp_Info("Iop_Yl2xF64", 3, [2,3])
 yl2xf64.dotcode = dv("IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xF64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),arg3)))")
 yl2xf64.barcode = createBarCode(yl2xf64, [2,3], ["IRExpr_Triop(Iop_Yl2xF64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)",  "IRExpr_Triop(Iop_DivF64,arg1,arg2,IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)), arg3))"], 8, 1, False)
-yl2xp1f64 = IROp_Info("Iop_Yl2xp1F64", 3, [2,3], 8, 1, False)
+yl2xp1f64 = IROp_Info("Iop_Yl2xp1F64", 3, [2,3])
 yl2xp1f64.dotcode = dv("IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xp1F64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.))))))")
 yl2xp1f64.barcode = createBarCode(yl2xp1f64, [2,3], ["IRExpr_Triop(Iop_Yl2xp1F64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)",  "IRExpr_Triop(Iop_DivF64,arg1,arg2,IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.)))))"], 8, 1, False)
 IROp_Infos += [ scalef64, yl2xf64, yl2xp1f64 ]
@@ -293,7 +295,7 @@ for Op, op in [("And","and"), ("Or","or"), ("Xor","xor")]:
   # the dirty calls handling 8-byte blocks also consider the case of 2 x 4 bytes
   for (simdsize,fpsize) in [(1,4),(1,8),(2,8),(4,8)]:
     size = simdsize*fpsize*8
-    the_op = IROp_Info(f"Iop_{Op}{'V' if size>=128 else ''}{size}", 2, [1,2], 0,0,False)
+    the_op = IROp_Info(f"Iop_{Op}{'V' if size>=128 else ''}{size}", 2, [1,2])
     the_op.dotcode = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"dotvalue":"dotvalue_part"}, fpsize, simdsize, f'IRExpr* dotvalue_part = mkIRExprCCall(Ity_I64,0,"dg_dot_bitwise_{op}64", &dg_dot_bitwise_{op}64, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
     the_op.barcode = applyComponentwisely({"arg1":"arg1_part","i1Lo":"i1Lo_part","i1Hi":"i1Hi_part","arg2":"arg2_part","i2Lo":"i2Lo_part","i2Hi":"i2Hi_part"}, {"indexLo":"indexLo_part","indexHi":"indexHi_part"}, fpsize, simdsize, f'IRDirty* di = unsafeIRDirty_0_N( 0, "dg_bar_bitwise_{op}64", &dg_bar_bitwise_{op}64, mkIRExprVec_6(arg1_part, i1Lo_part, i1Hi_part, arg2_part, i2Lo_part, i2Hi_part));  \n addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(di));\n IRTemp iLo = newIRTemp(diffenv->sb_out->tyenv, Ity_I64), iHi = newIRTemp(diffenv->sb_out->tyenv, Ity_I64);\n   IRDirty* diLo = unsafeIRDirty_1_N( iLo, 0, "dg_bar_bitwise_get_lower", &dg_bar_bitwise_get_lower, mkIRExprVec_0());\naddStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(diLo));  IRDirty* diHi = unsafeIRDirty_1_N( iHi, 0, "dg_bar_bitwise_get_higher", &dg_bar_bitwise_get_higher, mkIRExprVec_0());\naddStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(diHi));\n   IRExpr* indexLo_part = IRExpr_RdTmp(iLo);\n IRExpr* indexHi_part = IRExpr_RdTmp(iHi); ') 
     the_op.disable_print_results = True # because many are not floating-point operations
@@ -351,12 +353,12 @@ IROp_Infos += [f64tof32]
 
 # Zero-derivative binary operations
 for op in ["I64StoF64","I64UtoF64","RoundF64toInt"]:
-  the_op = IROp_Info(f"Iop_{op}",2,[],8,1,False)
+  the_op = IROp_Info(f"Iop_{op}",2,[])
   the_op.dotcode = dv("IRExpr_Const(IRConst_F64i(0))")
   the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Const(IRConst_U64(0)));" for HiLo in ["Lo","Hi"]])
   IROp_Infos += [the_op]
 for op in ["I64StoF32","I64UtoF32","I32StoF32","I32UtoF32"]:
-  the_op = IROp_Info(f"Iop_{op}",2,[],4,1,False)
+  the_op = IROp_Info(f"Iop_{op}",2,[])
   the_op.dotcode = dv("IRExpr_Const(IRConst_F32i(0))")
   the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Const(IRConst_U32(0)));" for HiLo in ["Lo","Hi"]])
   IROp_Infos += [the_op]
