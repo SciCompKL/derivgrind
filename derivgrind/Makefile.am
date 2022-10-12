@@ -7,7 +7,7 @@ include $(top_srcdir)/Makefile.tool.am
 #----------------------------------------------------------------------------
 
 pkginclude_HEADERS = \
-  derivgrind.h derivgrind-recording.h
+  derivgrind.h bar/derivgrind-recording.h
 
 #----------------------------------------------------------------------------
 # derivgrind-<platform>
@@ -19,7 +19,7 @@ if VGCONF_HAVE_PLATFORM_SEC
 noinst_PROGRAMS += derivgrind-@VGCONF_ARCH_SEC@-@VGCONF_OS@
 endif
 
-DERIVGRIND_SOURCES_COMMON = dg_main.c ../shadow-memory/src/shadow-64.c dg_dot_bitwise.c dg_shadow.c dg_utils.c dg_dot.c dg_expressionhandling.c dg_bar.c dg_bar_tape.c dg_bar_bitwise.c
+DERIVGRIND_SOURCES_COMMON = dg_main.c ../shadow-memory/src/shadow-64.c dg_shadow.c dg_utils.c dg_expressionhandling.c dot/dg_dot.c dot/dg_dot_bitwise.c bar/dg_bar.c bar/dg_bar_bitwise.c bar/dg_bar_tape.c
 
 derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES      = \
 	$(DERIVGRIND_SOURCES_COMMON)
@@ -111,5 +111,5 @@ endif
 bin_PROGRAMS = \
   tape-evaluation
 
-tape_evaluation_SOURCES = tape-evaluation.cpp
+tape_evaluation_SOURCES = bar/tape-evaluation.cpp
 

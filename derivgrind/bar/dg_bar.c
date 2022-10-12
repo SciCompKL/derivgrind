@@ -2,19 +2,17 @@
  *  Define statement handling for the recording / reverse mode of AD.
  */
 
-#include "dg_expressionhandling.h"
+#include "../dg_expressionhandling.h"
 
 #include "pub_tool_basics.h"
 #include "pub_tool_libcassert.h"
 #include "pub_tool_tooliface.h"
-#include "dg_dot_bitwise.h"
 
-#include "dg_shadow.h"
+#include "../dg_shadow.h"
 
 #include "dg_bar.h"
-#include "dg_bar_tape.h"
-
 #include "dg_bar_bitwise.h"
+#include "dg_bar_tape.h"
 
 //! First layer of shadow memory for the lower 4 byte of the 8-byte indices.
 void* sm_barLo = NULL;

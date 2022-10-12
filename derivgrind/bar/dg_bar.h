@@ -2,7 +2,7 @@
 #define DG_BAR_H
 
 #include "pub_tool_basics.h"
-#include "dg_utils.h"
+#include "../dg_utils.h"
 
 /*! Add reverse-mode instrumentation to output IRSB.
  *  \param[in,out] diffenv - General data.

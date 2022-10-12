@@ -40,14 +40,13 @@
 #include "valgrind.h"
 #include "derivgrind.h"
 
-#include "dg_dot_bitwise.h"
 #include "dg_utils.h"
 
 #include "dg_shadow.h"
 
-#include "dg_dot.h"
-#include "dg_bar.h"
-#include "dg_bar_tape.h"
+#include "dot/dg_dot.h"
+#include "bar/dg_bar.h"
+#include "bar/dg_bar_tape.h"
 
 /*! \page storage_convention Storage convention for shadow memory
  *
