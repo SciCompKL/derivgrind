@@ -126,28 +126,34 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
   static const IROp arr64to32[2] = {Iop_64to32,Iop_64HIto32};
   static const IROp arr128to64[2] = {Iop_V128to64,Iop_V128HIto64};
   static const IROp arr256to64[4] = {Iop_V256to64_0,Iop_V256to64_1,Iop_V256to64_2,Iop_V256to64_3};
+  IRExpr* zero32 = IRExpr_Const(IRConst_U32(0));
   if(fpsize==4){
+    IRExpr* result32;
     switch(simdsize){
-      case 1: return expression;
-      case 2: return IRExpr_Unop(arr64to32[component], expression);
-      case 4: return IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr128to64[component/2], expression));
-      case 8: return IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr256to64[component/2], expression));
+      case 1: result32 = expression; break;
+      case 2: result32 = IRExpr_Unop(arr64to32[component], expression); break;
+      case 4: result32 = IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr128to64[component/2], expression)); break;
+      case 8: result32 = IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr256to64[component/2], expression)); break;
     }
+    return result32; // IRExpr_Binop(Iop_32HLto64,zero32,result32);
   } else {
+    IRExpr* result;
     switch(simdsize){
-      case 1: return expression;
-      case 2: return IRExpr_Unop(arr128to64[component], expression);
-      case 4: return IRExpr_Unop(arr256to64[component], expression);
+      case 1: result = expression; break;
+      case 2: result = IRExpr_Unop(arr128to64[component], expression); break;
+      case 4: result = IRExpr_Unop(arr256to64[component], expression); break;
     }
+    return result;
   }
 }
 
-IRExpr* assembleSIMDVector(IRExpr** expressions, int simdsize, DiffEnv* diffenv){
+IRExpr* assembleSIMDVector(IRExpr** expressions, int fpsize, int simdsize, DiffEnv* diffenv){
   IRType type = typeOfIRExpr(diffenv->sb_out->tyenv,expressions[0]);
   for(int i=0; i<simdsize; i++){
     tl_assert(typeOfIRExpr(diffenv->sb_out->tyenv,expressions[i])==type);
     if(type==Ity_F64) expressions[i] = IRExpr_Unop(Iop_ReinterpF64asI64,expressions[i]);
     if(type==Ity_F32) expressions[i] = IRExpr_Unop(Iop_ReinterpF32asI32,expressions[i]);
+    if(type==Ity_I64 && fpsize==4) expressions[i] = IRExpr_Unop(Iop_64to32, expressions[i]);
   }
   if(sizeofIRType(type)==4){
     switch(simdsize){
@@ -171,6 +177,19 @@ IRExpr* assembleSIMDVector(IRExpr** expressions, int simdsize, DiffEnv* diffenv)
   }
 }
 
+IRExpr* reinterpretType(DiffEnv* diffenv, IRExpr* expr,IRType type){
+  IRType origtype = typeOfIRExpr(diffenv->sb_out->tyenv, expr);
+  tl_assert( sizeofIRType(origtype) == sizeofIRType(type) );
+  if(type==origtype) return expr;
+  if(type==Ity_F64 && origtype==Ity_I64) return IRExpr_Unop(Iop_ReinterpI64asF64,expr);
+  if(type==Ity_I64 && origtype==Ity_F64) return IRExpr_Unop(Iop_ReinterpF64asI64,expr);
+  if(type==Ity_F32 && origtype==Ity_I32) return IRExpr_Unop(Iop_ReinterpI32asF32,expr);
+  if(type==Ity_I32 && origtype==Ity_F32) return IRExpr_Unop(Iop_ReinterpF32asI32,expr);
+  if(type==Ity_I128 && origtype==Ity_V128) return IRExpr_Unop(Iop_ReinterpV128asI128,expr);
+  if(type==Ity_V128 && origtype==Ity_I128) return IRExpr_Unop(Iop_ReinterpI128asV128,expr);
+  VG_(printf)("Unhandled type combination in reinterpType.\n"); tl_assert(False);
+}
+
 IRExpr* convertToF64(IRExpr* expr, DiffEnv* diffenv, IRType* originaltype){
   *originaltype = typeOfIRExpr(diffenv->sb_out->tyenv, expr);
   switch(*originaltype){
@@ -189,5 +208,44 @@ IRExpr* convertFromF64(IRExpr* expr, IRType originaltype){
     case Ity_F64: return expr;
     case Ity_F32: return IRExpr_Binop(Iop_F64toF32, IRExpr_Const(IRConst_U32(Irrm_ZERO)), expr);
     default: VG_(printf)("Bad type in convertFromF64.\n"); tl_assert(False); return NULL;
+  }
+}
+
+
+void addressesOfCAS(IRCAS const* det, IRSB* sb_out, IRExpr** addr_Lo, IRExpr** addr_Hi){
+  IRType type = typeOfIRExpr(sb_out->tyenv,det->expdLo);
+  Bool double_element = (det->expdHi!=NULL);
+  IRExpr* offset; // offset between Hi and Lo part of addr
+  IROp add; // operation to add addresses
+  switch(typeOfIRExpr(sb_out->tyenv,det->addr)){
+    case Ity_I32:
+      add = Iop_Add32;
+      offset = IRExpr_Const(IRConst_U32(sizeofIRType(type)));
+      break;
+    case Ity_I64:
+      add = Iop_Add64;
+      offset = IRExpr_Const(IRConst_U64(sizeofIRType(type)));
+      break;
+    default:
+      VG_(printf)("Unhandled type for address in translation of Ist_CAS.\n");
+      tl_assert(False);
+      break;
+  }
+  if(det->end==Iend_LE){
+    if(double_element){
+      *addr_Lo = det->addr;
+      *addr_Hi = IRExpr_Binop(add,det->addr,offset);
+    } else {
+      *addr_Lo = det->addr;
+      *addr_Hi = NULL;
+    }
+  } else { // Iend_BE
+    if(double_element){
+      *addr_Lo = IRExpr_Binop(add,det->addr,offset);
+      *addr_Hi = det->addr;
+    } else {
+      *addr_Lo = det->addr;
+      *addr_Hi = NULL;
+    }
   }
 }

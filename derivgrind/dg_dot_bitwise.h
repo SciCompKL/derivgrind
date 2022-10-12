@@ -1,11 +1,10 @@
 /*--------------------------------------------------------------------*/
-/*--- ParaGrind: Computing results for a shifted    dg_paragrind.c ---*/
-/*--- input alongside the original input.                          ---*/
+/*--- Handling of logical operations.             dg_dot_bitwise.h ---*/
 /*--------------------------------------------------------------------*/
 
 /*
    This file is part of DerivGrind, a tool performing forward-mode
-   algorithmic differentiation of compiled programs, implemented
+   algorithmic differentiation of compiled programs implemented
    in the Valgrind framework.
 
    Copyright (C) 2022 Chair for Scientific Computing (SciComp), TU Kaiserslautern
@@ -30,23 +29,23 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#ifndef DG_PARAGRIND_H
-#define DG_PARAGRIND_H
-
+#ifndef DG_DOT_BITWISE_H
+#define DG_DOT_BITWISE_H
 
 #include "pub_tool_basics.h"
-#include "pub_tool_tooliface.h"
-#include "pub_tool_libcassert.h"
-#include "dg_shadow.h"
 
-extern void *sm_pgdata;
-extern void *sm_pginit;
+VG_REGPARM(0) UInt dg_dot_bitwise_and32(UInt x, UInt xd, UInt y, UInt yd);
+VG_REGPARM(0) ULong dg_dot_bitwise_and64(ULong x, ULong xd, ULong y, ULong yd);
 
-void dg_paragrind_pre_clo_init(void);
+VG_REGPARM(0) UInt dg_dot_bitwise_or32(UInt x, UInt xd, UInt y, UInt yd);
+VG_REGPARM(0) ULong dg_dot_bitwise_or64(ULong x, ULong xd, ULong y, ULong yd);
 
-IRExpr* parallel_expr(IRExpr* ex, DiffEnv* diffenv);
+VG_REGPARM(0) UInt dg_dot_bitwise_xor32(UInt x, UInt xd, UInt y, UInt yd);
+VG_REGPARM(0) ULong dg_dot_bitwise_xor64(ULong x, ULong xd, ULong y, ULong yd);
 
-IRExpr* parallel_or_zero(IRExpr* ex, DiffEnv* diffenv, Bool warn, const char* operation);
+VG_REGPARM(0) ULong dg_dot_arithmetic_min32(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_dot_arithmetic_min64(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_dot_arithmetic_max32(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_dot_arithmetic_max64(ULong x, ULong xd, ULong y, ULong yd);
 
-
-#endif // DG_PARAGRIND_H
+#endif // DG_DOT_BITWISE_H

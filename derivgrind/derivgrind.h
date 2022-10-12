@@ -82,7 +82,10 @@ typedef
    enum { 
       VG_USERREQ__GET_DERIVATIVE = VG_USERREQ_TOOL_BASE('D','G'),
       VG_USERREQ__SET_DERIVATIVE,
-      VG_USERREQ__DISABLE_DIFFQUOTDEBUG
+      VG_USERREQ__DISABLE_DIFFQUOTDEBUG,
+      VG_USERREQ__GET_INDEX,
+      VG_USERREQ__SET_INDEX,
+      VG_USERREQ__NEW_INDEX
    } Vg_DerivGrindClientRequest;
 
 
@@ -106,6 +109,28 @@ typedef
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__DISABLE_DIFFQUOTDEBUG,    \
                             (_qzz_delta), 0, 0, 0, 0)
+
+/* Get index of variable at _qzz_addr into 8 byte at _qzz_iaddr. */
+#define VALGRIND_GET_INDEX(_qzz_addr,_qzz_iaddr)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__GET_INDEX,          \
+                            (_qzz_addr), (_qzz_iaddr), 0, 0, 0)
+
+/* Set index of variable at _qzz_addr from 8 byte at _qzz_iaddr.*/
+#define VALGRIND_SET_INDEX(_qzz_addr,_qzz_iaddr)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__SET_INDEX,          \
+                            (_qzz_addr), (_qzz_iaddr), 0, 0, 0)
+
+/* Push new operation to the tape.
+ * _qzz_index1addr, _qzz_index2addr point to 8-byte indices,
+ * _qzz_diff1addr, _qzz_diff2addr point to 8-byte (double) partial derivatives,
+ * _qzz_newindexaddr points to 8 byte for new index.
+ */
+#define VALGRIND_NEW_INDEX(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__NEW_INDEX,          \
+                            (_qzz_index1addr), (_qzz_index2addr), (_qzz_diff1addr), (_qzz_diff2addr), (_qzz_newindexaddr))
 
 #endif
 

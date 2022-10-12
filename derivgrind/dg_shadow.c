@@ -538,14 +538,25 @@ void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
 
 #include "pub_tool_gdbserver.h"
 #include "pub_tool_threadstate.h"
+#include "pub_tool_libcfile.h"
+#include "pub_tool_vki.h"
 static unsigned long outcount = 0;
 extern Bool diffquotdebug;
 extern Long disable_diffquotdebug;
+ULong buffer[2000000];
+static Int fd=-1;
 static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalue){
+  if(fd==-1){
+    fd=VG_(fd_open)("~/dump",VKI_O_WRONLY,VKI_O_CREAT);
+  }
+  if(fd==-1){
+    VG_(printf)("Cannot get file descriptor.");
+  }
   if(diffquotdebug && disable_diffquotdebug==0){
-    if(outcount==3748601890){
-      VG_(printf)("dqd %lu %p %p\n", outcount, (void*)value, (void*)dotvalue);
-      VG_(gdbserver)(VG_(get_running_tid)());
+    buffer[2*(outcount%1000000)] = value;
+    buffer[2*(outcount%1000000)+1] = dotvalue;
+    if(outcount%1000000==999999){
+      VG_(write)(fd,buffer,2000000*sizeof(ULong));
     }
     outcount++;
   }
