@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------*/
-/*--- Handling of logical operations.             dg_dot_bitwise.h ---*/
+/*--- Handling of bitwise logical operations.     dg_dot_bitwise.h ---*/
 /*--------------------------------------------------------------------*/
 
 /*
@@ -42,10 +42,5 @@ VG_REGPARM(0) ULong dg_dot_bitwise_or64(ULong x, ULong xd, ULong y, ULong yd);
 
 VG_REGPARM(0) UInt dg_dot_bitwise_xor32(UInt x, UInt xd, UInt y, UInt yd);
 VG_REGPARM(0) ULong dg_dot_bitwise_xor64(ULong x, ULong xd, ULong y, ULong yd);
-
-VG_REGPARM(0) ULong dg_dot_arithmetic_min32(ULong x, ULong xd, ULong y, ULong yd);
-VG_REGPARM(0) ULong dg_dot_arithmetic_min64(ULong x, ULong xd, ULong y, ULong yd);
-VG_REGPARM(0) ULong dg_dot_arithmetic_max32(ULong x, ULong xd, ULong y, ULong yd);
-VG_REGPARM(0) ULong dg_dot_arithmetic_max64(ULong x, ULong xd, ULong y, ULong yd);
 
 #endif // DG_DOT_BITWISE_H

@@ -12,6 +12,7 @@
 
 #include "dg_dot.h"
 #include "dg_dot_bitwise.h"
+#include "dg_dot_minmax.h"
 
 //! Shadow memory for the dot values.
 void* sm_dot = NULL;

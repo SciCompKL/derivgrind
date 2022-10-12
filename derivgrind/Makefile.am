@@ -19,7 +19,7 @@ if VGCONF_HAVE_PLATFORM_SEC
 noinst_PROGRAMS += derivgrind-@VGCONF_ARCH_SEC@-@VGCONF_OS@
 endif
 
-DERIVGRIND_SOURCES_COMMON = dg_main.c ../shadow-memory/src/shadow-64.c dg_shadow.c dg_utils.c dg_expressionhandling.c dot/dg_dot.c dot/dg_dot_bitwise.c bar/dg_bar.c bar/dg_bar_bitwise.c bar/dg_bar_tape.c
+DERIVGRIND_SOURCES_COMMON = dg_main.c ../shadow-memory/src/shadow-64.c dg_shadow.c dg_utils.c dg_expressionhandling.c dot/dg_dot.c dot/dg_dot_bitwise.c dot/dg_dot_minmax.c bar/dg_bar.c bar/dg_bar_bitwise.c bar/dg_bar_tape.c
 
 derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES      = \
 	$(DERIVGRIND_SOURCES_COMMON)

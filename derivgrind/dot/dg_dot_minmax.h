@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------*/
-/*--- Handling of bitwise logical operations.     dg_bar_bitwise.h ---*/
+/*--- Handling of min/max operations.              dg_dot_minmax.h ---*/
 /*--------------------------------------------------------------------*/
 
 /*
@@ -29,21 +29,15 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#ifndef DG_BAR_BITWISE_H
-#define DG_BAR_BITWISE_H
+#ifndef DG_DOT_MINMAX_H
+#define DG_DOT_MINMAX_H
 
 #include "pub_tool_basics.h"
 
-VG_REGPARM(0) ULong dg_bar_bitwise_get_lower(void);
-VG_REGPARM(0) ULong dg_bar_bitwise_get_higher(void);
+VG_REGPARM(0) ULong dg_dot_arithmetic_min32(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_dot_arithmetic_min64(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_dot_arithmetic_max32(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_dot_arithmetic_max64(ULong x, ULong xd, ULong y, ULong yd);
 
-VG_REGPARM(0) void dg_bar_bitwise_and32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
-VG_REGPARM(0) void dg_bar_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
 
-VG_REGPARM(0) void dg_bar_bitwise_or32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
-VG_REGPARM(0) void dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
-
-VG_REGPARM(0) void dg_bar_bitwise_xor32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
-VG_REGPARM(0) void dg_bar_bitwise_xor64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
-
-#endif // DG_BAR_BITWISE_H
+#endif // DG_DOT_MINMAX_H
