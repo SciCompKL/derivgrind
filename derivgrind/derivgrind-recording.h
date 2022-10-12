@@ -9,7 +9,7 @@
 
    ----------------------------------------------------------------
 
-   This file is part of DerivGrind, a Valgrind tool for automatic
+   This file is part of Derivgrind, a Valgrind tool for automatic
    differentiation in forward mode.
 
    Copyright (C) 2022 Chair for Scientific Computing (SciComp), TU Kaiserslautern

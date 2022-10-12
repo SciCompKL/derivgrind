@@ -1,10 +1,10 @@
 ﻿/*--------------------------------------------------------------------*/
-/*--- DerivGrind: Forward-mode algorithmic               dg_main.c ---*/
+/*--- Derivgrind: Forward-mode algorithmic               dg_main.c ---*/
 /*--- differentiation using Valgrind.                              ---*/
 /*--------------------------------------------------------------------*/
 
 /*
-   This file is part of DerivGrind, a tool performing forward-mode
+   This file is part of Derivgrind, a tool performing forward-mode
    algorithmic differentiation of compiled programs, implemented
    in the Valgrind framework.
 
@@ -323,7 +323,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
 /*! Add what the original statement did, to output IRSB.
  *
  *  CAS needs special treatment: If success has already been
- *  tested in the DerivGrind instrumentation, use the result
+ *  tested in the Derivgrind instrumentation, use the result
  *  of this test.
  *  \param[in,out] sb_out - Output IRSB.
  *  \param[in] st_orig - Original statement.
@@ -453,7 +453,7 @@ static void dg_pre_clo_init(void)
 {
 
 
-   VG_(details_name)            ("DerivGrind");
+   VG_(details_name)            ("Derivgrind");
    VG_(details_version)         (NULL);
    VG_(details_description)     ("a tool for forward-mode AD of compiled programs.");
    VG_(details_copyright_author)(

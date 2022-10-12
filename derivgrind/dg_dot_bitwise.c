@@ -3,7 +3,7 @@
 /*--------------------------------------------------------------------*/
 
 /*
-   This file is part of DerivGrind, a tool performing forward-mode
+   This file is part of Derivgrind, a tool performing forward-mode
    algorithmic differentiation of compiled programs implemented
    in the Valgrind framework.
 
@@ -41,7 +41,7 @@
 
 /*! \page ad_handling_bitwise AD handling of bitwise logical operations
  *
- *  Generally, DerivGrind ignores non-copy operations on discrete datatypes,
+ *  Generally, Derivgrind ignores non-copy operations on discrete datatypes,
  *  such as Add64. That's because reinterpreting a floating-point number as
  *  an integer, adding another integer and reinterpreting the result as a
  *  floating-point number is a really strange operation that we cannot imagine

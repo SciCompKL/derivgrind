@@ -4,7 +4,7 @@
 ! -------------------------------------------------------------------- !
 
 !
-!  This file is part of DerivGrind, a tool performing forward-mode
+!  This file is part of Derivgrind, a tool performing forward-mode
 !  algorithmic differentiation of compiled programs, implemented
 !  in the Valgrind framework.
 !
