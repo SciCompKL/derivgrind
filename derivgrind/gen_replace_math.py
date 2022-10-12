@@ -32,6 +32,39 @@
 import subprocess
 import re
 
+## \page math_wrapping Wrapping of math library functions.
+# 
+# GLIBC's implementation of the math.h functions uses a lot
+# of "bit-tricks", i.e. apply non-floating-point operations to 
+# floating-point data, to manipulate them in an arithmetically 
+# meaningful and often differentiable way. Derivgrind does not
+# recognize most of these bit-tricks. 
+#
+# We therefore use Valgrind's function wrapping mechanism to
+# intercept calls to math.h functions and provide analytical
+# derivative information to Derivgrind by client requests.
+#
+# In forward mode, we obtain the dot values of the operands
+# with client requests, calculate the dot value of the result 
+# (potentially using math.h functions for the partial 
+# derivatives) and set the dot value of the return value 
+# with another client request.
+#
+# In recording mode, we obtain the indices of the operands
+# with client requests, calculate the partial derivatives
+# of the result w.r.t. the operands (potentially using math.h
+# functions), push a new entry with the indices and partial
+# derivatives onto the tape, and set the index of the return 
+# value with another client request.
+#
+# We use a static bit to make sure that in the calculation 
+# of partial derivatives via math.h functions, we do not
+# recursively compute partial derivatives of second, third, ...
+# order.
+#
+# The C code is produced by gen_replace_math.py.
+#
+
 # \file gen_replace_math.py
 # Generate dg_replace_math.c.
 
