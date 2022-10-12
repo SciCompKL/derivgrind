@@ -1,5 +1,9 @@
 #include "dg_expressionhandling.h"
 
+/*! \file dg_expressionhandling.c
+ * AD-mode independent handling of VEX statements and expressions.
+ */
+
 extern Bool warn_about_unwrapped_expressions;
 
 void* dg_modify_expression(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* ex){

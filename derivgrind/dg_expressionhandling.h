@@ -13,8 +13,15 @@
 
 #include "dg_utils.h"
 
+/*! \file dg_expressionhandling.h
+ * AD-mode independent handling of VEX statements and expressions.
+ */
 
-/*! Tuple of functions defining how to instrument a statement.
+/*! Tuple of functions defining how to modify expressions and to instrument statements.
+ * 
+ * We define two instances:
+ * - dg_dot_expressionhandling in dot/dg_dot.c for forward-mode instrumentation.
+ * - dg_bar_expressionhandling in bar/dg_bar.c for recording-mode instrumentation.
  */
 typedef struct {
 
@@ -121,7 +128,7 @@ typedef struct {
 
 } ExpressionHandling;
 
-/*! Handling of expressions.
+/*! Return expression modified for use in the instrumented statement.
  *
  *  Replace reads from temporaries, registers or memory by reads from
  *  the respective shadow locations as specified by the ExpressionHandling.
@@ -129,20 +136,21 @@ typedef struct {
  *  ExpressionHandling.
  *
  *  \param diffenv - General setup.
- *  \param eh - Specifies kind of modification applied to the expression.
- *  \param ex - Expression.
+ *  \param eh - Mode-dependent details of the modification.
+ *  \param ex - Expression to be modified.
  *  \returns Modified expression.
  */
 void* dg_modify_expression(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* ex);
 
-/*! Handling of expressions, returning default data if unhandled.
+/*! Handle expressions with dg_modify_expressions, but return default data 
+ *  in unhandled cases.
  */
 void* dg_modify_expression_or_default(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* expr, Bool warn, const char* operation);
 
-/*! Add instrumented statement with modified expressions to output IRSB.
+/*! Add instrumented statement to output IRSB.
  *  \param diffenv - General setup.
- *  \param eh - Details of instrumentation.
- *  \param st_orig - Original statement.
+ *  \param eh - Mode-dependent details of the instrumentation.
+ *  \param st_orig - Original statement to be instrumented.
  */
 void add_statement_modified(DiffEnv* diffenv, ExpressionHandling eh, IRStmt* st_orig);
 
