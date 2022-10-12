@@ -17,31 +17,31 @@ class IROp_Info:
     """Constructor.
 
       @param name - C identifier of the IROp, e.g. Iop_Add64Fx2
-      @param nargs - Number of operands
-      @param diffinputs - Indices of operands whose derivative is required, as a list.
+      @param nargs - Number of operands, 1..4
+      @param diffinputs - Indices of operands whose dot value or index is required, as a list
       @param fpsize - Size of a component in bytes, 4 or 8.
       @param simdsize - Number of components, 1, 2, 4 or 8.
-      @param llo - Is this a lowest-lane-only operation?
+      @param llo - Whether this is a lowest-lane-only operation, boolean
     """
     self.name = name
     self.nargs = nargs
     self.diffinputs = diffinputs
-    # C code computing dotvalue from arg1,arg2,.. and d1,d2,.., must be set after construction.
+    # dotcode is C code computing an IRExpr* dotvalue for the dot value of the result.
     self.dotcode = "" 
+    # barcode is C code computing IRExpr* indexLo, IRExpr* indexHi for the lower and 
+    # higher layer of the index value.
     self.barcode = ""
+    # The dotcode can be extended to contain a dirty call that prints the value and 
+    # dot value of the result (for difference quotient debugging, dqd).
     self.disable_print_results = False
-      
-
-  def make_printcode(self,fpsize,simdsize,llo):
-    if fpsize==4:
-      return f"IRExpr* value = {irop_info.apply()};" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)));")
-    else:
-      return f"IRExpr* value = {irop_info.apply()};" + applyComponentwisely({"value":"value_part"}, {}, fpsize, simdsize, "dg_add_print_stmt(1,diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part));")
 
   def makeCaseDot(self, print_results=False):
-    """Return the "case Iop_..: ..." statement for dg_dot_operands.c.
-      @param print_results - If True, add output statements that print the value and dotvalue.
+    """Return the forward mode "case Iop_..: ..." statement for dg_dot_operands.c.
+      @param print_results - If True, add output statements that print the value and dotvalue for 
+                             difference quotient debugging.
     """
+    if self.dotcode=="":
+      return ""
     s = f"\ncase {self.name}: {{\n"
     # check that diffinputs can be differentiated
     for i in self.diffinputs:
@@ -55,7 +55,7 @@ class IROp_Info:
         s += applyComponentwisely({"value":"value_part","dotvalue":"dotvalue_part"}, {}, self.fpsize, self.simdsize, "dg_add_diffquotdebug(diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, value_part)),IRExpr_Unop(Iop_ReinterpI32asF32, IRExpr_Unop(Iop_64to32, dotvalue_part)));")
       else:
         s += applyComponentwisely({"value":"value_part","dotvalue":"dotvalue_part"}, {}, self.fpsize, self.simdsize, "dg_add_diffquotdebug(diffenv->sb_out,IRExpr_Unop(Iop_ReinterpI64asF64, value_part),IRExpr_Unop(Iop_ReinterpI64asF64, dotvalue_part));")
-    # post-process
+    # and return
     s += "return dotvalue; \n}"
     return s
 
@@ -71,12 +71,12 @@ class IROp_Info:
       s += f"if(!i{i}Hi) return NULL;\n"
     # compute result index into 'IRExpr *indexLo, *indexHi'
     s += self.barcode
-    # post-process
+    # and return
     s += "return mkIRExprVec_2(indexLo, indexHi); \n}"
     return s
 
   def apply(self,*operands):
-    """Produce C code that applies the operation.
+    """Produce C code that applies the operation to operands.
       @param operands - List of strings containing C code producing the operand expressions. "None" elements are discarded. If empty, apply to arg1, arg2, ...
     """
     operands = [op for op in operands if op]
@@ -97,13 +97,15 @@ class IROp_Info:
     s += ")"
     return s
 
-### Handling of floating-point arithmetic operations. ###
-
 ### SIMD utilities. ###
 # To account for SIMD vectors, fpsize is the scalar size in bytes (4 or 8)
-# and simdsize is the number of components (1,2,4 or 8).
+# and simdsize is the number of scalar components (1,2,4 or 8). 
+# suffix is the typical suffix in the names of VEX operations. 
+# llo indicates whether the operation is "lowest-lane-only", 
+# i.e. performed only on the component 0 while the other
+# components of the result are simply copied from the first operand. 
 
-# (suffix,fpsize,simdsize,lowest_line_only)
+# SIMD layouts: (suffix,fpsize,simdsize,llo)
 pF64 = ("F64",8,1,False)
 pF32 = ("F32",4,1,False)
 p64Fx2 = ("64Fx2",8,2,False)
@@ -120,22 +122,26 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
     and assemble the output from the individual results.
 
     E.g. 
-      // split every input vector and obtain its component [0], as I64 expression
+
+      // split every input vector and obtain its component [0], a as I64 expression
       <bodyLowest> // may use component [0] of inputs, produces component [0] of outputs
       // store the component [0] of every output vector
+
       // split every input vector and obtain its component [1], as I64 expression
       <bodyNonLowest>
       // store the component [1] of every output vector
+
       // ... (further components, always use bodyNonLowest)
+
       // assemble total outputs from stored components
 
     The body can access the input components as I64 expressions. If fpsize==4, its more-significant four
-    bytes are filled with zeros. The body may compute the output components of types
-    - I64 or F64, if fpsize==8
-    - I64 (only less-significant four bytes are relevant), I32 or F32, if fpsize==4.
+    bytes are filled with zeros. 
+    The body must compute the output components as I64 expressions. If fpsize==4, its more-significant four
+    bytes are discarded.
 
-    @param inputs - Dictionary: variable name of an input IRExpr* => variable name of component as used by body
-    @param outputs - Dictionary: variable name of an output IRExpr* => variable name of component as used by body
+    @param inputs - Dictionary: variable name of an input IRExpr* => variable name of component IRExpr* as used by body
+    @param outputs - Dictionary: variable name of an output IRExpr* => variable name of component IRExpr* as used by body
     @param fpsize - Size of component, either 4 or 8 (bytes)
     @param simdsize - Number of components
     @param bodyLowest - C code applied to lowest-lane component
@@ -145,7 +151,7 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
   if not bodyNonLowest:
     bodyNonLowest = bodyLowest
   s = ""
-  for outvar in outputs:
+  for outvar in outputs: # declare C array of output component IRExpr*'s.
     s += f"IRExpr* {outputs[outvar]}_arr[{simdsize}];\n"
   for component in range(simdsize): # for each component
     s += "{\n"
@@ -153,6 +159,7 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
       s += f"  IRExpr* {inputs[invar]} = getSIMDComponent({invar},{fpsize},{simdsize},{component},diffenv);\n"
       if fpsize==4: # widen to 64 bit
         s += f"  {inputs[invar]} = IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),{inputs[invar]});\n"
+    # apply body
     s += bodyLowest if component==0 else bodyNonLowest
     for outvar in outputs:
       if fpsize==4: # extract the 32 bit
@@ -166,6 +173,11 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
 def createBarCode(op, inputs, partials,fpsize,simdsize,llo):
   """
     Record an operation on the tape for every component of a SIMD vector.
+
+    @param op - IROp whose barcode we currently define (necessary to infer the output type).
+    @param inputs - List of argument indices (1...4) on which the result depends in a differentiable way.
+    @param partials - List of partial derivatives w.r.t. the arguments in inputs. Each element must be 
+      C code for an IRExpr* of type F64 that evaluates to the partial derivative.
   """
   assert(len(inputs) in [1,2,3])
   input_names = {}
