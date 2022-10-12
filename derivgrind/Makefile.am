@@ -103,3 +103,13 @@ vgpreload_derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_LDFLAGS      = \
 vgpreload_derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_LDADD      = -lm
 endif
 
+
+#----------------------------------------------------------------------------
+# tape_evaluation
+#----------------------------------------------------------------------------
+
+bin_PROGRAMS = \
+  tape-evaluation
+
+tape_evaluation_SOURCES = tape-evaluation.cpp
+

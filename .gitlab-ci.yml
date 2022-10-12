@@ -9,14 +9,12 @@ build:
     - apt-get update
     - apt-get install -y build-essential binutils automake gcc-multilib python3 gfortran
     - cd derivgrind && python3 gen_replace_math.py && python3 gen_dot_operations.py dot > dg_dot_operations.c && python3 gen_dot_operations.py bar > dg_bar_operations.c && cd -
-    - cd derivgrind && g++ tape-evaluation.cpp -o tape-evaluation && cd -
     - ./autogen.sh
     - CFLAGS=-g ./configure --prefix=$PWD/install
     - make install
   artifacts:
     paths:
       - install/
-      - derivgrind/tape-evaluation
 
 test_dot_x86:
   stage: test
