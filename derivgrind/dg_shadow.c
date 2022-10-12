@@ -3,7 +3,7 @@
 /*--------------------------------------------------------------------*/
 
 /*
-   This file is part of DerivGrind, a tool performing forward-mode
+   This file is part of Derivgrind, a tool performing forward-mode
    algorithmic differentiation of compiled programs, implemented
    in the Valgrind framework.
 
@@ -30,7 +30,7 @@
 */
 
 /*! \file dg_shadow.c
- *  Shadow memory stuff for DerivGrind.
+ *  Shadow memory stuff for Derivgrind.
  */
 
 
@@ -40,8 +40,8 @@
  *  - an Ist_Store or Ist_StoreG statement to store data in memory, or
  *  - an Iex_Load expression or Iex_LoadG statements to load data from memory,
  *
- *  DerivGrind has to add instrumentation accessing the shadow memory.
- *  To this end, DerivGrind emits Ist_Dirty statements calling the
+ *  Derivgrind has to add instrumentation accessing the shadow memory.
+ *  To this end, Derivgrind emits Ist_Dirty statements calling the
  *  functions dg_Store_diffN, dg_Load_diffN.
  *
  *  Dirty calls can only call functions that accept and return 4- and 8-byte

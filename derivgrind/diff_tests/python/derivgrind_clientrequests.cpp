@@ -4,7 +4,7 @@
 /*--------------------------------------------------------------------*/
 
 /*
-   This file is part of DerivGrind, a tool performing forward-mode
+   This file is part of Derivgrind, a tool performing forward-mode
    algorithmic differentiation of compiled programs, implemented
    in the Valgrind framework.
 
@@ -36,7 +36,7 @@
 namespace py = pybind11;
 
 PYBIND11_MODULE(derivgrind, m){
-  m.doc() = "Wrapper for DerivGrind client requests.";
+  m.doc() = "Wrapper for Derivgrind client requests.";
 
   m.def( "set_derivative", [](double val, double grad)->double { 
     double ret = val; 

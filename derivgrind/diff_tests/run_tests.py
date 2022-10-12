@@ -1,9 +1,9 @@
 # -------------------------------------------------------------------- #
-# --- Define and run unit tests for DerivGrind.      run_tests .py --- #
+# --- Define and run unit tests for Derivgrind.      run_tests .py --- #
 # -------------------------------------------------------------------- #
 
 #
-#  This file is part of DerivGrind, a tool performing forward-mode
+#  This file is part of Derivgrind, a tool performing forward-mode
 #  algorithmic differentiation of compiled programs, implemented
 #  in the Valgrind framework.
 #

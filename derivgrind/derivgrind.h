@@ -9,7 +9,7 @@
 
    ----------------------------------------------------------------
 
-   This file is part of DerivGrind, a Valgrind tool for automatic 
+   This file is part of Derivgrind, a Valgrind tool for automatic 
    differentiation in forward mode.
 
    Copyright (C) 2022 Chair for Scientific Computing (SciComp), TU Kaiserslautern
@@ -82,7 +82,7 @@ typedef
    enum { 
       VG_USERREQ__GET_DERIVATIVE = VG_USERREQ_TOOL_BASE('D','G'),
       VG_USERREQ__SET_DERIVATIVE
-   } Vg_DerivGrindClientRequest;
+   } Vg_DerivgrindClientRequest;
 
 
 
