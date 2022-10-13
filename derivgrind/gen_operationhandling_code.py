@@ -209,11 +209,11 @@ def createBarCode(op, inputs, floatinputs, partials,fpsize,simdsize,llo):
       bodyLowest += f'IRExpr* arg{i}_part_f = IRExpr_Unop(Iop_ReinterpI64asF64,arg{i}_part);'
   # add statement to push to tape
   if len(inputs)==1: # use index 0 to indicate missing input
-    bodyLowest = f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,IRExpr_Const(IRConst_U64(0)),IRExpr_Const(IRConst_U64(0)), {partials[0]}, IRExpr_Const(IRConst_F64(0.)));\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
+    bodyLowest += f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,IRExpr_Const(IRConst_U64(0)),IRExpr_Const(IRConst_U64(0)), {partials[0]}, IRExpr_Const(IRConst_F64(0.)));\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
   elif len(inputs)==2:
-    bodyLowest = f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
+    bodyLowest += f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
   elif len(inputs)==3: # add two tape entries to combine three inputs
-    bodyLowest = f'  IRExpr** indexIntermediateIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]});\n  IRExpr* indexIntermediateIntLo_part = indexIntermediateIntHiLo_part[0];\n  IRExpr* indexIntermediateIntHi_part = indexIntermediateIntHiLo_part[1];\n'
+    bodyLowest += f'  IRExpr** indexIntermediateIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]});\n  IRExpr* indexIntermediateIntLo_part = indexIntermediateIntHiLo_part[0];\n  IRExpr* indexIntermediateIntHi_part = indexIntermediateIntHiLo_part[1];\n'
     bodyLowest += f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,indexIntermediateIntLo_part,indexIntermediateIntHi_part,i{inputs[2]}Lo_part,i{inputs[2]}Hi_part, IRExpr_Const(IRConst_F64(1.)), {partials[2]});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
   if llo:
     bodyNonLowest = f'  IRExpr* indexIntLo_part = i{inputs[0]}Lo_part;\n  IRExpr* indexIntHi_part = i{inputs[0]}Hi_part;\n'
