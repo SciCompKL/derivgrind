@@ -12,6 +12,13 @@ static ULong buffer[4*BUFSIZE];
 static Int fd=-1;
 
 ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2){
+  if(index1==0 && index2==0) // activity analysis
+    return 0;
+  else
+    return tapeAddStatement_noActivityAnalysis(index1,index2,diff1,diff2);
+}
+
+ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1,double diff2){
   ULong pos = (nextindex%BUFSIZE)*4;
   buffer[pos] = index1;
   buffer[pos+1] = index2;

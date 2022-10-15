@@ -246,7 +246,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         if(index!=0){
           VG_(gdb_printf)("Warning: Variable depends on other inputs, previous index was %llu.\n",index);
         }
-        ULong setIndex = tapeAddStatement(0,0,0.,0.);
+        ULong setIndex = tapeAddStatement_noActivityAnalysis(0,0,0.,0.);
         shadowSet(sm_barLo,(void*)address,(void*)&setIndex,4);
         shadowSet(sm_barHi,(void*)address,(void*)&setIndex+4,4);
         VG_(gdb_printf)("index: %llu\n",setIndex);
@@ -311,7 +311,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     double* diff1addr = (double*) arg[3];
     double* diff2addr = (double*) arg[4];
     ULong* newindexaddr = (ULong*) arg[5];
-    *newindexaddr = tapeAddStatement(*index1addr,*index2addr,*diff1addr,*diff2addr);
+    *newindexaddr = tapeAddStatement_noActivityAnalysis(*index1addr,*index2addr,*diff1addr,*diff2addr);
     *ret = 1; return True;
   } else {
     VG_(printf)("Unhandled user request.\n");
