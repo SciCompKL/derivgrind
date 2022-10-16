@@ -182,7 +182,6 @@ VG_REGPARM(0) void dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y,
     ULong minus_yi = tapeAddStatement(yi,0,-1.,0); \
     out->w32[0] = *(UInt*)&minus_yi; \
     out->w32[2] = *((UInt*)&minus_yi+1); \
-    VG_(printf)("minus_yi=%llu\n",minus_yi);\
   }
 
 VG_REGPARM(0) void dg_bar_bitwise_xor32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
