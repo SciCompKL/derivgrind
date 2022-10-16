@@ -7,7 +7,7 @@ include $(top_srcdir)/Makefile.tool.am
 #----------------------------------------------------------------------------
 
 pkginclude_HEADERS = \
-  derivgrind.h bar/derivgrind-recording.h
+  derivgrind.h derivgrind-recording.h
 
 #----------------------------------------------------------------------------
 # derivgrind-<platform>

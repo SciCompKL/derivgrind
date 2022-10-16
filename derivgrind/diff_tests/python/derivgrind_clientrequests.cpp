@@ -32,7 +32,6 @@
 
 #include <pybind11/pybind11.h>
 #include <valgrind/derivgrind.h>
-#include <valgrind/derivgrind-recording.h>
 
 namespace py = pybind11;
 

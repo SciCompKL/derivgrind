@@ -343,8 +343,6 @@ class ClientRequestTestCase(TestCase):
       c = (self.compiler in ['gcc','clang'])
       self.code = "#include <stdio.h>\n" if c else "#include <iostream>\n"
       self.code += "#include <valgrind/derivgrind.h>\n"
-      if self.mode=='b':
-        self.code += "#include <valgrind/derivgrind-recording.h>\n"
       self.code += self.include + "\n"
       self.code += "int main(){\n  int ret=0;\n"
       if self.mode=='b':

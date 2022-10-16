@@ -30,7 +30,6 @@
 */
 
 #include <valgrind/derivgrind.h>
-#include <valgrind/derivgrind-recording.h>
 
 void valgrind_set_derivative(void** val, void** grad, int* size){
   VALGRIND_SET_DERIVATIVE(*val,*grad,*size);

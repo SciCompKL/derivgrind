@@ -73,6 +73,7 @@
 */
 
 #include "valgrind.h"
+#include "derivgrind-recording.h" // utility macros around the client requests
 
 /* !! ABIWARNING !! ABIWARNING !! ABIWARNING !! ABIWARNING !! 
    This enum comprises an ABI exported by Valgrind to programs
