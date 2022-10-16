@@ -91,44 +91,57 @@ typedef
 
 
 
-/* Client-code macros to manipulate the state of memory. */
+/* Client-code macros to manipulate the state of memory, 
+ * along with some synonymes for better readability or legacy reasons.  */
 
 /* Get derivative of variable at _qzz_addr into variable at _qzz_daddr of the same type of size _qzz_size. */
-#define VALGRIND_GET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size)  \
+#define DG_GET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size)  \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__GET_DERIVATIVE,          \
                             (_qzz_addr), (_qzz_daddr), (_qzz_size), 0, 0)
+#define DERIVGRIND_GET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size) \
+  DG_GET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size)
+#define VALGRIND_GET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size) \
+  DG_GET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size)
       
 /* Set derivative of variable at _qzz_addr from variable at _qzz_daddr of the same type of size _qzz_size. */
-#define VALGRIND_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size)  \
+#define DG_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size)  \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__SET_DERIVATIVE,          \
                             (_qzz_addr), (_qzz_daddr), (_qzz_size), 0, 0)
+#define DERIVGRIND_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size) \
+  DG_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size)
+#define VALGRIND_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size) \
+  DG_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size)
 
 /* Enable/disable outputting of values and dot values for difference quotient debugging. */
-#define VALGRIND_DISABLE_DIFFQUOTDEBUG(_qzz_delta) \
+#define DG_DISABLE_DIFFQUOTDEBUG(_qzz_delta) \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__DISABLE_DIFFQUOTDEBUG,    \
                             (_qzz_delta), 0, 0, 0, 0)
+#define DERIVGRIND_DISABLE_DIFFQUOTDEBUG(_qzz_delta) \
+  DG_DISABLE_DIFFQUOTDEBUG(_qzz_delta)
+#define VALGRIND_DISABLE_DIFFQUOTDEBUG(_qzz_delta) \
+  DG_DISABLE_DIFFQUOTDEBUG(_qzz_delta)
 
 /* Get index of variable at _qzz_addr into 8 byte at _qzz_iaddr. */
-#define VALGRIND_GET_INDEX(_qzz_addr,_qzz_iaddr)  \
+#define DG_GET_INDEX(_qzz_addr,_qzz_iaddr)  \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__GET_INDEX,          \
                             (_qzz_addr), (_qzz_iaddr), 0, 0, 0)
 
 /* Set index of variable at _qzz_addr from 8 byte at _qzz_iaddr.*/
-#define VALGRIND_SET_INDEX(_qzz_addr,_qzz_iaddr)  \
+#define DG_SET_INDEX(_qzz_addr,_qzz_iaddr)  \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__SET_INDEX,          \
                             (_qzz_addr), (_qzz_iaddr), 0, 0, 0)
 
-/* Push new operation to the tape.
+/* Push new operation to the tape, without activity analysis.
  * _qzz_index1addr, _qzz_index2addr point to 8-byte indices,
  * _qzz_diff1addr, _qzz_diff2addr point to 8-byte (double) partial derivatives,
  * _qzz_newindexaddr points to 8 byte for new index.
  */
-#define VALGRIND_NEW_INDEX(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr)  \
+#define DG_NEW_INDEX(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr)  \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__NEW_INDEX,          \
                             (_qzz_index1addr), (_qzz_index2addr), (_qzz_diff1addr), (_qzz_diff2addr), (_qzz_newindexaddr))

@@ -350,7 +350,7 @@ class ClientRequestTestCase(TestCase):
       self.code += "".join([f"  {self.type['ctype']} {var} = {self.vals[var]};\n" for var in self.vals]) 
       self.code += "  {\n"
       if self.mode=='d':
-        self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = {self.dots[var]}; VALGRIND_SET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.dots])
+        self.code += "".join([f"    {self.type['ctype']} _derivative_of_{var} = {self.dots[var]}; DG_SET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});\n" for var in self.dots])
       elif self.mode=='b':
         self.code += "".join([f"    DG_INPUTF({var});\n" for var in self.test_bars])
       self.code += "  }\n"
@@ -376,7 +376,7 @@ class ClientRequestTestCase(TestCase):
         for var in self.test_dots:
           self.code += f"""
             {self.type['ctype']} _derivative_of_{var} = 0.; 
-            VALGRIND_GET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});
+            DG_GET_DERIVATIVE(&{var},&_derivative_of_{var},{self.type['size']});
             if(_derivative_of_{var} < {self.test_dots[var]-self.type["tol"]} 
                 || _derivative_of_{var} > {self.test_dots[var]+self.type["tol"]}) {{
           """ 
@@ -412,7 +412,7 @@ class ClientRequestTestCase(TestCase):
           self.code += f"""
             block
             {self.type['ftype']}, target :: derivative_of_{var} = {str_fortran(self.dots[var])}
-            call valgrind_set_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
+            call dg_set_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
             end block
           """
         elif self.mode=='b':
@@ -433,7 +433,7 @@ class ClientRequestTestCase(TestCase):
           self.code += f"""
             block
             {self.type['ftype']}, target :: derivative_of_{var} = 0
-            call valgrind_get_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
+            call dg_get_derivative(c_loc({var}), c_loc(derivative_of_{var}), {self.type['size']})
             if(derivative_of_{var} < {str_fortran(self.test_dots[var]-self.type["tol"])} .or. derivative_of_{var} > {str_fortran(self.test_dots[var]+self.type["tol"])}) then
               print *, "DOT VALUES DISAGREE: {var} stored=", {str_fortran(self.test_dots[var])}, " computed=", derivative_of_{var}
               ret = 1
@@ -448,9 +448,9 @@ class ClientRequestTestCase(TestCase):
         end program
       """
     elif self.compiler == "python":
-      self.code = "import numpy as np\nimport derivgrind\nret = 0\n"
+      self.code = "import numpy as np\nimport derivgrind as dg\nret = 0\n"
       if self.mode=='b':
-        self.code += "derivgrind.clearf()\n"
+        self.code += "dg.clearf()\n"
       # NumPy tests perform the same calculation 16 times
       if self.type['pytype']=='float':
         self_vals = self.vals
@@ -468,9 +468,9 @@ class ClientRequestTestCase(TestCase):
         self.code += f"{var} = {self_vals[var]}\n"
       for var in self_dots:
         if self.mode=='d':
-          self.code += f"{var} = derivgrind.set_derivative({var}, {self_dots[var]})\n"
+          self.code += f"{var} = dg.set_derivative({var}, {self_dots[var]})\n"
         elif self.mode=='b':
-          self.code += f"{var} = derivgrind.inputf({var})\n"
+          self.code += f"{var} = dg.inputf({var})\n"
       self.code += self.stmt + "\n"
       if self.mode=='d' and self.type['pytype'] in ['np.float64','np.float32']:
         for var in self.test_dots:
@@ -481,13 +481,13 @@ class ClientRequestTestCase(TestCase):
         self.code +=  '  ret = 1\n' 
       if self.mode=='d':
         for var in self_test_dots:
-          self.code += f'derivative_of_{var} = derivgrind.get_derivative({var})\n'
+          self.code += f'derivative_of_{var} = dg.get_derivative({var})\n'
           self.code += f'if derivative_of_{var} < {self_test_dots[var]-self.type["tol"]} or derivative_of_{var} > {self_test_dots[var]+self.type["tol"]}:\n'
           self.code += f'  print("DOT VALUES DISAGREE: {var} stored=", {self_test_dots[var]}, "computed=", derivative_of_{var})\n'
           self.code +=  '  ret = 1\n' 
       elif self.mode=='b':
         for var in self_test_dots:
-          self.code += f'derivgrind.outputf({var})\n'
+          self.code += f'dg.outputf({var})\n'
       self.code += "exit(ret)\n"
 
 

@@ -98,29 +98,29 @@ __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x) {{
   OrigFn fn;
   VALGRIND_GET_ORIG_FN(fn);
-  VALGRIND_DISABLE_DIFFQUOTDEBUG(1);
+  DG_DISABLE_DIFFQUOTDEBUG(1);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}(ret, fn, x);
   if(!called_from_within_wrapper) {{
     /* forward mode */
     {self.type} x_d;
-    VALGRIND_GET_DERIVATIVE(&x, &x_d, {self.size});
+    DG_GET_DERIVATIVE(&x, &x_d, {self.size});
     called_from_within_wrapper = true;
       {self.type} ret_d = ({self.deriv}) * x_d;
     called_from_within_wrapper = false;
-    VALGRIND_SET_DERIVATIVE(&ret, &ret_d, {self.size});
+    DG_SET_DERIVATIVE(&ret, &ret_d, {self.size});
     /* recording mode */
     unsigned long long x_i, y_i=0;
-    VALGRIND_GET_INDEX(&x, &x_i);
+    DG_GET_INDEX(&x, &x_i);
     double x_pdiff, y_pdiff=0.;
     called_from_within_wrapper = true;
       x_pdiff = ({self.deriv});
     called_from_within_wrapper = false;
     unsigned long long ret_i;
-    VALGRIND_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i);
-    VALGRIND_SET_INDEX(&ret,&ret_i);
+    DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i);
+    DG_SET_INDEX(&ret,&ret_i);
   }}
-  VALGRIND_DISABLE_DIFFQUOTDEBUG(-1);
+  DG_DISABLE_DIFFQUOTDEBUG(-1);
   return ret;
 }}
 """
@@ -139,32 +139,32 @@ __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.type} y) {{
   OrigFn fn;
   VALGRIND_GET_ORIG_FN(fn);
-  VALGRIND_DISABLE_DIFFQUOTDEBUG(1);
+  DG_DISABLE_DIFFQUOTDEBUG(1);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}{self.T}(ret, fn, x, y);
   if(!called_from_within_wrapper) {{
     /* forward mode */
     {self.type} x_d, y_d;
-    VALGRIND_GET_DERIVATIVE(&x, &x_d, {self.size});
-    VALGRIND_GET_DERIVATIVE(&y, &y_d, {self.size});
+    DG_GET_DERIVATIVE(&x, &x_d, {self.size});
+    DG_GET_DERIVATIVE(&y, &y_d, {self.size});
     called_from_within_wrapper = true;
       {self.type} ret_d = ({self.derivX}) * x_d + ({self.derivY}) * y_d;
     called_from_within_wrapper = false;
-    VALGRIND_SET_DERIVATIVE(&ret, &ret_d, {self.size});
+    DG_SET_DERIVATIVE(&ret, &ret_d, {self.size});
     /* recording mode */
     unsigned long long x_i, y_i;
-    VALGRIND_GET_INDEX(&x,&x_i);
-    VALGRIND_GET_INDEX(&y,&y_i);
+    DG_GET_INDEX(&x,&x_i);
+    DG_GET_INDEX(&y,&y_i);
     double x_pdiff, y_pdiff;
     called_from_within_wrapper = true;
       x_pdiff = ({self.derivX});
       y_pdiff = ({self.derivY});
     called_from_within_wrapper = false;
     unsigned long long ret_i;
-    VALGRIND_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i);
-    VALGRIND_SET_INDEX(&ret,&ret_i);
+    DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i);
+    DG_SET_INDEX(&ret,&ret_i);
   }}
-  VALGRIND_DISABLE_DIFFQUOTDEBUG(-1);
+  DG_DISABLE_DIFFQUOTDEBUG(-1);
   return ret;
 }}
 """
@@ -184,30 +184,30 @@ __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.extratype} e) {{
   OrigFn fn;
   VALGRIND_GET_ORIG_FN(fn);
-  VALGRIND_DISABLE_DIFFQUOTDEBUG(1);
+  DG_DISABLE_DIFFQUOTDEBUG(1);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}{self.extratypeletter}(ret, fn, x, e);
   if(!called_from_within_wrapper) {{
     /* forward mode */
     {self.type} x_d;
-    VALGRIND_GET_DERIVATIVE(&x, &x_d, {self.size});
+    DG_GET_DERIVATIVE(&x, &x_d, {self.size});
     called_from_within_wrapper = true;
       {self.type} ret_d = ({self.deriv}) * x_d;
     called_from_within_wrapper = false;
-    VALGRIND_SET_DERIVATIVE(&ret, &ret_d, {self.size});
+    DG_SET_DERIVATIVE(&ret, &ret_d, {self.size});
     /* recording mode */
     unsigned long long x_i, y_i=0;
-    VALGRIND_GET_INDEX(&x, &x_i);
+    DG_GET_INDEX(&x, &x_i);
     double x_pdiff, y_pdiff=0.;
     called_from_within_wrapper = true;
       x_pdiff = ({self.deriv});
     called_from_within_wrapper = false;
     unsigned long long ret_i;
-    VALGRIND_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i);
-    VALGRIND_SET_INDEX(&ret,&ret_i);
+    DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i);
+    DG_SET_INDEX(&ret,&ret_i);
 
   }}
-  VALGRIND_DISABLE_DIFFQUOTDEBUG(-1);
+  DG_DISABLE_DIFFQUOTDEBUG(-1);
   return ret;
 }}
 """
