@@ -31,11 +31,11 @@
 
 #include <valgrind/derivgrind.h>
 
-void dg_set_derivative(void** val, void** grad, int* size){
-  DG_SET_DERIVATIVE(*val,*grad,*size);
+void dg_set_dotvalue(void** val, void** grad, int* size){
+  DG_SET_DOTVALUE(*val,*grad,*size);
 }
-void dg_get_derivative(void** val, void** grad, int* size){
-  DG_GET_DERIVATIVE(*val,*grad,*size);
+void dg_get_dotvalue(void** val, void** grad, int* size){
+  DG_GET_DOTVALUE(*val,*grad,*size);
 }
 void dg_inputf(void** val){
   DG_INPUTF(*(unsigned long long*)*val); // actual type does not matter

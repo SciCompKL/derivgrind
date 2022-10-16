@@ -39,24 +39,24 @@ PYBIND11_MODULE(derivgrind, m){
   m.doc() = "Wrapper for Derivgrind client requests.";
 
   // Forward mode
-  m.def( "set_derivative", [](double val, double grad)->double { 
+  m.def( "set_dotvalue", [](double val, double grad)->double { 
     double ret = val; 
-    DG_SET_DERIVATIVE(&ret, &grad, 8);
+    DG_SET_DOTVALUE(&ret, &grad, 8);
     return ret; 
   });
-  m.def( "get_derivative", [](double val)->double { 
+  m.def( "get_dotvalue", [](double val)->double { 
     double grad; 
-    DG_GET_DERIVATIVE(&val, &grad, 8);
+    DG_GET_DOTVALUE(&val, &grad, 8);
     return grad; 
   });
-  m.def( "set_derivative", [](float val, float grad)->float { 
+  m.def( "set_dotvalue", [](float val, float grad)->float { 
     float ret = val; 
-    DG_SET_DERIVATIVE(&ret, &grad, 4);
+    DG_SET_DOTVALUE(&ret, &grad, 4);
     return ret; 
   });
-  m.def( "get_derivative", [](float val)->float { 
+  m.def( "get_dotvalue", [](float val)->float { 
     float grad; 
-    DG_GET_DERIVATIVE(&val, &grad, 4);
+    DG_GET_DOTVALUE(&val, &grad, 4);
     return grad; 
   });
 

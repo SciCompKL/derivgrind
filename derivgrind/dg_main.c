@@ -272,14 +272,14 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
       *ret = 0;
     }
     return handled;
-  } else if(arg[0]==VG_USERREQ__GET_DERIVATIVE) {
+  } else if(arg[0]==VG_USERREQ__GET_DOTVALUE) {
     if(mode!='d') return True;
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
     shadowGet(sm_dot,(void*)addr,(void*)daddr,size);
     *ret = 1; return True;
-  } else if(arg[0]==VG_USERREQ__SET_DERIVATIVE) {
+  } else if(arg[0]==VG_USERREQ__SET_DOTVALUE) {
     if(mode!='d') return True;
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];

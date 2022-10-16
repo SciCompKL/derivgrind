@@ -104,11 +104,11 @@ __attribute__((optimize("O0")))
   if(!called_from_within_wrapper) {{
     /* forward mode */
     {self.type} x_d;
-    DG_GET_DERIVATIVE(&x, &x_d, {self.size});
+    DG_GET_DOTVALUE(&x, &x_d, {self.size});
     called_from_within_wrapper = true;
       {self.type} ret_d = ({self.deriv}) * x_d;
     called_from_within_wrapper = false;
-    DG_SET_DERIVATIVE(&ret, &ret_d, {self.size});
+    DG_SET_DOTVALUE(&ret, &ret_d, {self.size});
     /* recording mode */
     unsigned long long x_i, y_i=0;
     DG_GET_INDEX(&x, &x_i);
@@ -145,12 +145,12 @@ __attribute__((optimize("O0")))
   if(!called_from_within_wrapper) {{
     /* forward mode */
     {self.type} x_d, y_d;
-    DG_GET_DERIVATIVE(&x, &x_d, {self.size});
-    DG_GET_DERIVATIVE(&y, &y_d, {self.size});
+    DG_GET_DOTVALUE(&x, &x_d, {self.size});
+    DG_GET_DOTVALUE(&y, &y_d, {self.size});
     called_from_within_wrapper = true;
       {self.type} ret_d = ({self.derivX}) * x_d + ({self.derivY}) * y_d;
     called_from_within_wrapper = false;
-    DG_SET_DERIVATIVE(&ret, &ret_d, {self.size});
+    DG_SET_DOTVALUE(&ret, &ret_d, {self.size});
     /* recording mode */
     unsigned long long x_i, y_i;
     DG_GET_INDEX(&x,&x_i);
@@ -190,11 +190,11 @@ __attribute__((optimize("O0")))
   if(!called_from_within_wrapper) {{
     /* forward mode */
     {self.type} x_d;
-    DG_GET_DERIVATIVE(&x, &x_d, {self.size});
+    DG_GET_DOTVALUE(&x, &x_d, {self.size});
     called_from_within_wrapper = true;
       {self.type} ret_d = ({self.deriv}) * x_d;
     called_from_within_wrapper = false;
-    DG_SET_DERIVATIVE(&ret, &ret_d, {self.size});
+    DG_SET_DOTVALUE(&ret, &ret_d, {self.size});
     /* recording mode */
     unsigned long long x_i, y_i=0;
     DG_GET_INDEX(&x, &x_i);
