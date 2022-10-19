@@ -40,7 +40,7 @@ int main(int argc, char* argv[]){
   std::ifstream tapefile(argv[1],std::ios::binary);
   if(!tapefile.good()){ std::cerr << "Cannot open tape file '"<<argv[1]<<"'." << std::endl; return 1; }
   unsigned long long tapesize = sizeOfStream(tapefile);
-  unsigned long long* tape = new unsigned long long[tapesize];
+  unsigned long long* tape = reinterpret_cast<unsigned long long*>(new char[tapesize]);
   tapefile.read(reinterpret_cast<char*>(tape),tapesize);
 
   // initialize adjoint vector
