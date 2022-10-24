@@ -13,6 +13,8 @@
  * --record=<tapefile>).
  */
 
+using ull = unsigned long long;
+
 void print_usage(){
   std::cerr << 
     "Usage: ./tape-evaluation tapefile [input index]... [output index=output bar value]...\n"
@@ -27,9 +29,9 @@ void print_usage(){
     "adjoints are written to dg-input-adjoints.\n" ;
 }
 
-unsigned long long sizeOfStream(std::ifstream& stream){
+ull sizeOfStream(std::ifstream& stream){
   stream.seekg(0,std::ios::end);
-  unsigned long long size = stream.tellg();
+  ull size = stream.tellg();
   stream.seekg(0,std::ios::beg);
   return size;
 }
@@ -39,12 +41,13 @@ int main(int argc, char* argv[]){
   if(argc<2){ print_usage();return 1; }
   std::ifstream tapefile(argv[1],std::ios::binary);
   if(!tapefile.good()){ std::cerr << "Cannot open tape file '"<<argv[1]<<"'." << std::endl; return 1; }
-  unsigned long long tapesize = sizeOfStream(tapefile);
-  unsigned long long* tape = reinterpret_cast<unsigned long long*>(new char[tapesize]);
-  tapefile.read(reinterpret_cast<char*>(tape),tapesize);
+  ull tapesize = sizeOfStream(tapefile);
+  char* tape_char = new char[tapesize];
+  tapefile.read(tape_char,tapesize);
+  ull* tape = reinterpret_cast<ull*>(tape_char);
 
   // initialize adjoint vector
-  unsigned long long nIndex = tapesize / 32;
+  ull nIndex = tapesize / 32;
   double* adjointvec = new double[nIndex];
   for(int index=0; index<nIndex; index++)
     adjointvec[index] = 0.;
@@ -56,7 +59,7 @@ int main(int argc, char* argv[]){
     std::ifstream outputadjoints("dg-output-adjoints");
     if(!outputadjoints.good()){ std::cerr << "Error: while opening dg-output-adjoints." << std::endl; return 1; }
     while(true){
-      unsigned long long index;
+      ull index;
       outputindices >> index;
       double adjoint;
       outputadjoints >> adjoint;
@@ -72,11 +75,11 @@ int main(int argc, char* argv[]){
       adjointvec[index] += adjoint;
     }
   } else { // from command-line arguments
-    for(unsigned long long iArg=2; iArg<argc; iArg++){
+    for(ull iArg=2; iArg<argc; iArg++){
       std::string arg(argv[iArg]);
       int eq = arg.find("=");
       if(eq==-1) continue; // specifies an input
-      unsigned long long index = stoll(arg.substr(0,eq));
+      ull index = stoll(arg.substr(0,eq));
       double barvalue = stod(arg.substr(eq+1));
       if(adjointvec[index]!=0.){
         std::cerr << "Warning: The output index " << index << " is specified multiple times, I'm summing up." << std::endl;
@@ -86,50 +89,44 @@ int main(int argc, char* argv[]){
   }
 
   // collect input variables
-  std::vector<unsigned long long> inputindices_list;
+  std::vector<ull> inputindices_list;
   if(argc==2){ // from file
     std::ifstream inputindices("dg-input-indices");
     if(!inputindices.good()){ std::cerr << "Error: while opening dg-input-indices." << std::endl; return 1; }
     while(true){
-      unsigned long long index;
+      ull index;
       inputindices >> index;
       if(inputindices.eof()) break;
       inputindices_list.push_back(index);
     }
   } else { // from command-line arguments
-    for(unsigned long long iArg=2; iArg<argc; iArg++){
+    for(ull iArg=2; iArg<argc; iArg++){
       std::string arg(argv[iArg]);
       int eq = arg.find("=");
       if(eq!=-1) continue; // specifies an output
-      unsigned long long index = stoll(arg);
+      ull index = stoll(arg);
       inputindices_list.push_back(index);
     }
   }
 
   // reverse evaluation of tape
-  tapefile.seekg(-4,std::ios::end);
-  for(unsigned long long iIndex=nIndex-1; iIndex!=0; iIndex--){
-    unsigned long long index1 = tape[4*iIndex];
-    unsigned long long index2 = tape[4*iIndex+1];
+  for(ull iIndex=nIndex-1; iIndex!=0; iIndex--){
+    ull index1 = tape[4*iIndex];
+    ull index2 = tape[4*iIndex+1];
     double diff1 = *reinterpret_cast<double*>(&tape[4*iIndex+2]);
     double diff2 = *reinterpret_cast<double*>(&tape[4*iIndex+3]);
-    if(index1==0 && index2==0){ // input variable
-      // Right now we get input indices from the user, but we might also do something like this:
-      //std::cout << "Input variable " << iIndex << " with adjoint value " << adjointvec[iIndex] << std::endl;
-    } else { // variable depends on one or two other variables
-      adjointvec[index1] += adjointvec[iIndex] * diff1;
-      if(index2!=0) adjointvec[index2] += adjointvec[iIndex] * diff2;
-    }
+    if(index1!=0) adjointvec[index1] += adjointvec[iIndex] * diff1;
+    if(index2!=0) adjointvec[index2] += adjointvec[iIndex] * diff2;
   }
 
   // output adjoints of inputs
   if(argc==2){ // to file
     std::ofstream inputadjoints("dg-input-adjoints");
-    for(unsigned long long index : inputindices_list){
+    for(ull index : inputindices_list){
       inputadjoints << std::setprecision(16) << adjointvec[index] << std::endl;
     }
   } else { // to stdout
-    for(unsigned long long index : inputindices_list){
+    for(ull index : inputindices_list){
       std::cout << adjointvec[index] << std::endl;
     }
   }
