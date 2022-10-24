@@ -15,6 +15,8 @@
 
 using ull = unsigned long long;
 
+#define BUFSIZE 1000000
+
 void print_usage(){
   std::cerr << 
     "Usage: ./tape-evaluation tapefile [input index]... [output index=output bar value]...\n"
@@ -29,25 +31,21 @@ void print_usage(){
     "adjoints are written to dg-input-adjoints.\n" ;
 }
 
-ull sizeOfStream(std::ifstream& stream){
-  stream.seekg(0,std::ios::end);
-  ull size = stream.tellg();
-  stream.seekg(0,std::ios::beg);
-  return size;
-}
 
 int main(int argc, char* argv[]){
   // read tape file into memory
   if(argc<2){ print_usage();return 1; }
   std::ifstream tapefile(argv[1],std::ios::binary);
   if(!tapefile.good()){ std::cerr << "Cannot open tape file '"<<argv[1]<<"'." << std::endl; return 1; }
-  ull tapesize = sizeOfStream(tapefile);
-  char* tape_char = new char[tapesize];
-  tapefile.read(tape_char,tapesize);
-  ull* tape = reinterpret_cast<ull*>(tape_char);
+  tapefile.seekg(0,std::ios::end);
+  ull tapesize = tapefile.tellg(); // in bytes
+  ull nIndex = tapesize / 32; // number of entries
+
+  // initialize tape buffer
+  ull* tape_buf = new ull[4*BUFSIZE];
+  char* tape_buf_c = reinterpret_cast<char*>(tape_buf);
 
   // initialize adjoint vector
-  ull nIndex = tapesize / 32;
   double* adjointvec = new double[nIndex];
   for(int index=0; index<nIndex; index++)
     adjointvec[index] = 0.;
@@ -109,14 +107,24 @@ int main(int argc, char* argv[]){
     }
   }
 
+  // load the last 1,...,BUFSIZE entries of the tape
+  // such that the number of previous entries is a multiple of BUFSIZE
+  ull nIndexBeginning = (nIndex-1)%BUFSIZE + 1;
+  tapefile.seekg((nIndex-nIndexBeginning)*32, std::ios::beg);
+  tapefile.read(tape_buf_c,nIndexBeginning*32);
+
   // reverse evaluation of tape
   for(ull iIndex=nIndex-1; iIndex!=0; iIndex--){
-    ull index1 = tape[4*iIndex];
-    ull index2 = tape[4*iIndex+1];
-    double diff1 = *reinterpret_cast<double*>(&tape[4*iIndex+2]);
-    double diff2 = *reinterpret_cast<double*>(&tape[4*iIndex+3]);
+    ull index1 = tape_buf[4*(iIndex%BUFSIZE)];
+    ull index2 = tape_buf[4*(iIndex%BUFSIZE)+1];
+    double diff1 = *reinterpret_cast<double*>(&tape_buf[4*(iIndex%BUFSIZE)+2]);
+    double diff2 = *reinterpret_cast<double*>(&tape_buf[4*(iIndex%BUFSIZE)+3]);
     if(index1!=0) adjointvec[index1] += adjointvec[iIndex] * diff1;
     if(index2!=0) adjointvec[index2] += adjointvec[iIndex] * diff2;
+    if(iIndex%BUFSIZE==0 && iIndex>0){ // load tape blocks of BUFSIZE elements 
+      tapefile.seekg((iIndex-BUFSIZE)*32, std::ios::beg);
+      tapefile.read(tape_buf_c, BUFSIZE*32);
+    }
   }
 
   // output adjoints of inputs
@@ -131,7 +139,7 @@ int main(int argc, char* argv[]){
     }
   }
 
-  delete[] tape;
+  delete[] tape_buf;
   delete[] adjointvec;
 }
 
