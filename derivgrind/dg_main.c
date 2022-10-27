@@ -304,14 +304,17 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     shadowSet(sm_barLo,(void*)addr,(void*)iaddr,4);
     shadowSet(sm_barHi,(void*)addr,(void*)iaddr+4,4);
     *ret = 1; return True;
-  } else if(arg[0]==VG_USERREQ__NEW_INDEX) {
+  } else if(arg[0]==VG_USERREQ__NEW_INDEX || arg[0]==VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS) {
     if(mode!='b') return True;
     ULong* index1addr = (ULong*) arg[1];
     ULong* index2addr = (ULong*) arg[2];
     double* diff1addr = (double*) arg[3];
     double* diff2addr = (double*) arg[4];
     ULong* newindexaddr = (ULong*) arg[5];
-    *newindexaddr = tapeAddStatement_noActivityAnalysis(*index1addr,*index2addr,*diff1addr,*diff2addr);
+    if(arg[0]==VG_USERREQ__NEW_INDEX)
+      *newindexaddr = tapeAddStatement(*index1addr,*index2addr,*diff1addr,*diff2addr);
+    else
+      *newindexaddr = tapeAddStatement_noActivityAnalysis(*index1addr,*index2addr,*diff1addr,*diff2addr);
     *ret = 1; return True;
   } else {
     VG_(printf)("Unhandled user request.\n");

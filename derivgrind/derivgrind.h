@@ -86,7 +86,8 @@ typedef
       VG_USERREQ__DISABLE_DIFFQUOTDEBUG,
       VG_USERREQ__GET_INDEX,
       VG_USERREQ__SET_INDEX,
-      VG_USERREQ__NEW_INDEX
+      VG_USERREQ__NEW_INDEX,
+      VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS,
    } Vg_DerivgrindClientRequest;
 
 
@@ -137,16 +138,27 @@ typedef
                             (_qzz_addr), (_qzz_iaddr), 0, 0, 0)
 #define DERIVGRIND_SET_INDEX(_qzz_addr,_qzz_iaddr) DG_SET_INDEX(_qzz_addr,_qzz_iaddr)
 
-/* Push new operation to the tape, without activity analysis.
+/* Push new operation to the tape, with activity analysis.
  * _qzz_index1addr, _qzz_index2addr point to 8-byte indices,
  * _qzz_diff1addr, _qzz_diff2addr point to 8-byte (double) partial derivatives,
- * _qzz_newindexaddr points to 8 byte for new index.
+ * _qzz_newindexaddr points to 8 byte for new index, which can be zero if input indices are zero.
  */
 #define DG_NEW_INDEX(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr)  \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__NEW_INDEX,          \
                             (_qzz_index1addr), (_qzz_index2addr), (_qzz_diff1addr), (_qzz_diff2addr), (_qzz_newindexaddr))
 #define DERIVGRIND_NEW_INDEX(_qzz_addr,_qzz_iaddr) DG_NEW_INDEX(_qzz_addr,_qzz_iaddr)
+
+/* Push new operation to the tape, without activity analysis.
+* _qzz_index1addr, _qzz_index2addr point to 8-byte indices,
+* _qzz_diff1addr, _qzz_diff2addr point to 8-byte (double) partial derivatives,
+* _qzz_newindexaddr points to 8 byte for new index, which is non-zero.
+*/
+#define DG_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS,          \
+                            (_qzz_index1addr), (_qzz_index2addr), (_qzz_diff1addr), (_qzz_diff2addr), (_qzz_newindexaddr))
+#define DERIVGRIND_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_addr,_qzz_iaddr) DG_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_addr,_qzz_iaddr)
 
 #endif
 
