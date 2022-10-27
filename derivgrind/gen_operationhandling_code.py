@@ -283,7 +283,23 @@ for Op, op in [("Min", "min"), ("Max", "max")]:
 for Op in ["Add", "Sub"]:
   for suffix,fpsize,simdsize,llo in [pF64,pF32]:
     the_op = IROp_Info(f"Iop_M{Op}{suffix}", 4, [2,3,4])
-    the_op.dotcode = dv(f"IRExpr_Triop(Iop_{Op}{suffix}, arg1, IRExpr_Triop(Iop_{Op}{suffix},arg1,d2,arg3), IRExpr_Qop(Iop_M{Op}{suffix},arg1,arg2,d3,d4))")
+    # perform calculations with F64 operations even in the F32 case, otherwise there is an ISEL error...
+    if fpsize==8:
+      arg2 = "arg2"
+      arg3 = "arg3"
+      d2 = "d2"
+      d3 = "d3"
+      d4 = "d4"
+    else:
+      arg2 = "IRExpr_Unop(Iop_F32toF64,arg2)"
+      arg3 = "IRExpr_Unop(Iop_F32toF64,arg3)"
+      d2 = "IRExpr_Unop(Iop_F32toF64,d2)"
+      d3 = "IRExpr_Unop(Iop_F32toF64,d3)"
+      d4 = "IRExpr_Unop(Iop_F32toF64,d4)"
+    res = f"IRExpr_Triop(Iop_AddF64, arg1, IRExpr_Triop(Iop_AddF64, arg1, IRExpr_Triop(Iop_MulF64,arg1,{d2},{arg3}), IRExpr_Triop(Iop_MulF64,arg1,{arg2},{d3})), {d4})"
+    if fpsize==4:
+      res = f"IRExpr_Binop(Iop_F64toF32,arg1,{res})"
+    the_op.dotcode = dv(res)
     the_op.barcode = createBarCode(the_op, [2,3,4], [2,3], ["arg3_part_f", "arg2_part_f", f"IRExpr_Const(IRConst_F64({'1.' if Op=='Add' else '-1.'}))"], fpsize, simdsize,llo)
     IROp_Infos += [ the_op ]
 
