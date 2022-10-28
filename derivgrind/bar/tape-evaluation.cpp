@@ -119,8 +119,19 @@ int main(int argc, char* argv[]){
     ull index2 = tape_buf[4*(iIndex%BUFSIZE)+1];
     double diff1 = *reinterpret_cast<double*>(&tape_buf[4*(iIndex%BUFSIZE)+2]);
     double diff2 = *reinterpret_cast<double*>(&tape_buf[4*(iIndex%BUFSIZE)+3]);
-    if(index1!=0) adjointvec[index1] += adjointvec[iIndex] * diff1;
-    if(index2!=0) adjointvec[index2] += adjointvec[iIndex] * diff2;
+    if(adjointvec[iIndex]!=0) {
+      // The !=0 check is necessary in situations like this:
+      // a = 0 is an input
+      // b = 1/a is an irrelevant intermediate variable
+      // c = a+1 is the output
+      // The division by 0 is not defined, but as c does not depend
+      // on b, this should not affect the derivatives.
+      // The adjoint update for the assignment to b would add
+      // (adjoint value of b = 0) * (partial derivative db/da = -inf)
+      // = NaN to the adjoint of a if the check were not performed.
+      if(index1!=0) adjointvec[index1] += adjointvec[iIndex] * diff1;
+      if(index2!=0) adjointvec[index2] += adjointvec[iIndex] * diff2;
+    }
     if(iIndex%BUFSIZE==0 && iIndex>0){ // load tape blocks of BUFSIZE elements 
       tapefile.seekg((iIndex-BUFSIZE)*32, std::ios::beg);
       tapefile.read(tape_buf_c, BUFSIZE*32);
