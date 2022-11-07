@@ -34,24 +34,48 @@ module derivgrind_clientrequests
   use, intrinsic :: iso_c_binding
   implicit none
 
+  ! Forward mode
   interface
-    subroutine valgrind_set_derivative(val, grad, size_) bind(C)
+    subroutine dg_set_dotvalue(val, dotval, size_) bind(C)
       use, intrinsic :: iso_c_binding
       implicit none
       type(c_ptr)  :: val
-      type(c_ptr)  :: grad
+      type(c_ptr)  :: dotval
       integer(kind=c_int), intent(in) :: size_
-    end subroutine valgrind_set_derivative
+    end subroutine dg_set_dotvalue
   end interface
   interface
-    subroutine valgrind_get_derivative(val, grad, size_) bind(C)
+    subroutine dg_get_dotvalue(val, dotval, size_) bind(C)
       use, intrinsic :: iso_c_binding
       implicit none
       type(c_ptr)  :: val
-      type(c_ptr)  :: grad
+      type(c_ptr)  :: dotval
       integer(kind=c_int), intent(in) :: size_
-    end subroutine valgrind_get_derivative
+    end subroutine dg_get_dotvalue
   end interface
+
+  ! Recording mode
+  interface
+    subroutine dg_inputf(val) bind(C)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      type(c_ptr)  :: val
+    end subroutine dg_inputf
+  end interface
+  interface
+    subroutine dg_outputf(val) bind(C)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      type(c_ptr)  :: val
+    end subroutine dg_outputf
+  end interface
+  interface
+    subroutine dg_clearf() bind(C)
+      use, intrinsic :: iso_c_binding
+      implicit none
+    end subroutine dg_clearf
+  end interface
+  
 end module
 
 

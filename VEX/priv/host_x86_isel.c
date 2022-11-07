@@ -2961,6 +2961,29 @@ static HReg iselFltExpr_wrk ( ISelEnv* env, const IRExpr* e )
       return lookupIRTemp(env, e->Iex.RdTmp.tmp);
    }
 
+   /*if (e->tag == Iex_Const) {
+      union { UInt u32; Float f32; } u;
+      HReg freg = newVRegF(env);
+      vassert(sizeof(u) == 4);
+      vassert(sizeof(u.u32) == 4);
+      vassert(sizeof(u.f32) == 4);
+
+      if (e->Iex.Const.con->tag == Ico_F32) {
+         u.f32 = e->Iex.Const.con->Ico.F32;
+      }
+      else if (e->Iex.Const.con->tag == Ico_F32i) {
+         u.u32 = e->Iex.Const.con->Ico.F32i;
+      }
+      else
+         vpanic("iselFltExpr(x86): const");
+
+      addInstr(env, X86Instr_Push(X86RMI_Imm(u.u32)));
+      addInstr(env, X86Instr_FpLdSt(True, 4, freg,
+                                    X86AMode_IR(0, hregX86_ESP())));
+      add_to_esp(env, 4);
+      return freg;
+   }*/
+
    if (e->tag == Iex_Load && e->Iex.Load.end == Iend_LE) {
       X86AMode* am;
       HReg res = newVRegF(env);

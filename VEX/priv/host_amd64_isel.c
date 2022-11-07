@@ -2781,7 +2781,7 @@ static HReg iselFltExpr_wrk ( ISelEnv* env, const IRExpr* e )
       addInstr(env, AMD64Instr_Imm64(u.u32, tmp));
       addInstr(env, AMD64Instr_Push(AMD64RMI_Reg(tmp)));
       addInstr(env, AMD64Instr_SseLdSt(
-                       True/*load*/, 8, res, // TODO no idea whether the 8 is correct
+                       True/*load*/, 4, res, // TODO no idea whether the 8 is correct
                        AMD64AMode_IR(0, hregAMD64_RSP())
               ));
       add_to_rsp(env, 8); // TODO

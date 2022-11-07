@@ -1,11 +1,10 @@
 /*--------------------------------------------------------------------*/
-/*--- Wrap client request            derivgrind_clientrequests.cpp ---*/
-/*--- functions for Python.                                        ---*/
+/*--- Handling of bitwise logical operations.     dg_bar_bitwise.h ---*/
 /*--------------------------------------------------------------------*/
 
 /*
    This file is part of Derivgrind, a tool performing forward-mode
-   algorithmic differentiation of compiled programs, implemented
+   algorithmic differentiation of compiled programs implemented
    in the Valgrind framework.
 
    Copyright (C) 2022 Chair for Scientific Computing (SciComp), TU Kaiserslautern
@@ -30,46 +29,21 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#include <pybind11/pybind11.h>
-#include <valgrind/derivgrind.h>
+#ifndef DG_BAR_BITWISE_H
+#define DG_BAR_BITWISE_H
 
-namespace py = pybind11;
+#include "pub_tool_basics.h"
 
-PYBIND11_MODULE(derivgrind, m){
-  m.doc() = "Wrapper for Derivgrind client requests.";
+VG_REGPARM(0) ULong dg_bar_bitwise_get_lower(void);
+VG_REGPARM(0) ULong dg_bar_bitwise_get_higher(void);
 
-  // Forward mode
-  m.def( "set_dotvalue", [](double val, double grad)->double { 
-    double ret = val; 
-    DG_SET_DOTVALUE(&ret, &grad, 8);
-    return ret; 
-  });
-  m.def( "get_dotvalue", [](double val)->double { 
-    double grad; 
-    DG_GET_DOTVALUE(&val, &grad, 8);
-    return grad; 
-  });
-  m.def( "set_dotvalue", [](float val, float grad)->float { 
-    float ret = val; 
-    DG_SET_DOTVALUE(&ret, &grad, 4);
-    return ret; 
-  });
-  m.def( "get_dotvalue", [](float val)->float { 
-    float grad; 
-    DG_GET_DOTVALUE(&val, &grad, 4);
-    return grad; 
-  });
+VG_REGPARM(0) void dg_bar_bitwise_and32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
+VG_REGPARM(0) void dg_bar_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
 
-  // Recording mode
-  m.def( "inputf", [](double val)->double {
-    double ret = val;
-    DG_INPUTF(ret);
-    return ret;
-  });
-  m.def( "outputf", [](double val)->void {
-    DG_OUTPUTF(val);
-  });
-  m.def( "clearf", [](void)->void {
-    DG_CLEARF;
-  });
-}
+VG_REGPARM(0) void dg_bar_bitwise_or32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
+VG_REGPARM(0) void dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
+
+VG_REGPARM(0) void dg_bar_bitwise_xor32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
+VG_REGPARM(0) void dg_bar_bitwise_xor64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
+
+#endif // DG_BAR_BITWISE_H

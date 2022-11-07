@@ -3,23 +3,22 @@ for information about Valgrind.*
 
 # Derivgrind
 
-Derivgrind is a tool for forward-mode algorithmic differentiation (AD) 
+Derivgrind is a tool for automatic/algorithmic differentiation (AD) 
 of compiled programs, implemented in the [Valgrind](https://valgrind.org/)
-instrumentation framework for building dynamic analysis tools. 
+framework for building dynamic analysis tools. 
 
-For more information, have a look at our paper.
+For more information, have a look at our 
+[paper](https://arxiv.org/abs/2209.01895).
 
 ## Building Derivgrind
 Make sure you have the required tools, headers and libraries, which are listed in
 [environment.def](environment.def). You may run a Singularity image built from 
-this file to reproducibly obtain an environment containing all dependencies.
+this file to reproducibly obtain an environment that contains all dependencies.
 
 Download and compile Derivgrind with the following commands:
 
     git clone --recursive <repository url>
-    cd valgrind/derivgrind
-    python3 gen_replace_math.py
-    cd ..
+    cd valgrind/derivgrind && python3 gen_replace_math.py && cd ..
     ./autogen.sh
     ./configure --prefix=$PWD/install
     make install

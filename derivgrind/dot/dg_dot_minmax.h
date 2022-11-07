@@ -1,11 +1,10 @@
 /*--------------------------------------------------------------------*/
-/*--- Wrap client request            derivgrind_clientrequests.cpp ---*/
-/*--- functions for Python.                                        ---*/
+/*--- Handling of min/max operations.              dg_dot_minmax.h ---*/
 /*--------------------------------------------------------------------*/
 
 /*
    This file is part of Derivgrind, a tool performing forward-mode
-   algorithmic differentiation of compiled programs, implemented
+   algorithmic differentiation of compiled programs implemented
    in the Valgrind framework.
 
    Copyright (C) 2022 Chair for Scientific Computing (SciComp), TU Kaiserslautern
@@ -30,46 +29,15 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#include <pybind11/pybind11.h>
-#include <valgrind/derivgrind.h>
+#ifndef DG_DOT_MINMAX_H
+#define DG_DOT_MINMAX_H
 
-namespace py = pybind11;
+#include "pub_tool_basics.h"
 
-PYBIND11_MODULE(derivgrind, m){
-  m.doc() = "Wrapper for Derivgrind client requests.";
+VG_REGPARM(0) ULong dg_dot_arithmetic_min32(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_dot_arithmetic_min64(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_dot_arithmetic_max32(ULong x, ULong xd, ULong y, ULong yd);
+VG_REGPARM(0) ULong dg_dot_arithmetic_max64(ULong x, ULong xd, ULong y, ULong yd);
 
-  // Forward mode
-  m.def( "set_dotvalue", [](double val, double grad)->double { 
-    double ret = val; 
-    DG_SET_DOTVALUE(&ret, &grad, 8);
-    return ret; 
-  });
-  m.def( "get_dotvalue", [](double val)->double { 
-    double grad; 
-    DG_GET_DOTVALUE(&val, &grad, 8);
-    return grad; 
-  });
-  m.def( "set_dotvalue", [](float val, float grad)->float { 
-    float ret = val; 
-    DG_SET_DOTVALUE(&ret, &grad, 4);
-    return ret; 
-  });
-  m.def( "get_dotvalue", [](float val)->float { 
-    float grad; 
-    DG_GET_DOTVALUE(&val, &grad, 4);
-    return grad; 
-  });
 
-  // Recording mode
-  m.def( "inputf", [](double val)->double {
-    double ret = val;
-    DG_INPUTF(ret);
-    return ret;
-  });
-  m.def( "outputf", [](double val)->void {
-    DG_OUTPUTF(val);
-  });
-  m.def( "clearf", [](void)->void {
-    DG_CLEARF;
-  });
-}
+#endif // DG_DOT_MINMAX_H

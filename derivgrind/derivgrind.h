@@ -73,6 +73,7 @@
 */
 
 #include "valgrind.h"
+#include "derivgrind-recording.h" // utility macros around the client requests
 
 /* !! ABIWARNING !! ABIWARNING !! ABIWARNING !! ABIWARNING !! 
    This enum comprises an ABI exported by Valgrind to programs
@@ -80,25 +81,84 @@
    ENTRIES, NOR DELETE ANY -- add new ones at the end. */
 typedef
    enum { 
-      VG_USERREQ__GET_DERIVATIVE = VG_USERREQ_TOOL_BASE('D','G'),
-      VG_USERREQ__SET_DERIVATIVE
+      VG_USERREQ__GET_DOTVALUE = VG_USERREQ_TOOL_BASE('D','G'),
+      VG_USERREQ__SET_DOTVALUE,
+      VG_USERREQ__DISABLE_DIFFQUOTDEBUG,
+      VG_USERREQ__GET_INDEX,
+      VG_USERREQ__SET_INDEX,
+      VG_USERREQ__NEW_INDEX,
+      VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS,
    } Vg_DerivgrindClientRequest;
 
 
 
-/* Client-code macros to manipulate the state of memory. */
+/* === Client-code macros to manipulate the state of memory. === */
+// We added synonymes that write out "DG_" as "DERIVGRNID_" for better
+// readability, and the VALGRIND_[S/G]ET_DERIVATIVE from the first preprint.
 
-/* Get derivative of variable at _qzz_addr into variable at _qzz_daddr of the same type of size _qzz_size. */
-#define VALGRIND_GET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size)  \
+/* --- Forward mode. ---*/
+
+/* Get dot value of variable at _qzz_addr into variable at _qzz_daddr of the same type of size _qzz_size. */
+#define DG_GET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)  \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
-                            VG_USERREQ__GET_DERIVATIVE,          \
+                            VG_USERREQ__GET_DOTVALUE,          \
                             (_qzz_addr), (_qzz_daddr), (_qzz_size), 0, 0)
+#define DERIVGRIND_GET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size) DG_GET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
+#define VALGRIND_GET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size) DG_GET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
       
-/* Set derivative of variable at _qzz_addr from variable at _qzz_daddr of the same type of size _qzz_size. */
-#define VALGRIND_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size)  \
+/* Set dot value of variable at _qzz_addr from variable at _qzz_daddr of the same type of size _qzz_size. */
+#define DG_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)  \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
-                            VG_USERREQ__SET_DERIVATIVE,          \
+                            VG_USERREQ__SET_DOTVALUE,          \
                             (_qzz_addr), (_qzz_daddr), (_qzz_size), 0, 0)
+#define DERIVGRIND_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size) DG_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
+#define VALGRIND_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size) DG_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
+
+/* Enable/disable outputting of values and dot values for difference quotient debugging. */
+#define DG_DISABLE_DIFFQUOTDEBUG(_qzz_delta) \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__DISABLE_DIFFQUOTDEBUG,    \
+                            (_qzz_delta), 0, 0, 0, 0)
+#define DERIVGRIND_DISABLE_DIFFQUOTDEBUG(_qzz_delta) DG_DISABLE_DIFFQUOTDEBUG(_qzz_delta)
+
+/* --- Recording mode. ---*/
+
+/* Get index of variable at _qzz_addr into 8 byte at _qzz_iaddr. */
+#define DG_GET_INDEX(_qzz_addr,_qzz_iaddr)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__GET_INDEX,          \
+                            (_qzz_addr), (_qzz_iaddr), 0, 0, 0)
+#define DERIVGRIND_GET_INDEX(_qzz_addr,_qzz_iaddr) DG_GET_INDEX(_qzz_addr,_qzz_iaddr)
+
+
+/* Set index of variable at _qzz_addr from 8 byte at _qzz_iaddr.*/
+#define DG_SET_INDEX(_qzz_addr,_qzz_iaddr)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__SET_INDEX,          \
+                            (_qzz_addr), (_qzz_iaddr), 0, 0, 0)
+#define DERIVGRIND_SET_INDEX(_qzz_addr,_qzz_iaddr) DG_SET_INDEX(_qzz_addr,_qzz_iaddr)
+
+/* Push new operation to the tape, with activity analysis.
+ * _qzz_index1addr, _qzz_index2addr point to 8-byte indices,
+ * _qzz_diff1addr, _qzz_diff2addr point to 8-byte (double) partial derivatives,
+ * _qzz_newindexaddr points to 8 byte for new index, which can be zero if input indices are zero.
+ */
+#define DG_NEW_INDEX(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__NEW_INDEX,          \
+                            (_qzz_index1addr), (_qzz_index2addr), (_qzz_diff1addr), (_qzz_diff2addr), (_qzz_newindexaddr))
+#define DERIVGRIND_NEW_INDEX(_qzz_addr,_qzz_iaddr) DG_NEW_INDEX(_qzz_addr,_qzz_iaddr)
+
+/* Push new operation to the tape, without activity analysis.
+* _qzz_index1addr, _qzz_index2addr point to 8-byte indices,
+* _qzz_diff1addr, _qzz_diff2addr point to 8-byte (double) partial derivatives,
+* _qzz_newindexaddr points to 8 byte for new index, which is non-zero.
+*/
+#define DG_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS,          \
+                            (_qzz_index1addr), (_qzz_index2addr), (_qzz_diff1addr), (_qzz_diff2addr), (_qzz_newindexaddr))
+#define DERIVGRIND_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_addr,_qzz_iaddr) DG_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_addr,_qzz_iaddr)
 
 #endif
 
