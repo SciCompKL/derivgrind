@@ -23,15 +23,16 @@
  * contiguous input and output buffer. fptype should be either float or 
  * double.
  * 
- * This program expects to receive a binary stream in stdin, specifying,
+ * This program expects to read a binary file dg-torch-in, specifying,
  * in the following order,
  * - the size of the void* non-differentiable input buffer as an uint64,
  * - the respective number of bytes to fill the buffer,
  * - the number of elements of the differentiable input buffer as an uint64,
  * - the respective number of bytes to fill the buffer,
  * - the number of elements of the differentiable output buffer as an uint64.
- * It will then stream the output buffer back. Regarding the tape and the lists
- * of indices, the calling process must read them from the file system.
+ * It will then write the output buffer into a binary file dg-torch-out. 
+ * Regarding the tape and index files produced by the Derivgrind process,
+ * the calling process must read them separately.
  */
 
 template<typename fptype>
@@ -49,26 +50,26 @@ int main_fp(int argc, char* argv[]){
     exit(EXIT_FAILURE);
   }
 
-  // read binary input from stdin
-  freopen(NULL, "rb", stdin);
+  // read binary input
+  std::ifstream ifile("dg-torch-in");
   unsigned long long nondiff_input_size;
-  std::cin.read((char*)&nondiff_input_size, 8);
+  ifile.read((char*)&nondiff_input_size, 8);
   char* nondiff_input = new char[nondiff_input_size];
-  std::cin.read(nondiff_input, nondiff_input_size);
+  ifile.read(nondiff_input, nondiff_input_size);
   unsigned long long diff_input_count;
-  std::cin.read((char*)&diff_input_count, 8);
+  ifile.read((char*)&diff_input_count, 8);
   fptype diff_input = new fptype[diff_input_count];
-  std::cin.read((char*)diff_input, sizeof(fptype)*diff_input_count);
+  ifile.read((char*)diff_input, sizeof(fptype)*diff_input_count);
   unsigned long long diff_output_count;
-  std::cin.read((char*)&diff_output_count, 8);
+  ifile.read((char*)&diff_output_count, 8);
   fptype diff_output = new fptype[diff_output_count];
 
   // call the function
   loaded_fun(nondiff_input_size, nondiff_input, diff_input, diff_output);
 
-  // write binary output to stdout
-  freopen(NULL, "rb", stdout);
-  std::cout.write(diff_output, sizeof(fptype)*diff_output_count);
+  // write binary output
+  std::ofstream ofile("dg-torch-out")
+  ofile.write(diff_output, sizeof(fptype)*diff_output_count);
 
   return 0;
 }
