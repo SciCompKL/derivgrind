@@ -187,7 +187,7 @@ class InteractiveTestCase(TestCase):
     self.valgrind_log = ""
     self.gdb_log = ""
     # start Valgrind and extract "target remote" line
-    maybereverse = ["--record=rec"] if self.mode=='b' else []
+    maybereverse = ["--record=."] if self.mode=='b' else []
     valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=derivgrind", "--vgdb-error=0"]+maybereverse+["./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     while True:
       line = valgrind.stdout.readline()
@@ -302,7 +302,7 @@ class InteractiveTestCase(TestCase):
       with open("dg-output-adjoints","w") as outputadjoints:
         for var in self.bars:
           outputadjoints.writelines([str(self.bars[var])+"\n"])
-      tape_evaluation = subprocess.run(["../../install/bin/tape-evaluation", "rec"])
+      tape_evaluation = subprocess.run(["../../install/bin/tape-evaluation", "dg-tape"])
       with open("dg-input-adjoints","r") as inputadjoints:
         for var in self.test_bars:
           bar = float(inputadjoints.readline())
@@ -345,8 +345,6 @@ class ClientRequestTestCase(TestCase):
       self.code += "#include <valgrind/derivgrind.h>\n"
       self.code += self.include + "\n"
       self.code += "int main(){\n  int ret=0;\n"
-      if self.mode=='b':
-        self.code += "DG_CLEARF;\n"
       self.code += "".join([f"  {self.type['ctype']} {var} = {self.vals[var]};\n" for var in self.vals]) 
       self.code += "  {\n"
       if self.mode=='d':
@@ -524,7 +522,7 @@ class ClientRequestTestCase(TestCase):
       environ["PYTHONPATH"] += ":"+environ["PWD"]+"/python"
     else:
       commands = ['./TestCase_exec']
-    maybereverse = ["--record=rec"] if self.mode=='b' else []
+    maybereverse = ["--record=."] if self.mode=='b' else []
     valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
@@ -535,7 +533,7 @@ class ClientRequestTestCase(TestCase):
         for var in self.bars: # same order as in the client code
           for i in range(repetitions):
             print(str(self.bars[var]), file=outputadjoints)
-      tape_evaluation = subprocess.run(["../../install/bin/tape-evaluation","rec"],env=environ)
+      tape_evaluation = subprocess.run(["../../install/bin/tape-evaluation","dg-tape"],env=environ)
       with open("dg-input-adjoints","r") as inputadjoints:
         for var in self.test_bars: # same order as in the client code
           for i in range(repetitions):

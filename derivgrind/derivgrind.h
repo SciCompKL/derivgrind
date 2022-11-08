@@ -88,9 +88,13 @@ typedef
       VG_USERREQ__SET_INDEX,
       VG_USERREQ__NEW_INDEX,
       VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS,
+      VG_USERREQ__INDEX_TO_FILE
    } Vg_DerivgrindClientRequest;
 
-
+typedef enum {
+     DG_INDEXFILE_INPUT,
+     DG_INDEXFILE_OUTPUT
+   } Dg_Indexfile;
 
 /* === Client-code macros to manipulate the state of memory. === */
 // We added synonymes that write out "DG_" as "DERIVGRNID_" for better
@@ -147,7 +151,7 @@ typedef
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__NEW_INDEX,          \
                             (_qzz_index1addr), (_qzz_index2addr), (_qzz_diff1addr), (_qzz_diff2addr), (_qzz_newindexaddr))
-#define DERIVGRIND_NEW_INDEX(_qzz_addr,_qzz_iaddr) DG_NEW_INDEX(_qzz_addr,_qzz_iaddr)
+#define DERIVGRIND_NEW_INDEX(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr) DG_NEW_INDEX(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr)
 
 /* Push new operation to the tape, without activity analysis.
 * _qzz_index1addr, _qzz_index2addr point to 8-byte indices,
@@ -159,6 +163,15 @@ typedef
                             VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS,          \
                             (_qzz_index1addr), (_qzz_index2addr), (_qzz_diff1addr), (_qzz_diff2addr), (_qzz_newindexaddr))
 #define DERIVGRIND_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_addr,_qzz_iaddr) DG_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_addr,_qzz_iaddr)
+
+/* Write index to an index file.
+ */
+#define DG_INDEX_TO_FILE(_qzz_outputfile,_qzz_indexaddr)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__INDEX_TO_FILE,          \
+                            (_qzz_outputfile), (_qzz_indexaddr), 0, 0, 0)
+#define DERIVGRIND_INDEX_TO_FILE(_qzz_outputfile,_qzz_addrindex) DG_INDEX_TO_FILE(_qzz_outputfile,_qzz_addrindex)
+
 
 #endif
 
