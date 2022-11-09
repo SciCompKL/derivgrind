@@ -1,6 +1,8 @@
 #include <iostream>
+#include <fstream>
 #include <cstdio>
 #include <dlfcn.h>
+#include "derivgrind.h"
 
 /*! \file derivgrind-library-caller.cpp
  * Simple program registering inputs, loading and calling a function, 
@@ -11,28 +13,23 @@
  * itself does not run under Derivgrind. 
  *
  * Usage:
- * derivgrind-library-caller library.so functionname fptype 
+ * derivgrind-library-caller library.so functionname fptype nParam nInput nOutput path
+ *
+ * This calls the symbol `functionname` from library.so, providing nParam
+ * bytes of non-differentiable parameters, nInput differentiable input scalars of
+ * type fptype, and nOutput differentiable output scalars if type fptype.
  *
  * The signature of the external function must be 
- *     void(int, void*, fptype const*, fptype*)
- * The int and void* arguments specify the size and beginning of a buffer
- * containing non-differentiable input to the function. It might be used 
- * to pass hyperparameters like the size of the differentiable input and
- * output.
- * The fptype const* and fptype* arguments specify the beginning of the
- * contiguous input and output buffer. fptype should be either float or 
- * double.
+ *     void functionname(int, char*, int, fptype const*, int, fptype*)
+ * The three pairs of an integer and a pointer specify the size/count of
+ * bytes/scalars in the parameter, input and output buffer, respectively.
  * 
- * This program expects to read a binary file dg-torch-in, specifying,
- * in the following order,
- * - the size of the void* non-differentiable input buffer as an uint64,
- * - the respective number of bytes to fill the buffer,
- * - the number of elements of the differentiable input buffer as an uint64,
- * - the respective number of bytes to fill the buffer,
- * - the number of elements of the differentiable output buffer as an uint64.
- * It will then write the output buffer into a binary file dg-torch-out. 
- * Regarding the tape and index files produced by the Derivgrind process,
- * the calling process must read them separately.
+ * This program gets the parameters and inputs from binary files 
+ * dg-libcaller-param, dg-libcaller-inputs, 
+ * which it expects in the specified path.
+ * It will then write the output buffer into a binary file dg-libcaller-outputs
+ * in the same path. 
+ * If can make sense to set the `--record` argument to Derivgrind to this path as well.
  */
 
 template<typename fptype>
@@ -43,33 +40,61 @@ int main_fp(int argc, char* argv[]){
     std::cerr << "Error loading shared object '" << argv[1] << "':\n" << dlerror() << std::endl;
     exit(EXIT_FAILURE);
   }
-  using fptr = void (*)(fptype*, fptype*);
+  using fptr = void (*)(int,char*,int,fptype const*,int, fptype*);
   fptr loaded_fun = (fptr)dlsym(loaded_lib, argv[2]);
   if(!loaded_fun){
     std::cerr << "Error loading symbol '" << argv[2] <<"':\n" << dlerror() << std::endl;
     exit(EXIT_FAILURE);
   }
 
-  // read binary input
-  std::ifstream ifile("dg-torch-in");
-  unsigned long long nondiff_input_size;
-  ifile.read((char*)&nondiff_input_size, 8);
-  char* nondiff_input = new char[nondiff_input_size];
-  ifile.read(nondiff_input, nondiff_input_size);
-  unsigned long long diff_input_count;
-  ifile.read((char*)&diff_input_count, 8);
-  fptype diff_input = new fptype[diff_input_count];
-  ifile.read((char*)diff_input, sizeof(fptype)*diff_input_count);
-  unsigned long long diff_output_count;
-  ifile.read((char*)&diff_output_count, 8);
-  fptype diff_output = new fptype[diff_output_count];
+  // sizes of non-differentiable parameters, differentiable inputs, differentiable outputs
+  long long param_size, input_count, output_count;
+  try { // parse from command-line arguments
+    param_size = std::stoll(argv[4]);
+    input_count = std::stoll(argv[5]);
+    output_count = std::stoll(argv[6]);
+  } catch (std::invalid_argument const& ex) {
+    std::cerr << "Invalid argument:\n" << ex.what() << std::endl;
+    exit(EXIT_FAILURE);
+  } catch (std::out_of_range const& ex) {
+    std::cerr << "Argument out of range:\n" << ex.what() << std::endl;
+    exit(EXIT_FAILURE);
+  }
 
+  // buffers for non-diff parameters, diff inputs, diff outputs
+  char* param_buf;
+  fptype *input_buf, *output_buf;
+ 
+  // read content from files
+  std::string path = argv[7];
+  std::ifstream param_file(path+"/dg-libcaller-params", std::ios::binary);
+  std::ifstream input_file(path+"/dg-libcaller-inputs", std::ios::binary);
+
+  param_buf = new char[param_size+1]; // +1 to avoid allocations of length zero
+  input_buf = new fptype[input_count+1];
+  output_buf = new fptype[output_count+1];
+  if(!param_buf || !input_buf || !output_buf){
+    std::cerr << "Failure to allocate buffers." << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  param_file.read((char*)param_buf, param_size);
+  input_file.read((char*)input_buf, input_count*sizeof(fptype));
+
+  // register inputs
+  for(unsigned long long i=0; i<input_count; i++){
+    DG_INPUTF(input_buf[i]);
+  }
   // call the function
-  loaded_fun(nondiff_input_size, nondiff_input, diff_input, diff_output);
+  loaded_fun(param_size, param_buf, input_count, input_buf, output_count, output_buf);
+  // register outputs
+  for(unsigned long long i=0; i<output_count; i++){
+    DG_OUTPUTF(output_buf[i]);
+  }
 
   // write binary output
-  std::ofstream ofile("dg-torch-out")
-  ofile.write(diff_output, sizeof(fptype)*diff_output_count);
+  std::ofstream output_file(path+"/dg-libcaller-outputs", std::ios::binary);
+  output_file.write((char*)output_buf, sizeof(fptype)*output_count);
 
   return 0;
 }
