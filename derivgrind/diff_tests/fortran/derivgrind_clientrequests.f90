@@ -69,12 +69,6 @@ module derivgrind_clientrequests
       type(c_ptr)  :: val
     end subroutine dg_outputf
   end interface
-  interface
-    subroutine dg_clearf() bind(C)
-      use, intrinsic :: iso_c_binding
-      implicit none
-    end subroutine dg_clearf
-  end interface
   
 end module
 

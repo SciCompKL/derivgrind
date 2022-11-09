@@ -69,7 +69,4 @@ PYBIND11_MODULE(derivgrind, m){
   m.def( "outputf", [](double val)->void {
     DG_OUTPUTF(val);
   });
-  m.def( "clearf", [](void)->void {
-    DG_CLEARF;
-  });
 }

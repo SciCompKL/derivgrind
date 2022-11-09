@@ -403,8 +403,6 @@ class ClientRequestTestCase(TestCase):
       """
       for var in self.vals:
         self.code += f"{self.type['ftype']}, target :: {var} = {str_fortran(self.vals[var])}\n"
-      if self.mode=='b':
-        self.code += "call dg_clearf()\n"
       for var in self.dots:
         if self.mode=='d':
           self.code += f"""
@@ -447,8 +445,6 @@ class ClientRequestTestCase(TestCase):
       """
     elif self.compiler == "python":
       self.code = "import numpy as np\nimport derivgrind as dg\nret = 0\n"
-      if self.mode=='b':
-        self.code += "dg.clearf()\n"
       # NumPy tests perform the same calculation 16 times
       if self.type['pytype']=='float':
         self_vals = self.vals

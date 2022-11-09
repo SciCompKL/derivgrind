@@ -43,6 +43,3 @@ void dg_inputf(void** val){
 void dg_outputf(void** val){
   DG_OUTPUTF(*(unsigned long long*)*val);
 }
-void dg_clearf(void){
-  DG_CLEARF;
-}
