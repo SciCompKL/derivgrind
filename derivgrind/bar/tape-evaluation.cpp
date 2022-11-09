@@ -19,23 +19,24 @@ using ull = unsigned long long;
 
 void print_usage(){
   std::cerr << 
-    "Usage: ./tape-evaluation tapefile [input index]... [output index=output bar value]...\n"
-    "  tapefile     .. Path to the tape file recorded by Derivgrind.\n"
+    "Usage: ./tape-evaluation path [input index]... [output index=output bar value]...\n"
+    "  tapefile     .. Path to the directory containing the file dg-tape recorded by Derivgrind.\n"
     "  input index  .. Index of input variable as assigned by Derivgrind.\n"
     "  output index .. Index of output variable as assigned by Derivgrind.\n"
     "  output bar value   .. Bar value of output.\n" 
     "If at least one input or output is specified, the adjoints of the inputs\n"
     "are written to stdout.\n"
     "If no inputs and outputs are specified, they are read from the files\n"
-    "dg-input-indices dg-output-indices dg-output-adjoints and the input\n"
-    "adjoints are written to dg-input-adjoints.\n" ;
+    "path/dg-input-indices path/dg-output-indices path/dg-output-adjoints\n"
+    "and the input adjoints are written to path/dg-input-adjoints.\n" ;
 }
 
 
 int main(int argc, char* argv[]){
   // read tape file into memory
   if(argc<2){ print_usage();return 1; }
-  std::ifstream tapefile(argv[1],std::ios::binary);
+  std::string path = argv[1];
+  std::ifstream tapefile(path+"/dg-tape",std::ios::binary);
   if(!tapefile.good()){ std::cerr << "Cannot open tape file '"<<argv[1]<<"'." << std::endl; return 1; }
   tapefile.seekg(0,std::ios::end);
   ull tapesize = tapefile.tellg(); // in bytes
@@ -52,9 +53,9 @@ int main(int argc, char* argv[]){
 
   // set bar values of output variables
   if(argc==2){ // from file
-    std::ifstream outputindices("dg-output-indices");
+    std::ifstream outputindices(path+"/dg-output-indices");
     if(!outputindices.good()){ std::cerr << "Error: while opening dg-output-indices." << std::endl; return 1; }
-    std::ifstream outputadjoints("dg-output-adjoints");
+    std::ifstream outputadjoints(path+"/dg-output-adjoints");
     if(!outputadjoints.good()){ std::cerr << "Error: while opening dg-output-adjoints." << std::endl; return 1; }
     while(true){
       ull index;
@@ -89,7 +90,7 @@ int main(int argc, char* argv[]){
   // collect input variables
   std::vector<ull> inputindices_list;
   if(argc==2){ // from file
-    std::ifstream inputindices("dg-input-indices");
+    std::ifstream inputindices(path+"/dg-input-indices");
     if(!inputindices.good()){ std::cerr << "Error: while opening dg-input-indices." << std::endl; return 1; }
     while(true){
       ull index;
@@ -140,7 +141,7 @@ int main(int argc, char* argv[]){
 
   // output adjoints of inputs
   if(argc==2){ // to file
-    std::ofstream inputadjoints("dg-input-adjoints");
+    std::ofstream inputadjoints(path+"/dg-input-adjoints");
     for(ull index : inputindices_list){
       inputadjoints << std::setprecision(16) << adjointvec[index] << std::endl;
     }
@@ -153,9 +154,4 @@ int main(int argc, char* argv[]){
   delete[] tape_buf;
   delete[] adjointvec;
 }
-
-
-
-
-
 

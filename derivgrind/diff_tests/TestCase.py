@@ -302,7 +302,7 @@ class InteractiveTestCase(TestCase):
       with open("dg-output-adjoints","w") as outputadjoints:
         for var in self.bars:
           outputadjoints.writelines([str(self.bars[var])+"\n"])
-      tape_evaluation = subprocess.run(["../../install/bin/tape-evaluation", "dg-tape"])
+      tape_evaluation = subprocess.run(["../../install/bin/tape-evaluation", "."])
       with open("dg-input-adjoints","r") as inputadjoints:
         for var in self.test_bars:
           bar = float(inputadjoints.readline())
@@ -529,7 +529,7 @@ class ClientRequestTestCase(TestCase):
         for var in self.bars: # same order as in the client code
           for i in range(repetitions):
             print(str(self.bars[var]), file=outputadjoints)
-      tape_evaluation = subprocess.run(["../../install/bin/tape-evaluation","dg-tape"],env=environ)
+      tape_evaluation = subprocess.run(["../../install/bin/tape-evaluation","."],env=environ)
       with open("dg-input-adjoints","r") as inputadjoints:
         for var in self.test_bars: # same order as in the client code
           for i in range(repetitions):
