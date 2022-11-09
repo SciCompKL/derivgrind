@@ -61,6 +61,13 @@ derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LINK = \
 	$(derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDFLAGS)
 endif
 
+BUILT_SOURCES = dot/dg_dot_operations.c bar/dg_bar_operations.c
+dot/dg_dot_operations.c: gen_operationhandling_code.py
+	python3 gen_operationhandling_code.py dot > dot/dg_dot_operations.c
+bar/dg_bar_operations.c: gen_operationhandling_code.py
+	python3 gen_operationhandling_code.py bar > bar/dg_bar_operations.c
+CLEANFILES = dot/dg_dot_operations.c bar/dg_bar_operations.c
+
 
 #----------------------------------------------------------------------------
 # vgpreload_derivgrind-<platform>.so
@@ -103,6 +110,9 @@ vgpreload_derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_LDFLAGS      = \
 vgpreload_derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_LDADD      = -lm
 endif
 
+dg_replace_math.c: gen_replace_math.py
+	python3 gen_replace_math.py
+CLEANFILES += dg_replace_math.c
 
 #----------------------------------------------------------------------------
 # tape_evaluation
