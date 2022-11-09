@@ -113,3 +113,10 @@ bin_PROGRAMS = \
 
 tape_evaluation_SOURCES = bar/tape-evaluation.cpp
 
+#----------------------------------------------------------------------------
+# derivgrind-library-caller
+#----------------------------------------------------------------------------
+noinst_PROGRAMS += derivgrind-library-caller
+derivgrind_library_caller_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
+derivgrind_library_caller_CPPFLAGS = -I../..  # needs derivgrind.h
+
