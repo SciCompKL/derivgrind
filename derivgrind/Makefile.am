@@ -128,5 +128,24 @@ tape_evaluation_SOURCES = bar/tape-evaluation.cpp
 #----------------------------------------------------------------------------
 noinst_PROGRAMS += derivgrind-library-caller
 derivgrind_library_caller_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
-derivgrind_library_caller_CPPFLAGS = -I../..  # needs derivgrind.h
+derivgrind_library_caller_CPPFLAGS = -I. -I../include  # needs derivgrind.h and valgrind.h
+
+#----------------------------------------------------------------------------
+# Compiled client request macros.
+#----------------------------------------------------------------------------
+pkglib_LIBRARIES = libderivgrind_clientrequests-x86.a
+libderivgrind_clientrequests_x86_a_SOURCES = wrappers/compiled/derivgrind_clientrequests.c
+libderivgrind_clientrequests_x86_a_CFLAGS = -I. -I../include -m32 # needs derivgrind.h and valgrind.h
+pkglib_LIBRARIES += libderivgrind_clientrequests-amd64.a
+libderivgrind_clientrequests_amd64_a_SOURCES = wrappers/compiled/derivgrind_clientrequests.c
+libderivgrind_clientrequests_amd64_a_CFLAGS = -I. -I../include # needs derivgrind.h and valgrind.h
+
+#----------------------------------------------------------------------------
+# Fortran client request wrapper.
+#----------------------------------------------------------------------------
+# We build a .mod file, equivalent to C header files, which links to the C client request wrappers.
+pkginclude_HEADERS += wrappers/fortran/derivgrind_clientrequests.mod
+wrappers/fortran/derivgrind_clientrequests.mod: wrappers/fortran/derivgrind_clientrequests.f90
+	cd wrappers/fortran && gfortran -c derivgrind_clientrequests.f90
+CLEANFILES += wrappers/fortran/derivgrind_clientrequests.mod
 

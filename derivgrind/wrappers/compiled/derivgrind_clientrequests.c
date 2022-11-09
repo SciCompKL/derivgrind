@@ -29,7 +29,7 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#include <valgrind/derivgrind.h>
+#include "derivgrind.h"
 
 void dg_set_dotvalue(void** val, void** grad, int* size){
   DG_SET_DOTVALUE(*val,*grad,*size);
