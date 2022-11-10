@@ -515,7 +515,7 @@ class ClientRequestTestCase(TestCase):
       commands = ['python3', 'TestCase_src.py']
       if "PYTHONPATH" not in environ:
         environ["PYTHONPATH"]=""
-      environ["PYTHONPATH"] += ":"+environ["PWD"]+"/python"
+      environ["PYTHONPATH"] += ":"+environ["PWD"]+"/../../install/lib/python3/site-packages"
     else:
       commands = ['./TestCase_exec']
     maybereverse = ["--record=."] if self.mode=='b' else []
