@@ -5,6 +5,23 @@ import tempfile
 import os
 import subprocess
 
+#! \file derivgrind_torch_in.py
+# Template for a Python module exposing Derivgrind-differentiated 
+# library functions to PyTorch.
+#
+# Basically, we create a class derived from autograd.Function and
+# providing functions 
+# - `forward` for the tape recording pass, creating a Derivgrind 
+#   process to record the evaluation of the library function, and
+# - `backward` for the tape evaluation pass, creating a 
+#   tape-evaluation process. 
+# 
+# The relative directory containing the valgrind and tape-evaluation 
+# executables is hard-coded in the end of this file. During the build 
+# process, another assignment with the proper installation directory 
+# is appended.
+
+
 def derivgrind(library,functionname):
   class DerivgrindLibraryCaller(torch.autograd.Function):
     @staticmethod
@@ -28,7 +45,7 @@ def derivgrind(library,functionname):
       with open(tempdir.name+"/dg-libcaller-inputs", "wb") as input_buf:
         input.numpy().tofile(input_buf)
 
-      forward_process = subprocess.run(["/home/aehle/valgrind/install/bin/valgrind", "--tool=derivgrind", "--record="+tempdir.name, "/home/aehle/valgrind/derivgrind/wrappers/torch/derivgrind-library-caller", library, functionname, fptype, str(len(params)), str(len(input)), str(noutput), tempdir.name])
+      forward_process = subprocess.run([bin_path+"/valgrind", "--quiet", "--tool=derivgrind", "--record="+tempdir.name, "/home/aehle/valgrind/derivgrind/wrappers/torch/derivgrind-library-caller", library, functionname, fptype, str(len(params)), str(len(input)), str(noutput), tempdir.name])
       
       with open(tempdir.name+"/dg-libcaller-outputs",'rb') as output_buf:
         output = torch.tensor(np.fromfile(output_buf, dtype=input.numpy().dtype, count=noutput))
@@ -60,7 +77,7 @@ def derivgrind(library,functionname):
       with open(tempdir.name+"/dg-output-adjoints","w") as outputadjoints_buf:
         outputadjoints_buf.writelines([str(float(adj))+"\n" for adj in grad_output])
 
-      backward_process = subprocess.run(["/home/aehle/valgrind/install/bin/tape-evaluation", tempdir.name])
+      backward_process = subprocess.run([bin_path+"/tape-evaluation", tempdir.name])
 
       grad_input = torch.empty(ctx.ninput,dtype=grad_output.dtype)
       with open(tempdir.name+"/dg-input-adjoints","r") as inputadjoints_buf:
@@ -71,7 +88,9 @@ def derivgrind(library,functionname):
   
   return DerivgrindLibraryCaller
 
-x = torch.tensor([4.0],dtype=torch.float64,requires_grad=True)
-y = derivgrind("mylib.so", "myfun").apply(b"",x,1)
-y.backward()
-print(x.grad)
+#x = torch.tensor([4.0],dtype=torch.float64,requires_grad=True)
+#y = derivgrind("mylib.so", "myfun").apply(b"",x,1)
+#y.backward()
+#print(x.grad)
+
+bin_path = os.path.dirname(__file__)+"/../../../install/bin"

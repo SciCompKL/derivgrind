@@ -155,10 +155,21 @@ endif
 #----------------------------------------------------------------------------
 # Python client request wrapper.
 #----------------------------------------------------------------------------
-if ENABLE_PYTHON
 libpythondir = ${libdir}/python3/site-packages
+if ENABLE_PYTHON
 libpython_DATA = wrappers/python3/derivgrind.so
 wrappers/python3/derivgrind.so: wrappers/python3/derivgrind_clientrequests_python.cpp
 	$(CXX) -fvisibility=hidden -shared -fPIC -std=c++17 -Iwrappers/python3/pybind11/include -I$$(@PYTHON@  -c "import sysconfig; print(sysconfig.get_path('include'))") wrappers/python3/derivgrind_clientrequests_python.cpp -o wrappers/python3/derivgrind.so -I. -I../include $$(@PYTHON@ -c "import sys; print('' if sys.maxsize>2**32 else '-m32')")
 CLEANFILES += wrappers/python3/derivgrind.so
 endif
+
+#----------------------------------------------------------------------------
+# PyTorch external function wrapper.
+#----------------------------------------------------------------------------
+libpython_SCRIPTS = wrappers/torch/derivgrind_torch.py
+relative_bindir = 
+wrappers/torch/derivgrind_torch.py: wrappers/torch/derivgrind_torch_in.py
+	cp wrappers/torch/derivgrind_torch_in.py wrappers/torch/derivgrind_torch.py # now append assignment of path to install bin directoy
+	echo "bin_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${bindir}', '${libpythondir}'))")\"" >> wrappers/torch/derivgrind_torch.py
+CLEANFILES += wrappers/torch/derivgrind_torch.py
+
