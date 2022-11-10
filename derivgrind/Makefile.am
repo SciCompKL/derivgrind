@@ -159,6 +159,6 @@ if ENABLE_PYTHON
 libpythondir = ${libdir}/python3/site-packages
 libpython_DATA = wrappers/python3/derivgrind.so
 wrappers/python3/derivgrind.so: wrappers/python3/derivgrind_clientrequests_python.cpp
-	$(CXX) -fvisibility=hidden -shared -fPIC -std=c++17 -Iwrappers/python3/pybind11/include @PYTHON_INCLUDES@ wrappers/python3/derivgrind_clientrequests_python.cpp -o wrappers/python3/derivgrind.so -I. -I../include
+	$(CXX) -fvisibility=hidden -shared -fPIC -std=c++17 -Iwrappers/python3/pybind11/include -I$(@PYTHON@  -c "import sysconfig; print(sysconfig.get_path('include'))") wrappers/python3/derivgrind_clientrequests_python.cpp -o wrappers/python3/derivgrind.so -I. -I../include $(@PYTHON@ -c "import sys; print('' if sys.maxsize>2**32 else '-m32')")
 CLEANFILES += wrappers/python3/derivgrind.so
 endif
