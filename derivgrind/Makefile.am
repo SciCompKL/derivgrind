@@ -129,6 +129,7 @@ tape_evaluation_SOURCES = bar/tape-evaluation.cpp
 noinst_PROGRAMS += derivgrind-library-caller
 derivgrind_library_caller_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
 derivgrind_library_caller_CPPFLAGS = -I. -I../include  # needs derivgrind.h and valgrind.h
+derivgrind_library_caller_LDFLAGS = -ldl
 
 #----------------------------------------------------------------------------
 # Compiled client request macros.
