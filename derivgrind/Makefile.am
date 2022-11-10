@@ -152,3 +152,13 @@ wrappers/fortran/derivgrind_clientrequests.mod: wrappers/fortran/derivgrind_clie
 CLEANFILES += wrappers/fortran/derivgrind_clientrequests.mod
 endif 
 
+#----------------------------------------------------------------------------
+# Python client request wrapper.
+#----------------------------------------------------------------------------
+if ENABLE_PYTHON
+libpythondir = ${libdir}/python3/site-packages
+libpython_DATA = derivgrind.so
+derivgrind.so: diff_tests/python/derivgrind_clientrequests.cpp
+	g++ -fvisibility=hidden -shared -fPIC -std=c++17 -Idiff_tests/python/pybind11/include @PYTHON_INCLUDES@ diff_tests/python/derivgrind_clientrequests.cpp -o derivgrind.so -I. -I../include
+
+endif

@@ -5287,12 +5287,47 @@ AM_CONDITIONAL([HAVE_SHARED_POINTER_ANNOTATION],
 #----------------------------------------------------------------------------
 # Derivgrind options.
 #----------------------------------------------------------------------------
-AC_CACHE_CHECK([for building the Derivgrind Fortran client request wrappers], vg_cv_dg_fortran,
+AC_CACHE_CHECK([whether to build the Derivgrind Fortran client request wrappers], vg_cv_dg_fortran,
   [AC_ARG_ENABLE(fortran,
     [  --enable-fortran          enables building the Derivgrind Fortran client request wrappers],
     [vg_cv_dg_fortran=$enableval],
     [vg_cv_dg_fortran=yes])])
 AM_CONDITIONAL([ENABLE_FORTRAN], [test x$vg_cv_dg_fortran = xyes])
+
+AC_CACHE_CHECK([whether to build the Derivgrind Python client request wrappers], vg_cv_dg_python,
+  [AC_ARG_ENABLE(python,
+    [  --enable-python           enables building the Derivgrind Python client request wrappers],
+    [vg_cv_dg_python=$enableval],
+    [vg_cv_dg_python=no])])
+AM_CONDITIONAL([ENABLE_PYTHON], [test x$vg_cv_dg_python != no])
+AC_SUBST(PYTHON_INCLUDES) # something like -I/usr/includes/python3.10
+if test x$vg_cv_dg_python != xno; then
+  if test x$vg_cv_dg_python == xyes; then # no Python includes supplied, try to find them with python3-config
+    AC_MSG_CHECKING([for include flags with python3-config])
+    if ! command -v python3-config &> /dev/null; then
+      AC_MSG_RESULT([not found])
+      AC_MSG_ERROR([Building Derivgrind Python wrappers was enabled but no include flags were provided, and python3-config was not found.])
+    else
+      PYTHON_INCLUDES=$(python3-config --includes)
+      AC_MSG_RESULT([found (${PYTHON_INCLUDES})])
+    fi
+  else
+    PYTHON_INCLUDES="-I${vg_cv_dg_python}"
+  fi
+  AC_MSG_CHECKING([Python.h])
+  temp_dir=$( /usr/bin/mktemp -d )
+  echo "#include <Python.h>" >${temp_dir}/mylib.c
+  ${CC} ${CFLAGS} -c -o ${temp_dir}/mylib.o ${temp_dir}/mylib.c ${PYTHON_INCLUDES} 2>${temp_dir}/error
+  if test "$(cat ${temp_dir}/error)" != "" ; then
+    AC_MSG_RESULT([bad])
+    rm -rf ${temp_dir}
+    AC_MSG_ERROR([No or bad Python.h found using the include flags (${PYTHON_INCLUDES}).])
+  else
+    AC_MSG_RESULT([ok])
+    rm -rf ${temp_dir}
+  fi
+fi
+
 
 
 #----------------------------------------------------------------------------
