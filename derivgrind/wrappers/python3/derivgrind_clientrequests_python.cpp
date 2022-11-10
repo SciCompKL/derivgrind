@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------*/
-/*--- Wrap client request            derivgrind_clientrequests.cpp ---*/
+/*--- Wrap client request     derivgrind_clientrequests_python.cpp ---*/
 /*--- functions for Python.                                        ---*/
 /*--------------------------------------------------------------------*/
 

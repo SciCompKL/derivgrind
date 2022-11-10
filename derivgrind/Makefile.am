@@ -157,8 +157,8 @@ endif
 #----------------------------------------------------------------------------
 if ENABLE_PYTHON
 libpythondir = ${libdir}/python3/site-packages
-libpython_DATA = derivgrind.so
-derivgrind.so: diff_tests/python/derivgrind_clientrequests.cpp
-	g++ -fvisibility=hidden -shared -fPIC -std=c++17 -Idiff_tests/python/pybind11/include @PYTHON_INCLUDES@ diff_tests/python/derivgrind_clientrequests.cpp -o derivgrind.so -I. -I../include
-
+libpython_DATA = wrappers/python3/derivgrind.so
+wrappers/python3/derivgrind.so: wrappers/python3/derivgrind_clientrequests_python.cpp
+	$(CXX) -fvisibility=hidden -shared -fPIC -std=c++17 -Iwrappers/python3/pybind11/include @PYTHON_INCLUDES@ wrappers/python3/derivgrind_clientrequests_python.cpp -o wrappers/python3/derivgrind.so -I. -I../include
+CLEANFILES += wrappers/python3/derivgrind.so
 endif

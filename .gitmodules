@@ -1,3 +1,6 @@
 [submodule "shadow-memory"]
 	path = shadow-memory
 	url = https://github.com/maxaehle/shadow-memory
+[submodule "derivgrind/wrappers/python3/pybind11"]
+	path = derivgrind/wrappers/python3/pybind11
+	url = https://github.com/pybind/pybind11.git
