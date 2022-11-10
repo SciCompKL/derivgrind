@@ -129,7 +129,7 @@ tape_evaluation_SOURCES = bar/tape-evaluation.cpp
 noinst_PROGRAMS += derivgrind-library-caller
 derivgrind_library_caller_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
 derivgrind_library_caller_CPPFLAGS = -I. -I../include  # needs derivgrind.h and valgrind.h
-derivgrind_library_caller_LDFLAGS = -ldl
+derivgrind_library_caller_LDADD = -ldl
 
 #----------------------------------------------------------------------------
 # Compiled client request macros.
@@ -147,6 +147,6 @@ libderivgrind_clientrequests_amd64_a_CFLAGS = -I. -I../include # needs derivgrin
 # We build a .mod file, equivalent to C header files, which links to the C client request wrappers.
 pkginclude_HEADERS += wrappers/fortran/derivgrind_clientrequests.mod
 wrappers/fortran/derivgrind_clientrequests.mod: wrappers/fortran/derivgrind_clientrequests.f90
-	cd wrappers/fortran && gfortran -c derivgrind_clientrequests.f90
+	cd wrappers/fortran && $(FC) $(AM_FCFLAGS) $(FCFLAGS) -c derivgrind_clientrequests.f90
 CLEANFILES += wrappers/fortran/derivgrind_clientrequests.mod
 
