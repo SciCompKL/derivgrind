@@ -145,8 +145,10 @@ libderivgrind_clientrequests_amd64_a_CFLAGS = -I. -I../include # needs derivgrin
 # Fortran client request wrapper.
 #----------------------------------------------------------------------------
 # We build a .mod file, equivalent to C header files, which links to the C client request wrappers.
+if ENABLE_FORTRAN
 pkginclude_HEADERS += wrappers/fortran/derivgrind_clientrequests.mod
 wrappers/fortran/derivgrind_clientrequests.mod: wrappers/fortran/derivgrind_clientrequests.f90
 	cd wrappers/fortran && $(FC) $(AM_FCFLAGS) $(FCFLAGS) -c derivgrind_clientrequests.f90
 CLEANFILES += wrappers/fortran/derivgrind_clientrequests.mod
+endif 
 

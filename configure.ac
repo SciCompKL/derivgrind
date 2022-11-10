@@ -5285,6 +5285,17 @@ AM_CONDITIONAL([HAVE_SHARED_POINTER_ANNOTATION],
 
 
 #----------------------------------------------------------------------------
+# Derivgrind options.
+#----------------------------------------------------------------------------
+AC_CACHE_CHECK([for building the Derivgrind Fortran client request wrappers], vg_cv_dg_fortran,
+  [AC_ARG_ENABLE(fortran,
+    [  --enable-fortran          enables building the Derivgrind Fortran client request wrappers],
+    [vg_cv_dg_fortran=$enableval],
+    [vg_cv_dg_fortran=yes])])
+AM_CONDITIONAL([ENABLE_FORTRAN], [test x$vg_cv_dg_fortran = xyes])
+
+
+#----------------------------------------------------------------------------
 # Ok.  We're done checking.
 #----------------------------------------------------------------------------
 
