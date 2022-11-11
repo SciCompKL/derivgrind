@@ -115,7 +115,8 @@ dg_replace_math.c: gen_replace_math.py
 CLEANFILES += dg_replace_math.c
 
 #----------------------------------------------------------------------------
-# tape_evaluation
+# tape_evaluation,
+# the executable for the reverse pass.
 #----------------------------------------------------------------------------
 
 bin_PROGRAMS = \
@@ -124,7 +125,8 @@ bin_PROGRAMS = \
 tape_evaluation_SOURCES = bar/tape-evaluation.cpp
 
 #----------------------------------------------------------------------------
-# derivgrind-library-caller
+# derivgrind-library-caller, 
+# the executable needed for the Torch external function wrapper.
 #----------------------------------------------------------------------------
 noinst_PROGRAMS += derivgrind-library-caller
 derivgrind_library_caller_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
@@ -155,6 +157,10 @@ endif
 #----------------------------------------------------------------------------
 # Python client request wrapper.
 #----------------------------------------------------------------------------
+# We build the Python extension module either for x86 or amd64, depending on which
+# architecture the Python interpreter supplied to --enable-python was built for.
+# In order to manually build for the other architecture, use the bash command below
+# with the proper include directory and either the '-m32' or no flag.
 libpythondir = ${libdir}/python3/site-packages
 if ENABLE_PYTHON
 libpython_DATA = wrappers/python3/derivgrind.so
