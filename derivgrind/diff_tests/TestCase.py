@@ -63,8 +63,8 @@ def str_fortran(d):
   else:
     return s+"d0"
 
-install_path = "" # Valgrind installation directory
-temp_path = "" # directory for temporary files produced by tests
+install_dir = "" # Valgrind installation directory
+temp_dir = "" # directory for temporary files produced by tests
 
 class TestCase:
   """Basic data for a Derivgrind test case."""
@@ -96,8 +96,8 @@ class TestCase:
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
     self.disable = lambda mode, arch, language, typename : False # if True, test will not be run
     self.compiler = "gcc" # gcc, g++, gfortran, python
-    self.install_path = install_path # Valgrind installation directory
-    self.temp_path = temp_path # directory of temporary files produced by tests
+    self.install_dir = install_dir # Valgrind installation directory
+    self.temp_dir = temp_dir # directory of temporary files produced by tests
 
 class InteractiveTestCase(TestCase):
   """Methods to run a Derivgrind test case interactively in VGDB."""
@@ -152,19 +152,19 @@ class InteractiveTestCase(TestCase):
     # write C or Fortran code into file
     if self.compiler in ['gcc','clang']:
       self.source_filename = "TestCase_src.c"
-      with open(self.temp_path+"/"+self.source_filename, "w") as f:
+      with open(self.temp_dir+"/"+self.source_filename, "w") as f:
         f.write(self.code)
-      compile_process = subprocess.run(['gcc', "-g", "-O0", self.temp_path+"/"+self.source_filename, "-o", self.temp_path+"/TestCase_exec"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler=='clang' else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
+      compile_process = subprocess.run(['gcc', "-g", "-O0", self.temp_dir+"/"+self.source_filename, "-o", self.temp_dir+"/TestCase_exec"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler=='clang' else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
     elif self.compiler in ['g++','clang++']:
       self.source_filename = "TestCase_src.cpp"
-      with open(self.temp_path+"/"+self.source_filename, "w") as f:
+      with open(self.temp_dir+"/"+self.source_filename, "w") as f:
         f.write(self.code)
-      compile_process = subprocess.run(['g++', "-g", "-O0", self.temp_path+"/"+self.source_filename, "-o", self.temp_path+"/TestCase_exec"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler=='clang++' else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
+      compile_process = subprocess.run(['g++', "-g", "-O0", self.temp_dir+"/"+self.source_filename, "-o", self.temp_dir+"/TestCase_exec"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler=='clang++' else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
     elif self.compiler=='gfortran':
       self.source_filename = "TestCase_src.f90"
-      with open(self.temp_path+"/"+self.source_filename, "w") as f:
+      with open(self.temp_dir+"/"+self.source_filename, "w") as f:
         f.write(self.code)
-      compile_process = subprocess.run(['gfortran', "-g", "-O0", self.temp_path+"/"+self.source_filename, "-o", self.temp_path+"/TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() + self.ldflags.split(),universal_newlines=True)
+      compile_process = subprocess.run(['gfortran', "-g", "-O0", self.temp_dir+"/"+self.source_filename, "-o", self.temp_dir+"/TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() + self.ldflags.split(),universal_newlines=True)
 
     if compile_process.returncode!=0:
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
@@ -173,27 +173,27 @@ class InteractiveTestCase(TestCase):
     # in reverse mode, clear index and adjoints files
     if self.mode=='b':
       try:
-        os.remove(self.temp_path+"/dg-input-indices")
+        os.remove(self.temp_dir+"/dg-input-indices")
       except OSError:
         pass
       try:
-        os.remove(self.temp_path+"/dg-input-adjoints")
+        os.remove(self.temp_dir+"/dg-input-adjoints")
       except OSError:
         pass
       try:
-        os.remove(self.temp_path+"/dg-output-indices")
+        os.remove(self.temp_dir+"/dg-output-indices")
       except OSError:
         pass
       try:
-        os.remove(self.temp_path+"/dg-output-adjoints")
+        os.remove(self.temp_dir+"/dg-output-adjoints")
       except OSError:
         pass
     # logs are shown in case of failure
     self.valgrind_log = ""
     self.gdb_log = ""
     # start Valgrind and extract "target remote" line
-    maybereverse = ["--record="+self.temp_path] if self.mode=='b' else []
-    valgrind = subprocess.Popen([self.install_path+"/bin/valgrind", "--tool=derivgrind", "--vgdb-error=0"]+maybereverse+[self.temp_path+"/TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
+    maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
+    valgrind = subprocess.Popen([self.install_dir+"/bin/valgrind", "--tool=derivgrind", "--vgdb-error=0"]+maybereverse+[self.temp_dir+"/TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     while True:
       line = valgrind.stdout.readline()
       self.valgrind_log += line
@@ -202,7 +202,7 @@ class InteractiveTestCase(TestCase):
         target_remote_command = r.group(1)
         break
     # start GDB and connect to Valgrind
-    gdb = subprocess.Popen(["gdb", self.temp_path+"/TestCase_exec"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
+    gdb = subprocess.Popen(["gdb", self.temp_dir+"/TestCase_exec"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     gdb.stdin.write(target_remote_command+"\n")
     # set breakpoints and continue
     gdb.stdin.write("break "+self.source_filename+":"+str(self.line_before_stmt)+"\n")
@@ -238,7 +238,7 @@ class InteractiveTestCase(TestCase):
           if r:
             index = int(r.group(1))
             break
-        with open(self.temp_path+"/dg-input-indices","a") as f:
+        with open(self.temp_dir+"/dg-input-indices","a") as f:
           f.writelines([str(index)+"\n"])
     # execute statement
     gdb.stdin.write("continue\n")
@@ -293,7 +293,7 @@ class InteractiveTestCase(TestCase):
           if r:
             index = int(r.group(1))
             break
-        with open(self.temp_path+"/dg-output-indices","a") as f:
+        with open(self.temp_dir+"/dg-output-indices","a") as f:
           f.writelines([str(index)+"\n"])
     # finish execution of client program under Valgrind
     gdb.stdin.write("continue\n")
@@ -304,11 +304,11 @@ class InteractiveTestCase(TestCase):
     self.gdb_log += stdout_data
     # for reverse mode, evaluate tape
     if self.mode=='b':
-      with open(self.temp_path+"/dg-output-adjoints","w") as outputadjoints:
+      with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
         for var in self.bars:
           outputadjoints.writelines([str(self.bars[var])+"\n"])
-      tape_evaluation = subprocess.run([self.install_path+"/bin/tape-evaluation", self.tmp_path])
-      with open(self.temp_path+"/dg-input-adjoints","r") as inputadjoints:
+      tape_evaluation = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir])
+      with open(self.temp_dir+"/dg-input-adjoints","r") as inputadjoints:
         for var in self.test_bars:
           bar = float(inputadjoints.readline())
           if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
@@ -501,12 +501,12 @@ class ClientRequestTestCase(TestCase):
       self.source_filename = "TestCase_src.f90"
     elif self.compiler=='python':
       self.source_filename = "TestCase_src.py"
-    with open(self.temp_path+"/"+self.source_filename, "w") as f:
+    with open(self.temp_dir+"/"+self.source_filename, "w") as f:
       f.write(self.code)
     if self.compiler in ['gcc','g++','clang','clang++']:
-      compile_process = subprocess.run([self.compiler, "-O3", self.temp_path+"/"+self.source_filename, "-o", self.temp_path+"/TestCase_exec", f"-I{self.install_path}/include"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler in ['clang','clang++'] else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
+      compile_process = subprocess.run([self.compiler, "-O3", self.temp_dir+"/"+self.source_filename, "-o", self.temp_dir+"/TestCase_exec", f"-I{self.install_dir}/include"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler in ['clang','clang++'] else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
     elif self.compiler=='gfortran':
-      compile_process = subprocess.run([self.compiler, "-O3", self.temp_path+"/"+self.source_filename, "-o", self.temp_path+"/TestCase_exec", f"-I{self.install_path}/include/valgrind", f"-L{self.install_path}/lib/valgrind", f"-lderivgrind_clientrequests-{'x86' if self.arch==32 else 'amd64'}"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() ,universal_newlines=True)
+      compile_process = subprocess.run([self.compiler, "-O3", self.temp_dir+"/"+self.source_filename, "-o", self.temp_dir+"/TestCase_exec", f"-I{self.install_dir}/include/valgrind", f"-L{self.install_dir}/lib/valgrind", f"-lderivgrind_clientrequests-{'x86' if self.arch==32 else 'amd64'}"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() ,universal_newlines=True)
     elif self.compiler=='python':
       pass
 
@@ -517,25 +517,25 @@ class ClientRequestTestCase(TestCase):
     self.valgrind_log = ""
     environ = os.environ.copy()
     if self.compiler=='python':
-      commands = ["python3", self.temp_path+"/TestCase_src.py"]
+      commands = ["python3", self.temp_dir+"/TestCase_src.py"]
       if "PYTHONPATH" not in environ:
         environ["PYTHONPATH"]=""
-      environ["PYTHONPATH"] += ":"+self.install_path+"/lib/python3/site-packages"
+      environ["PYTHONPATH"] += ":"+self.install_dir+"/lib/python3/site-packages"
     else:
-      commands = [self.temp_path+"/TestCase_exec"]
-    maybereverse = ["--record="+self.temp_path] if self.mode=='b' else []
-    valgrind = subprocess.run([self.install_path+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
+      commands = [self.temp_dir+"/TestCase_exec"]
+    maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
+    valgrind = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
     if self.mode=='b': # evaluate tape
-      with open(self.temp_path+"/dg-output-adjoints","w") as outputadjoints:
+      with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
         # NumPy testcases are repeated 16 times
         repetitions = 16 if self.compiler=='python' and self.type["pytype"] in ["np.float32","np.float64"] else 1
         for var in self.bars: # same order as in the client code
           for i in range(repetitions):
             print(str(self.bars[var]), file=outputadjoints)
-      tape_evaluation = subprocess.run([self.install_path+"/bin/tape-evaluation",self.temp_path],env=environ)
-      with open(self.temp_path+"/dg-input-adjoints","r") as inputadjoints:
+      tape_evaluation = subprocess.run([self.install_dir+"/bin/tape-evaluation",self.temp_dir],env=environ)
+      with open(self.temp_dir+"/dg-input-adjoints","r") as inputadjoints:
         for var in self.test_bars: # same order as in the client code
           for i in range(repetitions):
             bar = float(inputadjoints.readline())

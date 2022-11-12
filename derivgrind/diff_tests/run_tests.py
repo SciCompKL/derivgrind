@@ -38,8 +38,8 @@ import os
 import fnmatch
 import tempfile
 
-selected_install_path = "../../install"
-selected_temp_path = None
+selected_install_dir = "../../install"
+selected_temp_dir = None
 selected_testcase = None
 if len(sys.argv)>4:
   print("Usage: "+sys.argv[0]+" [options]                   - Run all testcases.")
@@ -51,16 +51,16 @@ if len(sys.argv)>4:
 for i in range(1,len(sys.argv)):
   arg = sys.argv[i]
   if arg.startswith('--prefix='):
-    selected_install_path = arg[len('--prefix='):]
+    selected_install_dir = arg[len('--prefix='):]
   elif arg.startswith('--tempdir='):
-    selected_temp_path = arg[len('--tempdir='):]
+    selected_temp_dir = arg[len('--tempdir='):]
   else:
     selected_testcase = arg
-TestCase.install_path = selected_install_path
-if selected_temp_path == None:
+TestCase.install_dir = selected_install_dir
+if selected_temp_dir == None:
   tempdir = tempfile.TemporaryDirectory()
-  selected_temp_path = tempdir.name
-TestCase.temp_path = selected_temp_path
+  selected_temp_dir = tempdir.name
+TestCase.temp_dir = selected_temp_dir
 
 # We first define a list of "basic" tests.
 # The actual testlist is derived from it by additionally
