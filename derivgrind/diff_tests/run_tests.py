@@ -36,21 +36,31 @@ from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TY
 import sys
 import os
 import fnmatch
+import tempfile
 
-selected_path = "../../install"
+selected_install_path = "../../install"
+selected_temp_path = None
 selected_testcase = None
-if len(sys.argv)>3:
-  print("Usage: "+sys.argv[0]+" [--prefix=path]                   - Run all testcases.")
-  print("       "+sys.argv[0]+" [--prefix=path] name_of_testcase  - Run single testcase.")
-  print("The argument to --prefix is the path to the Valgrind installation directory.")
+if len(sys.argv)>4:
+  print("Usage: "+sys.argv[0]+" [options]                   - Run all testcases.")
+  print("       "+sys.argv[0]+" [options] name_of_testcase  - Run single testcase.")
+  print("Options:")
+  print("  --prefix=path    Valgrind installation directory.")
+  print("  --tempdir=path   Directory for temporary files produced by tests.")
   exit(1)
 for i in range(1,len(sys.argv)):
   arg = sys.argv[i]
   if arg.startswith('--prefix='):
-    selected_path = arg[len('--prefix='):]
+    selected_install_path = arg[len('--prefix='):]
+  elif arg.startswith('--tempdir='):
+    selected_temp_path = arg[len('--tempdir='):]
   else:
     selected_testcase = arg
-TestCase.install_path = selected_path
+TestCase.install_path = selected_install_path
+if selected_temp_path == None:
+  tempdir = tempfile.TemporaryDirectory()
+  selected_temp_path = tempdir.name
+TestCase.temp_path = selected_temp_path
 
 # We first define a list of "basic" tests.
 # The actual testlist is derived from it by additionally
