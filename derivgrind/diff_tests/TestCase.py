@@ -63,6 +63,8 @@ def str_fortran(d):
   else:
     return s+"d0"
 
+install_path = "" # path to the Valgrind installation directory
+
 class TestCase:
   """Basic data for a Derivgrind test case."""
   def __init__(self, name):
@@ -93,6 +95,7 @@ class TestCase:
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
     self.disable = lambda mode, arch, language, typename : False # if True, test will not be run
     self.compiler = "gcc" # gcc, g++, gfortran, python
+    self.install_path = install_path
 
 class InteractiveTestCase(TestCase):
   """Methods to run a Derivgrind test case interactively in VGDB."""
@@ -188,7 +191,7 @@ class InteractiveTestCase(TestCase):
     self.gdb_log = ""
     # start Valgrind and extract "target remote" line
     maybereverse = ["--record=."] if self.mode=='b' else []
-    valgrind = subprocess.Popen(["../../install/bin/valgrind", "--tool=derivgrind", "--vgdb-error=0"]+maybereverse+["./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
+    valgrind = subprocess.Popen([self.install_path+"/bin/valgrind", "--tool=derivgrind", "--vgdb-error=0"]+maybereverse+["./TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     while True:
       line = valgrind.stdout.readline()
       self.valgrind_log += line
@@ -302,7 +305,7 @@ class InteractiveTestCase(TestCase):
       with open("dg-output-adjoints","w") as outputadjoints:
         for var in self.bars:
           outputadjoints.writelines([str(self.bars[var])+"\n"])
-      tape_evaluation = subprocess.run(["../../install/bin/tape-evaluation", "."])
+      tape_evaluation = subprocess.run([self.install_path+"/bin/tape-evaluation", "."])
       with open("dg-input-adjoints","r") as inputadjoints:
         for var in self.test_bars:
           bar = float(inputadjoints.readline())
@@ -499,9 +502,9 @@ class ClientRequestTestCase(TestCase):
     with open(self.source_filename, "w") as f:
       f.write(self.code)
     if self.compiler in ['gcc','g++','clang','clang++']:
-      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", "-I../../install/include"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler in ['clang','clang++'] else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
+      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", f"-I{self.install_path}/include"] + (["-m32"] if self.arch==32 else []) + ( self.cflags_clang.split() if self.cflags_clang!=None and self.compiler in ['clang','clang++'] else self.cflags.split() ) + self.ldflags.split(),universal_newlines=True)
     elif self.compiler=='gfortran':
-      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", "-I../../install/include/valgrind", "-L../../install/lib/valgrind", f"-lderivgrind_clientrequests-{'x86' if self.arch==32 else 'amd64'}"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() ,universal_newlines=True)
+      compile_process = subprocess.run([self.compiler, "-O3", self.source_filename, "-o", "TestCase_exec", f"-I{self.install_path}/include/valgrind", f"-L{self.install_path}/lib/valgrind", f"-lderivgrind_clientrequests-{'x86' if self.arch==32 else 'amd64'}"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() ,universal_newlines=True)
     elif self.compiler=='python':
       pass
 
@@ -515,11 +518,11 @@ class ClientRequestTestCase(TestCase):
       commands = ['python3', 'TestCase_src.py']
       if "PYTHONPATH" not in environ:
         environ["PYTHONPATH"]=""
-      environ["PYTHONPATH"] += ":"+environ["PWD"]+"/../../install/lib/python3/site-packages"
+      environ["PYTHONPATH"] += ":"+environ["PWD"]+"/"+self.install_path+"/lib/python3/site-packages"
     else:
       commands = ['./TestCase_exec']
     maybereverse = ["--record=."] if self.mode=='b' else []
-    valgrind = subprocess.run(["../../install/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
+    valgrind = subprocess.run([self.install_path+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
     if self.mode=='b': # evaluate tape
@@ -529,7 +532,7 @@ class ClientRequestTestCase(TestCase):
         for var in self.bars: # same order as in the client code
           for i in range(repetitions):
             print(str(self.bars[var]), file=outputadjoints)
-      tape_evaluation = subprocess.run(["../../install/bin/tape-evaluation","."],env=environ)
+      tape_evaluation = subprocess.run([self.install_path+"/bin/tape-evaluation","."],env=environ)
       with open("dg-input-adjoints","r") as inputadjoints:
         for var in self.test_bars: # same order as in the client code
           for i in range(repetitions):

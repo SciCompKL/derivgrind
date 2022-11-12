@@ -31,19 +31,26 @@
 
 import numpy as np
 import copy
+import TestCase
 from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHONFLOAT, TYPE_NUMPYFLOAT64, TYPE_NUMPYFLOAT32
 import sys
 import os
 import fnmatch
 
+selected_path = "../../install"
 selected_testcase = None
-if len(sys.argv)>2:
-  printf("Usage: "+sys.argv[0]+"                      - Run all testcases.")
-  printf("       "+sys.argv[0]+" [name of testcase]   - Run single testcase.")
+if len(sys.argv)>3:
+  print("Usage: "+sys.argv[0]+" [--prefix=path]                   - Run all testcases.")
+  print("       "+sys.argv[0]+" [--prefix=path] name_of_testcase  - Run single testcase.")
+  print("The argument to --prefix is the path to the Valgrind installation directory.")
   exit(1)
-elif len(sys.argv)==2:
-  selected_testcase = sys.argv[1]
-
+for i in range(1,len(sys.argv)):
+  arg = sys.argv[i]
+  if arg.startswith('--prefix='):
+    selected_path = arg[len('--prefix='):]
+  else:
+    selected_testcase = arg
+TestCase.install_path = selected_path
 
 # We first define a list of "basic" tests.
 # The actual testlist is derived from it by additionally
