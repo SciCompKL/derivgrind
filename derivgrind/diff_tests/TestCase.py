@@ -34,6 +34,8 @@ import re
 import time
 import os
 import stat
+import json
+import numpy as np
 
 # Type information: 
 # ctype / ftype: Keyword in the C/C++/Fortran source
@@ -65,21 +67,25 @@ def str_fortran(d):
 
 install_dir = "" # Valgrind installation directory
 temp_dir = "" # directory for temporary files produced by tests
+codi_dir = "" # CoDiPack include directory for validation in performance tests
 
 class TestCase:
-  """Basic data for a Derivgrind test case."""
+  """Basic data for a Derivgrind regression test case."""
   def __init__(self, name):
     self.name = name # Name of TestCase
     self.mode = 'd' # 'd': dot/forward, 'b': bar/recording
-    self.stmtd = None # Code to be run in C/C++ main function for double test
-    self.stmtf = None # Code to be run in C/C++ main function for float test
-    self.stmtl = None # Code to be run in C/C++ main function for long double test
-    self.stmtr4 = None # Code to be run in Fortran program for real*4 test
-    self.stmtr8 = None # Code to be run in Fortran program for real*8 test
-    self.stmtp = None # Code to be run in Python program
+    self.stmtd = None # Code to be run in C/C++ main function for double regression test
+    self.stmtf = None # Code to be run in C/C++ main function for float regression test
+    self.stmtl = None # Code to be run in C/C++ main function for long double regression test
+    self.stmtr4 = None # Code to be run in Fortran program for real*4 regression test
+    self.stmtr8 = None # Code to be run in Fortran program for real*8 regression test
+    self.stmtp = None # Code to be run in Python regression test
     self.stmt = None # One out of stmtd, stmtf, stmtl will be copied here
     # if a testcase is meant only for a subset of the three datatypes only,
     # set the others stmtX to None
+    self.benchmark = None # C++ file to be run for performance test
+    self.benchmarkargs = "" # Arguments to C++ program for performance test
+    self.benchmarkreps = 10 # Number of repetitions for performance test
     self.include = "" # Code pasted above main function
     self.vals = {} # Assigns values to input variables used by stmt
     self.dots = {} # Assigns dot values to input variables used by stmt
@@ -87,7 +93,6 @@ class TestCase:
     self.test_vals = {} # Expected values of output variables computed by stmt
     self.test_dots = {} # Expected dot values of output variables computed by stmt
     self.test_bars = {} # Expected bar values of input variables computed by stmt
-    self.timeout = 10 # Timeout for execution in Valgrind, in seconds
     self.cflags = "" # Additional flags for the C compiler
     self.cflags_clang = None # Additional flags for the C compiler, if clang is used
     self.fflags = "" # Additional flags for the Fortran compiler
@@ -98,9 +103,10 @@ class TestCase:
     self.compiler = "gcc" # gcc, g++, gfortran, python
     self.install_dir = install_dir # Valgrind installation directory
     self.temp_dir = temp_dir # directory of temporary files produced by tests
+    self.codi_dir = codi_dir # CoDiPack include directory for validation in performance tests
 
 class InteractiveTestCase(TestCase):
-  """Methods to run a Derivgrind test case interactively in VGDB."""
+  """Methods to run a Derivgrind regression test case interactively in VGDB."""
   def __init__(self,name):
     super().__init__(name)
 
@@ -316,7 +322,7 @@ class InteractiveTestCase(TestCase):
 
 
   def run(self):
-    print("##### Running interactive test '"+self.name+"'... #####", flush=True)
+    print("##### Running interactive regression test '"+self.name+"'... #####", flush=True)
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_code()
@@ -338,7 +344,7 @@ class InteractiveTestCase(TestCase):
     
 
 class ClientRequestTestCase(TestCase):
-  """Methods to run a Derivgrind test case using Valgrind client requests."""
+  """Methods to run a Derivgrind regression test case using Valgrind client requests."""
   def __init__(self,name):
     super().__init__(name)
 
@@ -544,7 +550,7 @@ class ClientRequestTestCase(TestCase):
     
 
   def run(self):
-    print("##### Running client request test '"+self.name+"'... #####", flush=True)
+    print("##### Running client request regression test '"+self.name+"'... #####", flush=True)
     self.errmsg = ""
     if self.errmsg=="":
       self.produce_code()
@@ -563,8 +569,105 @@ class ClientRequestTestCase(TestCase):
 
 
 
-    
+class PerformanceTestCase(TestCase):
+  """Methods to run a Derivgrind performance test case, using Valgrind client requests."""
+  def __init__(self,name):
+    super().__init__(name)
 
+  def runCoDi(self):
+    """Build with CoDiPack types and run."""
+    if self.codi_dir==None:
+      self.errmsg += "NO CODIPACK INCLUDE PATH SUPPLIED\n"
+      return 
+    comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_codi", "-DCODI_DOT" if self.mode=='d' else "-DCODI_BAR"]+self.cflags.split()+[f"-I{self.codi_dir}"], capture_output=True)
+    if comp.returncode!=0:
+      self.errmsg += "COMPILATION WITH CODIPACK FAILED:\n" + comp.stdout.decode('utf-8')+ comp.stderr.decode('utf-8')
+    exe = subprocess.run([f"{self.temp_dir}/main_codi",f"{self.temp_dir}/dg-performance-result-codi.json"]+self.benchmarkargs.split(), capture_output=True)
+    if exe.returncode!=0:
+      self.errmsg += "EXECUTION WITH CODIPACK FAILED:\n" + "STDOUT:\n" + exe.stdout + "\nSTDERR:\n" + exe.stderr
+    with open(self.temp_dir+"/dg-performance-result-codi.json") as f:
+      self.result_codi = json.load(f)
 
+  def runNoAD(self, nrep):
+    """Build without AD and run repeatedly."""
+    comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_noad"]+self.cflags.split(), capture_output=True)
+    if comp.returncode!=0:
+      self.errmsg += "COMPILATION WITHOUT AD FAILED:\n" + comp.stdout.decode('utf-8') + comp.stderr.decode('utf-8')
+    self.results_noad = []
+    for irep in range(nrep):
+      exe = subprocess.run([f"{self.temp_dir}/main_noad", f"{self.temp_dir}/dg-performance-result-noad.json"]+self.benchmarkargs.split(), capture_output=True)
+      if exe.returncode!=0:
+        self.errmsg += "EXECUTION WITHOUT AD FAILED:\n" + "STDOUT:\n" + exe.stdout.decode('utf-8') + "\nSTDERR:\n" + exe.stderr.decode('utf-8')
+      with open(self.temp_dir+"/dg-performance-result-noad.json") as f:
+        self.results_noad.append(json.load(f))
 
+  def runDG(self, nrep):
+    """Build with Derivgrind client request types and run repeatedly."""
+    comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_dg", f"-I{self.install_dir}/include", "-DDG_DOT" if self.mode=='d' else "-DDG_BAR"]+self.cflags.split(), capture_output=True)
+    if comp.returncode!=0:
+      self.errmsg += "COMPILATION WITH DERIVGRIND FAILED:\n" + comp.stderr.decode('utf-8')
+    self.results_dg = []
+    for irep in range(nrep):
+      maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
+      exe = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+[f"{self.temp_dir}/main_dg", f"{self.temp_dir}/dg-performance-result-dg.json"]+self.benchmarkargs.split(), capture_output=True)
+      if exe.returncode!=0:
+        self.errmsg += "EXECUTION WITH DERIVGRIND FAILED:\n" + "STDOUT:\n" + exe.stdout.decode('utf-8') + "\nSTDERR:\n" + exe.stderr.decode('utf-8')
+      with open(self.temp_dir+"/dg-performance-result-dg.json") as f:
+        result = json.load(f)
+      if self.mode=='b':
+        with open(self.temp_dir+"/dg-output-indices", "r") as f:
+          number_of_outputs = len(f.readlines())
+        with open(self.temp_dir+"/dg-output-adjoints", "w") as f:
+          f.writelines(["1.0\n"]*number_of_outputs)
+        eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir], capture_output=True)
+        if eva.returncode!=0:
+          self.errmsg += "EVALUATION OF DERIVGRIND TAPE FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
+        result["input_bar"] = [float(adj) for adj in np.loadtxt(self.temp_dir+"/dg-input-adjoints")]
+      self.results_dg.append(result)
+
+  def verifyGradient(self):
+    """Check Derivgrind results against CoDiPack result."""
+    correct = True
+    for result_dg in self.results_dg:
+      if self.mode=='b':
+        input_bar_dg = np.array(result_dg["input_bar"])
+        input_bar_codi = np.array(self.result_codi["input_bar"])
+        err = np.linalg.norm( input_bar_dg - input_bar_codi ) / ( np.linalg.norm(input_bar_codi) * np.sqrt(len(input_bar_codi)) )
+      else:
+        output_dot_dg = np.array(result_dg["output_dot"])
+        output_dot_codi = np.array(self.result_codi["output_dot"])
+        err = np.linalg.norm( output_dot_dg - output_dot_codi) / ( np.linalg.norm(output_dot_codi) * np.sqrt(len(output_dot_codi)) )
+      correct = correct and err < self.type["tol"]
+    return correct  
+
+  def averagePerformance(self):
+    """Average no-AD and Derivgrind runtime and memory performances."""
+    noad_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_noad])
+    noad_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_noad])
+    dg_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_dg])
+    dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg])
+    # Choose which output you prefer
+    #return f"{noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb}"
+    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)}x"
+            
+
+  def run(self):
+    print("##### Running performance test '"+self.name+"'... #####", flush=True)
+    self.errmsg = ""
+    if self.errmsg=="":
+      self.runCoDi()
+    if self.errmsg=="":
+      self.runNoAD(self.benchmarkreps)
+    if self.errmsg=="":
+      self.runDG(self.benchmarkreps)
+    if self.errmsg=="":
+      if not self.verifyGradient():
+        self.errmsg="DERIVATIVES DISAGREE\n"
+    if self.errmsg=="":
+      print("OK.", self.averagePerformance())
+      return True
+    else:
+      print("FAIL:")
+      print(self.errmsg)
+      return False
 

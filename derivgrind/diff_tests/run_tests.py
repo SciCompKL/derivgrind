@@ -32,7 +32,7 @@
 import numpy as np
 import copy
 import TestCase
-from TestCase import InteractiveTestCase, ClientRequestTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHONFLOAT, TYPE_NUMPYFLOAT64, TYPE_NUMPYFLOAT32
+from TestCase import InteractiveTestCase, ClientRequestTestCase, PerformanceTestCase, TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE, TYPE_REAL4, TYPE_REAL8, TYPE_PYTHONFLOAT, TYPE_NUMPYFLOAT64, TYPE_NUMPYFLOAT32
 import sys
 import os
 import fnmatch
@@ -40,6 +40,7 @@ import tempfile
 
 selected_install_dir = "../../install"
 selected_temp_dir = None
+selected_codi_dir = "/home/aehle/codipack/include"
 selected_testcase = None
 if len(sys.argv)>4:
   print("Usage: "+sys.argv[0]+" [options]                   - Run all testcases.")
@@ -47,6 +48,7 @@ if len(sys.argv)>4:
   print("Options:")
   print("  --prefix=path    Valgrind installation directory.")
   print("  --tempdir=path   Directory for temporary files produced by tests.")
+  print("  --codidir=path   Include directory of CoDiPack for performance tests.")
   exit(1)
 for i in range(1,len(sys.argv)):
   arg = sys.argv[i]
@@ -54,6 +56,8 @@ for i in range(1,len(sys.argv)):
     selected_install_dir = arg[len('--prefix='):]
   elif arg.startswith('--tempdir='):
     selected_temp_dir = arg[len('--tempdir='):]
+  elif arg.startswith('--codidir='):
+    selected_codi_dir = arg[len('--codidir='):]
   else:
     selected_testcase = arg
 TestCase.install_dir = selected_install_dir
@@ -61,6 +65,7 @@ if selected_temp_dir == None:
   tempdir = tempfile.TemporaryDirectory()
   selected_temp_dir = tempdir.name
 TestCase.temp_dir = selected_temp_dir
+TestCase.codi_dir = selected_codi_dir
 
 # We first define a list of "basic" tests.
 # The actual testlist is derived from it by additionally
@@ -1174,9 +1179,19 @@ sin_100_interactive.test_dots = {'c':np.cos(100)*3.1}
 sin_100_interactive.test_bars = {'a':np.cos(100)*3.1}
 basiclist.append(sin_100_interactive)
 
+### Performance Tests ###
+performance_testlist = []
+burgers = PerformanceTestCase("burgers")
+burgers.mode = 'b'
+burgers.benchmark = "benchmarks/burgers.cpp"
+burgers.benchmarkargs = "50 50"
+burgers.benchmarkreps = 2
+burgers.cflags = "-O3"
+performance_testlist.append(burgers)
 
-### Take "cross product" with other configuation options ###
-testlist = []
+
+### Take "cross product" of regression tests with other configuation options ###
+regression_testlist = []
 for test_mode in ["dot", "bar"]:
   for test_arch in ["x86", "amd64"]:
     for test_compiler in ["gcc", "g++", "clang", "clang++", "gfortran", "python"]:
@@ -1237,7 +1252,11 @@ for test_mode in ["dot", "bar"]:
           else:
             test.mode='b'
           if test.stmt!=None and not test.disable(test_mode, test_arch, test_compiler, test_type):
-            testlist.append(test)
+            regression_testlist.append(test)
+
+
+testlist = regression_testlist + performance_testlist
+
 
 ### Run testcases ###
 if not selected_testcase:
