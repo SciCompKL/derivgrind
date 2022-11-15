@@ -9,6 +9,29 @@ import subprocess
 # Template for a Python module exposing Derivgrind-differentiated 
 # library functions to PyTorch.
 #
+# Usage:
+# 
+#     x = torch.tensor([4.0],dtype=torch.float64,requires_grad=True)
+#     y = derivgrind("/path/to/mylib.so", "myfun").apply(b"",x,1)
+#     y.backward()
+#     print(x.grad)
+# 
+# Here, myfun is a symbol defined by the shared object mylib.so 
+# that is either contained in the LD_LIBRARY_PATH or the default 
+# library path, e.g. specified by the full path.
+# 
+# The bytestring (here b"") can be used to pass any non-differentiable 
+# parameters to the function, x contains the differentiable inputs,
+# and the third argument (here 1) specifies the number of expected
+# outputs. 
+#
+# The signature of myfun must be
+#
+#     void functionname(int, char*, int, fptype const*, int, fptype*)
+#
+# The three pairs of an integer and a pointer specify the size/count of
+# bytes/scalars in the parameter, input and output buffer, respectively.
+#
 # Basically, we create a class derived from autograd.Function and
 # providing functions 
 # - `forward` for the tape recording pass, creating a Derivgrind 
@@ -20,9 +43,15 @@ import subprocess
 # executables is hard-coded in the end of this file. During the build 
 # process, another assignment with the proper installation directory 
 # is appended.
+#
+#
 
 
 def derivgrind(library,functionname):
+  """Create a DerivgrindLibraryCaller Torch Function class.
+    @param library Full path to the shared object.
+    @param functionname Symbol name of the compiled function.
+  """
   class DerivgrindLibraryCaller(torch.autograd.Function):
     @staticmethod
     def forward(ctx, params, input, noutput):
@@ -87,10 +116,5 @@ def derivgrind(library,functionname):
       return (None,grad_input,None)
   
   return DerivgrindLibraryCaller
-
-#x = torch.tensor([4.0],dtype=torch.float64,requires_grad=True)
-#y = derivgrind("mylib.so", "myfun").apply(b"",x,1)
-#y.backward()
-#print(x.grad)
 
 bin_path = os.path.dirname(__file__)+"/../../../install/bin"
