@@ -77,7 +77,7 @@ TestCase.codi_dir = selected_codi_dir
 # Then all these tests are run in the end of the script,
 # or, if a command-line argument is specified, only
 # that single test.
-basiclist = []
+regression_templates = []
 
 ### Basic arithmetic operations ###
 
@@ -94,7 +94,7 @@ addition.bars = {'c':1.0}
 addition.test_vals = {'c':3.0}
 addition.test_dots = {'c':7.0}
 addition.test_bars = {'a':1.0,'b':1.0}
-basiclist.append(addition)
+regression_templates.append(addition)
 
 addition_const_l = ClientRequestTestCase("addition_const_l")
 addition_const_l.stmtd = "double c = 0.3 + a;"
@@ -109,7 +109,7 @@ addition_const_l.bars = {'c':10.0}
 addition_const_l.test_vals = {'c':1.3}
 addition_const_l.test_dots = {'c':2.0}
 addition_const_l.test_bars = {'a':10.0}
-basiclist.append(addition_const_l)
+regression_templates.append(addition_const_l)
 
 addition_const_r = ClientRequestTestCase("addition_const_r")
 addition_const_r.stmtd = "double c = a + 0.3;"
@@ -124,7 +124,7 @@ addition_const_r.bars = {'c':-20.0}
 addition_const_r.test_vals = {'c':1.3}
 addition_const_r.test_dots = {'c':2.0}
 addition_const_r.test_bars = {'a':-20.0}
-basiclist.append(addition_const_r)
+regression_templates.append(addition_const_r)
 
 subtraction = ClientRequestTestCase("subtraction")
 subtraction.stmtd = "double c = a-b;"
@@ -139,7 +139,7 @@ subtraction.bars = {'c':1.0}
 subtraction.test_vals = {'c':-1.0}
 subtraction.test_dots = {'c':-1.0}
 subtraction.test_bars = {'a':1.0,'b':-1.0}
-basiclist.append(subtraction)
+regression_templates.append(subtraction)
 
 subtraction_const_l = ClientRequestTestCase("subtraction_const_l")
 subtraction_const_l.stmtd = "double c = 0.3 - a;"
@@ -154,7 +154,7 @@ subtraction_const_l.bars = {'c':10.0}
 subtraction_const_l.test_vals = {'c':-0.7}
 subtraction_const_l.test_dots = {'c':-2.0}
 subtraction_const_l.test_bars = {'a':-10.0}
-basiclist.append(subtraction_const_l)
+regression_templates.append(subtraction_const_l)
 
 subtraction_const_r = ClientRequestTestCase("subtraction_const_r")
 subtraction_const_r.stmtd = "double c = a - 0.5;"
@@ -169,7 +169,7 @@ subtraction_const_r.bars = {'c':20.0}
 subtraction_const_r.test_vals = {'c':0.5}
 subtraction_const_r.test_dots = {'c':2.0}
 subtraction_const_r.test_bars = {'a':20.0}
-basiclist.append(subtraction_const_r)
+regression_templates.append(subtraction_const_r)
 
 multiplication = ClientRequestTestCase("multiplication")
 multiplication.stmtd = "double c = a*b;"
@@ -184,7 +184,7 @@ multiplication.bars = {'c':1.0}
 multiplication.test_vals = {'c':2.0}
 multiplication.test_dots = {'c':10.0}
 multiplication.test_bars = {'a':2.0,'b':1.0}
-basiclist.append(multiplication)
+regression_templates.append(multiplication)
 
 multiplication_const_l = ClientRequestTestCase("multiplication_const_l")
 multiplication_const_l.stmtd = "double c = 0.3 * a;"
@@ -199,7 +199,7 @@ multiplication_const_l.bars = {'c':10.0}
 multiplication_const_l.test_vals = {'c':0.6}
 multiplication_const_l.test_dots = {'c':0.9}
 multiplication_const_l.test_bars = {'a':3.0}
-basiclist.append(multiplication_const_l)
+regression_templates.append(multiplication_const_l)
 
 multiplication_const_r = ClientRequestTestCase("multiplication_const_r")
 multiplication_const_r.stmtd = "double c = a * 0.5;"
@@ -214,7 +214,7 @@ multiplication_const_r.bars = {'c':20.0}
 multiplication_const_r.test_vals = {'c':1.0}
 multiplication_const_r.test_dots = {'c':1.5}
 multiplication_const_r.test_bars = {'a':10.0}
-basiclist.append(multiplication_const_r)
+regression_templates.append(multiplication_const_r)
 
 division = ClientRequestTestCase("division")
 division.stmtd = "double c = a/b;"
@@ -229,7 +229,7 @@ division.bars = {'c':1.0}
 division.test_vals = {'c':0.5}
 division.test_dots = {'c':1.5}
 division.test_bars = {'a':0.5,'b':-0.25}
-basiclist.append(division)
+regression_templates.append(division)
 
 division_const_l = ClientRequestTestCase("division_const_l")
 division_const_l.stmtd = "double c = 0.3 / a;"
@@ -244,7 +244,7 @@ division_const_l.bars = {'c':10.0}
 division_const_l.test_vals = {'c':0.15}
 division_const_l.test_dots = {'c':-9/40}
 division_const_l.test_bars = {'a':-0.75}
-basiclist.append(division_const_l)
+regression_templates.append(division_const_l)
 
 division_const_r = ClientRequestTestCase("division_const_r")
 division_const_r.stmtd = "double c = a / 0.5;"
@@ -259,7 +259,7 @@ division_const_r.bars = {'c':20.0}
 division_const_r.test_vals = {'c':4.0}
 division_const_r.test_dots = {'c':6.0}
 division_const_r.test_bars = {'a':40.0}
-basiclist.append(division_const_r)
+regression_templates.append(division_const_r)
 
 negative = ClientRequestTestCase("negative")
 negative.stmtd = "double c = -a;"
@@ -274,7 +274,7 @@ negative.bars = {'c':1.0}
 negative.test_vals = {'c':-1.0}
 negative.test_dots = {'c':-2.0}
 negative.test_bars = {'a':-1.0}
-basiclist.append(negative)
+regression_templates.append(negative)
 
 negative_0 = ClientRequestTestCase("negative_0")
 negative_0.include = "__attribute__((noinline)) double minus(double x){ return -x; }"
@@ -285,7 +285,7 @@ negative_0.bars = {'c':1.0}
 negative_0.test_vals = {'c':0.0}
 negative_0.test_dots = {'c':1.0}
 negative_0.test_bars = {'a':1.0}
-basiclist.append(negative_0)
+regression_templates.append(negative_0)
 
 ### Advances arithmetic and trigonometric operations ###
 
@@ -305,7 +305,7 @@ abs_plus.bars = {'c':1.0}
 abs_plus.test_vals = {'c':1.0}
 abs_plus.test_dots = {'c':2.0}
 abs_plus.test_bars = {'a':1.0}
-basiclist.append(abs_plus)
+regression_templates.append(abs_plus)
 
 abs_minus = ClientRequestTestCase("abs_minus")
 abs_minus.include = "#include <math.h>"
@@ -323,7 +323,7 @@ abs_minus.bars = {'c':2.0}
 abs_minus.test_vals = {'c':1.0}
 abs_minus.test_dots = {'c':-2.0}
 abs_minus.test_bars = {'a':-2.0}
-basiclist.append(abs_minus)
+regression_templates.append(abs_minus)
 
 sqrt = ClientRequestTestCase("sqrt")
 sqrt.include = "#include <math.h>"
@@ -340,7 +340,7 @@ sqrt.bars = {'c':1.0}
 sqrt.test_vals = {'c':2.0}
 sqrt.test_dots = {'c':0.25}
 sqrt.test_bars = {'a':0.25}
-basiclist.append(sqrt)
+regression_templates.append(sqrt)
 
 # if pow(a,b) is implemented as a*a for b==2., 
 # the gradient of b would be discarded
@@ -359,7 +359,7 @@ pow_2.bars = {'c':1.0}
 pow_2.test_vals = {'c':4.0**2}
 pow_2.test_dots = {'c':1.6*2*4.0 + 1.9*4.0**2*np.log(4)}
 pow_2.test_bars = {'a':2*4.0**1,'b':(np.log(4.0)*4.0**2)}
-basiclist.append(pow_2)
+regression_templates.append(pow_2)
 
 pow_both = ClientRequestTestCase("pow_both")
 pow_both.include = "#include <math.h>"
@@ -376,7 +376,7 @@ pow_both.bars = {'c':1.0}
 pow_both.test_vals = {'c':4.0**3.0}
 pow_both.test_dots = {'c':1.6*3*4.0**2 + 1.9*4.0**3.0*np.log(4)}
 pow_both.test_bars = {'a':3.0*4.0**2.0, 'b':(np.log(4.0)*4.0**3.0)}
-basiclist.append(pow_both)
+regression_templates.append(pow_both)
 
 for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"1"), (-10.,"neg10"), (100.,"100")]:
   sin = ClientRequestTestCase("sin_"+angletext)
@@ -395,7 +395,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.test_dots = {'c':np.cos(angle)*3.1}
   sin.test_bars = {'a':np.cos(angle)*3.1}
   sin.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
-  basiclist.append(sin)
+  regression_templates.append(sin)
 
   cos = ClientRequestTestCase("cos_"+angletext)
   cos.include = "#include <math.h>"
@@ -413,7 +413,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.test_dots = {'c':-np.sin(angle)*2.7}
   cos.test_bars = {'a':-np.sin(angle)*2.7}
   cos.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
-  basiclist.append(cos)
+  regression_templates.append(cos)
 
   tan = ClientRequestTestCase("tan_"+angletext)
   tan.include = "#include <math.h>"
@@ -430,7 +430,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   tan.test_vals = {'c':np.tan(angle)}
   tan.test_dots = {'c':1./np.cos(angle)**2}
   tan.test_bars = {'a':1./np.cos(angle)**2}
-  basiclist.append(tan)
+  regression_templates.append(tan)
 
 exp = ClientRequestTestCase("exp")
 exp.include = "#include <math.h>"
@@ -448,7 +448,7 @@ exp.test_vals = {'c':np.exp(4)}
 exp.test_dots = {'c':np.exp(4)*5.0}
 exp.test_bars = {'a':np.exp(4)*5.0}
 exp.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
-basiclist.append(exp)
+regression_templates.append(exp)
 
 log = ClientRequestTestCase("log")
 log.include = "#include <math.h>"
@@ -466,7 +466,7 @@ log.test_vals = {'c':np.log(20)}
 log.test_dots = {'c':0.05}
 log.test_bars = {'a':0.05}
 log.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
-basiclist.append(log)
+regression_templates.append(log)
 
 log10 = ClientRequestTestCase("log10")
 log10.include = "#include <math.h>"
@@ -483,7 +483,7 @@ log10.bars = {'c':1.0}
 log10.test_vals = {'c':-2}
 log10.test_dots = {'c':100/np.log(10)}
 log10.test_bars = {'a':100/np.log(10)}
-basiclist.append(log10)
+regression_templates.append(log10)
 
 sinh = ClientRequestTestCase("sinh")
 sinh.include = "#include <math.h>"
@@ -500,7 +500,7 @@ sinh.bars = {'c':1.0}
 sinh.test_vals = {'c':np.sinh(2.0)}
 sinh.test_dots = {'c':np.cosh(2.0)}
 sinh.test_bars = {'a':np.cosh(2.0)}
-basiclist.append(sinh)
+regression_templates.append(sinh)
 
 cosh = ClientRequestTestCase("cosh")
 cosh.include = "#include <math.h>"
@@ -517,7 +517,7 @@ cosh.bars = {'c':1.0}
 cosh.test_vals = {'c':np.cosh(-2.0)}
 cosh.test_dots = {'c':np.sinh(-2.0)}
 cosh.test_bars = {'a':np.sinh(-2.0)}
-basiclist.append(cosh)
+regression_templates.append(cosh)
 
 tanh = ClientRequestTestCase("tanh")
 tanh.include = "#include <math.h>"
@@ -534,7 +534,7 @@ tanh.bars = {'c':1.0}
 tanh.test_vals = {'c':np.tanh(-0.5)}
 tanh.test_dots = {'c':1-np.tanh(-0.5)**2}
 tanh.test_bars = {'a':1-np.tanh(-0.5)**2}
-basiclist.append(tanh)
+regression_templates.append(tanh)
 
 asin = ClientRequestTestCase("asin")
 asin.include = "#include <math.h>"
@@ -551,7 +551,7 @@ asin.bars = {'c':1.0}
 asin.test_vals = {'c':np.arcsin(0.9)}
 asin.test_dots = {'c':1/np.sqrt(1-0.9**2)}
 asin.test_bars = {'a':1/np.sqrt(1-0.9**2)}
-basiclist.append(asin)
+regression_templates.append(asin)
 
 acos = ClientRequestTestCase("acos")
 acos.include = "#include <math.h>"
@@ -568,7 +568,7 @@ acos.bars = {'c':1.0}
 acos.test_vals = {'c':np.arccos(-0.4)}
 acos.test_dots = {'c':-1/np.sqrt(1-(-0.4)**2)}
 acos.test_bars = {'a':-1/np.sqrt(1-(-0.4)**2)}
-basiclist.append(acos)
+regression_templates.append(acos)
 
 atan = ClientRequestTestCase("atan")
 atan.include = "#include <math.h>"
@@ -585,7 +585,7 @@ atan.bars = {'c':1.0}
 atan.test_vals = {'c':np.arctan(100)}
 atan.test_dots = {'c':1/(1+100**2)}
 atan.test_bars = {'a':1/(1+100**2)}
-basiclist.append(atan)
+regression_templates.append(atan)
 
 atan2 = ClientRequestTestCase("atan2")
 atan2.include = "#include <math.h>"
@@ -602,7 +602,7 @@ atan2.bars = {'c':1.0}
 atan2.test_vals = {'c':np.arctan2(3,4)}
 atan2.test_dots = {'c':1.3*(-4)/(3**2+4**2) + 1.5*3/(3**2+4**2)}
 atan2.test_bars = {'a':(-4)/(3**2+4**2), 'b':3/(3**2+4**2)}
-basiclist.append(atan2)
+regression_templates.append(atan2)
 
 floor = ClientRequestTestCase("floor")
 floor.include = "#include <math.h>"
@@ -619,7 +619,7 @@ floor.bars = {'c':1.0}
 floor.test_vals = {'c':2.0}
 floor.test_dots = {'c':0.0}
 floor.test_bars = {'a':0.0}
-basiclist.append(floor)
+regression_templates.append(floor)
 
 ceil = ClientRequestTestCase("ceil")
 ceil.include = "#include <math.h>"
@@ -636,7 +636,7 @@ ceil.bars = {'c':1.0}
 ceil.test_vals = {'c':3.0}
 ceil.test_dots = {'c':0.0}
 ceil.test_bars = {'a':0.0}
-basiclist.append(ceil)
+regression_templates.append(ceil)
 
 ldexp = ClientRequestTestCase("ldexp")
 ldexp.include = "#include <math.h>"
@@ -651,7 +651,7 @@ ldexp.bars = {'c':-1.0}
 ldexp.test_vals = {'c':0.3}
 ldexp.test_dots = {'c':-1.0/8}
 ldexp.test_bars = {'a':-1.0/8}
-basiclist.append(ldexp)
+regression_templates.append(ldexp)
 
 frexp = ClientRequestTestCase("frexp")
 frexp.include = "#include <math.h>"
@@ -666,7 +666,7 @@ frexp.bars = {'c':-1.0,'ee':100.0}
 frexp.test_vals = {'c':-5.0/8, 'ee':3.0}
 frexp.test_dots = {'c':-1.0/8, 'ee':0.0}
 frexp.test_bars = {'a':-1.0/8}
-basiclist.append(frexp)
+regression_templates.append(frexp)
 
 ### Memory operations from string.h ###
 
@@ -681,7 +681,7 @@ memcpy.bars = {'c':1,'d':3}
 memcpy.test_vals = {'c':-12.34,'d':-1234}
 memcpy.test_dots = {'c':-56.78,'d':-5678}
 memcpy.test_bars = {'a':301.0}
-basiclist.append(memcpy)
+regression_templates.append(memcpy)
 
 memmove = ClientRequestTestCase("memmove")
 memmove.include = "#include <string.h>"
@@ -694,7 +694,7 @@ memmove.bars = {'c':2,'d':15}
 memmove.test_vals = {'c':-12.34*3.14,'d':-12.34}
 memmove.test_dots = {'c':-56.78*3.14,'d':-56.78}
 memmove.test_bars = {'a':3.14*2+15}
-basiclist.append(memmove)
+regression_templates.append(memmove)
 
 memset = ClientRequestTestCase("memset")
 memset.include = "#include <string.h>"
@@ -707,7 +707,7 @@ memset.bars = {'a':1.0}
 memset.test_vals = {'a':0.0}
 memset.test_dots = {'a':0.0}
 memset.test_bars = {'a':0.0}
-basiclist.append(memset)
+regression_templates.append(memset)
 
 
 ### Control structures ###
@@ -726,7 +726,7 @@ ifbranch.bars = {'c':1.0}
 ifbranch.test_vals = {'c':2.0}
 ifbranch.test_dots = {'c':1.0}
 ifbranch.test_bars = {'a':1.0}
-basiclist.append(ifbranch)
+regression_templates.append(ifbranch)
 
 elsebranch = ClientRequestTestCase("elsebranch")
 elsebranch.stmtd = "double c; if(a<-1) c = 2+a; else c = 2*a; "
@@ -742,7 +742,7 @@ elsebranch.bars = {'c':1.0}
 elsebranch.test_vals = {'c':0.0}
 elsebranch.test_dots = {'c':2.0}
 elsebranch.test_bars = {'a':2.0}
-basiclist.append(elsebranch)
+regression_templates.append(elsebranch)
 
 ternary_true = ClientRequestTestCase("ternary_true")
 ternary_true.stmtd = "double c = (a>-1) ? (3*a) : (a*a);"
@@ -758,7 +758,7 @@ ternary_true.bars = {'c':1.0}
 ternary_true.test_vals = {'c':30.0}
 ternary_true.test_dots = {'c':3.0}
 ternary_true.test_bars = {'a':3.0}
-basiclist.append(ternary_true)
+regression_templates.append(ternary_true)
 
 ternary_false = ClientRequestTestCase("ternary_false")
 ternary_false.stmtd = "double c = (a>-1) ? (3*a) : (a*a);"
@@ -774,7 +774,7 @@ ternary_false.bars = {'c':1.0}
 ternary_false.test_vals = {'c':100.0}
 ternary_false.test_dots = {'c':-20.0}
 ternary_false.test_bars = {'a':-20.0}
-basiclist.append(ternary_false)
+regression_templates.append(ternary_false)
 
 
 addition_forloop = ClientRequestTestCase("addition_forloop")
@@ -790,7 +790,7 @@ addition_forloop.bars = {'c':1.0}
 addition_forloop.test_vals = {'c':20.0}
 addition_forloop.test_dots = {'c':10.0}
 addition_forloop.test_bars = {'a':10.0}
-basiclist.append(addition_forloop)
+regression_templates.append(addition_forloop)
 
 multiplication_forloop = ClientRequestTestCase("multiplication_forloop")
 multiplication_forloop.stmtd = "double c = 1; for(int i=0; i<10; i++) c*=a;"
@@ -805,7 +805,7 @@ multiplication_forloop.bars = {'c':1.0}
 multiplication_forloop.test_vals = {'c':1024.0}
 multiplication_forloop.test_dots = {'c':5120.0}
 multiplication_forloop.test_bars = {'a':5120.0}
-basiclist.append(multiplication_forloop)
+regression_templates.append(multiplication_forloop)
 
 addition_whileloop = ClientRequestTestCase("addition_whileloop")
 addition_whileloop.stmtd = "double c = 0; while(c<19) c+=a;"
@@ -821,7 +821,7 @@ addition_whileloop.bars = {'c':1.0}
 addition_whileloop.test_vals = {'c':20.0}
 addition_whileloop.test_dots = {'c':10.0}
 addition_whileloop.test_bars = {'a':10.0}
-basiclist.append(addition_whileloop)
+regression_templates.append(addition_whileloop)
 
 multiplication_whileloop = ClientRequestTestCase("multiplication_whileloop")
 multiplication_whileloop.stmtd = "double c = 1; while(c<1023) c*=a;"
@@ -837,7 +837,7 @@ multiplication_whileloop.bars = {'c':1.0}
 multiplication_whileloop.test_vals = {'c':1024.0}
 multiplication_whileloop.test_dots = {'c':5120.0}
 multiplication_whileloop.test_bars = {'a':5120.0}
-basiclist.append(multiplication_whileloop)
+regression_templates.append(multiplication_whileloop)
 
 addition_dowhileloop = ClientRequestTestCase("addition_dowhileloop")
 addition_dowhileloop.stmtd = "double c = 0; do c+=a; while(c<19);"
@@ -849,7 +849,7 @@ addition_dowhileloop.bars = {'c':1.0}
 addition_dowhileloop.test_vals = {'c':20.0}
 addition_dowhileloop.test_dots = {'c':10.0}
 addition_dowhileloop.test_bars = {'a':10.0}
-basiclist.append(addition_dowhileloop)
+regression_templates.append(addition_dowhileloop)
 
 multiplication_dowhileloop = ClientRequestTestCase("multiplication_dowhileloop")
 multiplication_dowhileloop.stmtd = "double c = 1; do c*=a; while(c<1023);"
@@ -861,7 +861,7 @@ multiplication_dowhileloop.bars = {'c':1.0}
 multiplication_dowhileloop.test_vals = {'c':1024.0}
 multiplication_dowhileloop.test_dots = {'c':5120.0}
 multiplication_dowhileloop.test_bars = {'a':5120.0}
-basiclist.append(multiplication_dowhileloop)
+regression_templates.append(multiplication_dowhileloop)
 
 addition_recursion = ClientRequestTestCase("addition_recursion")
 addition_recursion.include = """
@@ -879,7 +879,7 @@ addition_recursion.bars = {'c':1.0}
 addition_recursion.test_vals = {'c':20.0}
 addition_recursion.test_dots = {'c':10.0}
 addition_recursion.test_bars = {'a':10.0}
-basiclist.append(addition_recursion)
+regression_templates.append(addition_recursion)
 
 multiplication_recursion = ClientRequestTestCase("multiplication_recursion")
 multiplication_recursion.include = """
@@ -897,7 +897,7 @@ multiplication_recursion.bars = {'c':1.0}
 multiplication_recursion.test_vals = {'c':1024.0}
 multiplication_recursion.test_dots = {'c':5120.0}
 multiplication_recursion.test_bars = {'a':5120.0}
-basiclist.append(multiplication_recursion)
+regression_templates.append(multiplication_recursion)
 
 ### Auto-Vectorization ###
 for (name, op, c_val, c_dot, a_bar, b_bar) in [ 
@@ -929,7 +929,7 @@ for (name, op, c_val, c_dot, a_bar, b_bar) in [
   autovectorization.test_vals = {'c':c_val}
   autovectorization.test_dots = {'c':c_dot}
   autovectorization.test_bars = {'a':a_bar, 'b':b_bar}
-  basiclist.append(autovectorization)
+  regression_templates.append(autovectorization)
 
 for (name, cfun, ffun, c_val, grad) in [ 
   ("abs", "fabs", "abs", 1200.,120.),
@@ -963,7 +963,7 @@ for (name, cfun, ffun, c_val, grad) in [
   autovectorization.test_vals = {'c':c_val}
   autovectorization.test_dots = {'c':grad}
   autovectorization.test_bars = {'a':grad}
-  basiclist.append(autovectorization)
+  regression_templates.append(autovectorization)
 
 ### OpenMP ###
 
@@ -999,7 +999,7 @@ for i in range(100):
 omp_critical.test_vals = {'sum':omp_test_sum_val}
 omp_critical.test_dots = {'sum':omp_test_sum_grad}
 omp_critical.test_bars = {'a':omp_test_sum_grad}
-basiclist.append(omp_critical)
+regression_templates.append(omp_critical)
 
 omp_atomic = ClientRequestTestCase("omp_atomic")
 omp_atomic.cflags = "-fopenmp -lm"
@@ -1028,7 +1028,7 @@ omp_atomic.test_vals = {'sum':omp_test_sum_val}
 omp_atomic.test_dots = {'sum':omp_test_sum_grad}
 omp_atomic.test_bars = {'a':omp_test_sum_grad}
 omp_atomic.disable = lambda mode, arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
-basiclist.append(omp_atomic)
+regression_templates.append(omp_atomic)
 
 omp_reduction = ClientRequestTestCase("omp_reduction")
 omp_reduction.cflags = "-fopenmp -lm"
@@ -1056,7 +1056,7 @@ omp_reduction.test_vals = {'sum':omp_test_sum_val}
 omp_reduction.test_dots = {'sum':omp_test_sum_grad}
 omp_reduction.test_bars = {'a':omp_test_sum_grad}
 omp_reduction.disable = lambda mode, arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
-basiclist.append(omp_reduction)
+regression_templates.append(omp_reduction)
 
 ### Misusing integer and logic operations for floating-point arithmetics ###
 exponentadd = ClientRequestTestCase("exponentadd")
@@ -1069,7 +1069,7 @@ exponentadd.test_vals = {'c':6.28}
 exponentadd.test_dots = {'c':-84.0}
 exponentadd.test_bars = {'a':2.0}
 exponentadd.disable = lambda mode, arch, compiler, typename: True
-basiclist.append(exponentadd)
+regression_templates.append(exponentadd)
 
 exponentsub = ClientRequestTestCase("exponentsub")
 exponentsub.stmtd = "double c = a; *((char*)&c+6) -= 0x10;"
@@ -1081,7 +1081,7 @@ exponentsub.test_vals = {'c':3.14}
 exponentsub.test_dots = {'c':-42.0}
 exponentsub.test_bars = {'a':0.5}
 exponentsub.disable = lambda mode, arch, compiler, typename: True
-basiclist.append(exponentadd)
+regression_templates.append(exponentadd)
 
 ### C++ tests ###
 constructornew = ClientRequestTestCase("constructornew")
@@ -1096,7 +1096,7 @@ constructornew.bars = {'y': 1.0}
 constructornew.test_vals = {'y': 4.0}
 constructornew.test_dots = {'y': 12.0}
 constructornew.test_bars = {'x': 4.0}
-basiclist.append(constructornew)
+regression_templates.append(constructornew)
 
 virtualdispatch = ClientRequestTestCase("virtualdispatch")
 virtualdispatch.include = """
@@ -1130,7 +1130,7 @@ virtualdispatch.bars = {'y': 2.1}
 virtualdispatch.test_vals = {'y': 2.}
 virtualdispatch.test_dots = {'y': 2.1}
 virtualdispatch.test_bars = {'x': 2.1}
-basiclist.append(virtualdispatch)
+regression_templates.append(virtualdispatch)
 
 
 
@@ -1147,7 +1147,7 @@ addition_interactive.bars = {'c':1.0}
 addition_interactive.test_vals = {'c':3.0}
 addition_interactive.test_dots = {'c':7.0}
 addition_interactive.test_bars = {'a':1.0,'b':1.0}
-basiclist.append(addition_interactive)
+regression_templates.append(addition_interactive)
 
 multiplication_interactive = InteractiveTestCase("multiplication_interactive")
 multiplication_interactive.stmtd = "double c = a*b;"
@@ -1161,7 +1161,7 @@ multiplication_interactive.bars = {'c':-3.14}
 multiplication_interactive.test_vals = {'c':2.0}
 multiplication_interactive.test_dots = {'c':10.0}
 multiplication_interactive.test_bars = {'a':-6.28,'b':-3.14}
-basiclist.append(multiplication_interactive)
+regression_templates.append(multiplication_interactive)
 
 sin_100_interactive = InteractiveTestCase("sin_100_interactive")
 sin_100_interactive.include = "#include <math.h>"
@@ -1177,21 +1177,21 @@ sin_100_interactive.bars = {'c':3.1}
 sin_100_interactive.test_vals = {'c':np.sin(100)}
 sin_100_interactive.test_dots = {'c':np.cos(100)*3.1}
 sin_100_interactive.test_bars = {'a':np.cos(100)*3.1}
-basiclist.append(sin_100_interactive)
+regression_templates.append(sin_100_interactive)
 
 ### Performance Tests ###
-performance_testlist = []
+performance_templates = []
 burgers = PerformanceTestCase("burgers")
 burgers.mode = 'b'
 burgers.benchmark = "benchmarks/burgers.cpp"
 burgers.benchmarkargs = "50 50"
 burgers.benchmarkreps = 2
 burgers.cflags = "-O3"
-performance_testlist.append(burgers)
+performance_templates.append(burgers)
 
 
-### Take "cross product" of regression tests with other configuation options ###
-regression_testlist = []
+### Take "cross product" of regression test templates with other configuation options ###
+regression_tests = []
 for test_mode in ["dot", "bar"]:
   for test_arch in ["x86", "amd64"]:
     for test_compiler in ["gcc", "g++", "clang", "clang++", "gfortran", "python"]:
@@ -1202,9 +1202,9 @@ for test_mode in ["dot", "bar"]:
       elif test_compiler=='python':
         test_type_list = ["float","np64","np32"]
       for test_type in test_type_list:
-        for basictest in basiclist:
-          test = copy.deepcopy(basictest)
-          test.name = test_mode+"_"+test_arch+"_"+test_compiler+"_"+test_type+"_"+basictest.name
+        for regression_template in regression_templates:
+          test = copy.deepcopy(regression_template)
+          test.name = test_mode+"_"+test_arch+"_"+test_compiler+"_"+test_type+"_"+regression_template.name
 
           if test_arch == "x86":
             test.arch = 32
@@ -1252,10 +1252,39 @@ for test_mode in ["dot", "bar"]:
           else:
             test.mode='b'
           if test.stmt!=None and not test.disable(test_mode, test_arch, test_compiler, test_type):
-            regression_testlist.append(test)
+            regression_tests.append(test)
+
+### Take "cross product" of performance test templates with other configuration options
+performance_tests = []
+for test_mode in ["dot", "bar"]:
+  for test_arch in ["x86", "amd64"]:
+    for test_compiler in ["g++", "clang++"]:
+      for test_optimizationflags in ["o3", "o0g"]:
+        for performance_template in performance_templates:
+          test = copy.deepcopy(performance_template)
+          test.name = "perf_"+test_mode+"_"+test_arch+"_"+test_compiler+"_"+test_optimizationflags+"_"+performance_template.name
+
+          if test_arch == "x86":
+            test.arch = 32
+          elif test_arch == "amd64":
+            test.arch = 64
+
+          test.compiler = test_compiler
+
+          if test_mode=='dot':
+            test.mode='d'
+          else:
+            test.mode='b'
+
+          if test_optimizationflags=='o3':
+            test.cflags += " -O3"
+          else:
+            test.cflags += " -O0 -g"
+
+          performance_tests.append(test)
 
 
-testlist = regression_testlist + performance_testlist
+testlist = regression_tests + performance_tests
 
 
 ### Run testcases ###
