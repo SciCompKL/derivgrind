@@ -579,7 +579,7 @@ class PerformanceTestCase(TestCase):
     if self.codi_dir==None:
       self.errmsg += "NO CODIPACK INCLUDE PATH SUPPLIED\n"
       return 
-    comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_codi", "-DCODI_DOT" if self.mode=='d' else "-DCODI_BAR"]+self.cflags.split()+[f"-I{self.codi_dir}"], capture_output=True)
+    comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_codi", "-DCODI_DOT" if self.mode=='d' else "-DCODI_BAR"]+self.cflags.split()+[f"-I{self.codi_dir}"] + (["-m32"] if self.arch==32 else []), capture_output=True)
     if comp.returncode!=0:
       self.errmsg += "COMPILATION WITH CODIPACK FAILED:\n" + comp.stdout.decode('utf-8')+ comp.stderr.decode('utf-8')
     exe = subprocess.run([f"{self.temp_dir}/main_codi",f"{self.temp_dir}/dg-performance-result-codi.json"]+self.benchmarkargs.split(), capture_output=True)
@@ -590,7 +590,7 @@ class PerformanceTestCase(TestCase):
 
   def runNoAD(self, nrep):
     """Build without AD and run repeatedly."""
-    comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_noad"]+self.cflags.split(), capture_output=True)
+    comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_noad"]+self.cflags.split()+(["-m32"] if self.arch==32 else []), capture_output=True)
     if comp.returncode!=0:
       self.errmsg += "COMPILATION WITHOUT AD FAILED:\n" + comp.stdout.decode('utf-8') + comp.stderr.decode('utf-8')
     self.results_noad = []
@@ -603,7 +603,7 @@ class PerformanceTestCase(TestCase):
 
   def runDG(self, nrep):
     """Build with Derivgrind client request types and run repeatedly."""
-    comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_dg", f"-I{self.install_dir}/include", "-DDG_DOT" if self.mode=='d' else "-DDG_BAR"]+self.cflags.split(), capture_output=True)
+    comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_dg", f"-I{self.install_dir}/include", "-DDG_DOT" if self.mode=='d' else "-DDG_BAR"]+self.cflags.split() + (["-m32"] if self.arch==32 else []), capture_output=True)
     if comp.returncode!=0:
       self.errmsg += "COMPILATION WITH DERIVGRIND FAILED:\n" + comp.stderr.decode('utf-8')
     self.results_dg = []
