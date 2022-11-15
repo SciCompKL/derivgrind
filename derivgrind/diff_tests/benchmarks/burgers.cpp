@@ -28,12 +28,12 @@ int main(int nArgs, char** args) {
 
   // == Seed / register inputs. ==
   for (size_t i = 0; i < props.totalSize; ++i) {
+    HANDLE_INPUT(problem.uStart[i]);
     problem.u1[i] = problem.uStart[i];
-    HANDLE_INPUT(problem.u1[i]);
   }
   for (size_t i = 0; i < props.totalSize; ++i) {
+    HANDLE_INPUT(problem.vStart[i]);
     problem.v1[i] = problem.vStart[i];
-    HANDLE_INPUT(problem.v1[i]);
   }
 
   // == Solve PDE, measure recording time. ==
@@ -68,15 +68,15 @@ int main(int nArgs, char** args) {
   #elif defined(CODI_DOT)
     resfile << ",\n \"output_dot\" : [" << w.getGradient() << " ]";
   #elif defined(CODI_BAR)
-    tape.setPassive();
     tape.registerOutput(w);
+    tape.setPassive();
     w.setGradient(one);
     tape.evaluate();
     resfile << ",\n \"input_bar\" : [" << problem.u1[0].getGradient();
     for (size_t i = 1; i < props.totalSize; ++i)
-      resfile << ", " << problem.u1[i].getGradient();
+      resfile << ", " << problem.uStart[i].getGradient();
     for (size_t i = 0; i < props.totalSize; ++i)
-      resfile << ", " << problem.v1[i].getGradient();
+      resfile << ", " << problem.vStart[i].getGradient();
     resfile << "]";
   #endif
   resfile << "\n}";
