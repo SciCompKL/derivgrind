@@ -1,6 +1,9 @@
-[submodule "shadow-memory"]
-	path = shadow-memory
+[submodule "derivgrind/externals/shadow-memory"]
+	path = derivgrind/externals/shadow-memory
 	url = https://github.com/maxaehle/shadow-memory
-[submodule "derivgrind/wrappers/python3/pybind11"]
-	path = derivgrind/wrappers/python3/pybind11
+[submodule "derivgrind/externals/pybind11"]
+	path = derivgrind/externals/pybind11
 	url = https://github.com/pybind/pybind11.git
+[submodule "derivgrind/externals/CoDiPack"]
+	path = derivgrind/externals/CoDiPack
+	url = https://github.com/SciCompKL/CoDiPack.git

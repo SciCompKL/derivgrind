@@ -19,7 +19,7 @@ if VGCONF_HAVE_PLATFORM_SEC
 noinst_PROGRAMS += derivgrind-@VGCONF_ARCH_SEC@-@VGCONF_OS@
 endif
 
-DERIVGRIND_SOURCES_COMMON = dg_main.c ../shadow-memory/src/shadow-64.c dg_shadow.c dg_utils.c dg_expressionhandling.c dot/dg_dot.c dot/dg_dot_bitwise.c dot/dg_dot_minmax.c bar/dg_bar.c bar/dg_bar_bitwise.c bar/dg_bar_tape.c
+DERIVGRIND_SOURCES_COMMON = dg_main.c externals/shadow-memory/src/shadow-64.c dg_shadow.c dg_utils.c dg_expressionhandling.c dot/dg_dot.c dot/dg_dot_bitwise.c dot/dg_dot_minmax.c bar/dg_bar.c bar/dg_bar_bitwise.c bar/dg_bar_tape.c
 
 derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES      = \
 	$(DERIVGRIND_SOURCES_COMMON)
@@ -165,7 +165,7 @@ libpythondir = ${libdir}/python3/site-packages
 if ENABLE_PYTHON
 libpython_DATA = wrappers/python3/derivgrind.so
 wrappers/python3/derivgrind.so: wrappers/python3/derivgrind_clientrequests_python.cpp
-	$(CXX) -fvisibility=hidden -shared -fPIC -std=c++17 -Iwrappers/python3/pybind11/include -I$$(@PYTHON@  -c "import sysconfig; print(sysconfig.get_path('include'))") wrappers/python3/derivgrind_clientrequests_python.cpp -o wrappers/python3/derivgrind.so -I. -I../include $$(@PYTHON@ -c "import sys; print('' if sys.maxsize>2**32 else '-m32')")
+	$(CXX) -fvisibility=hidden -shared -fPIC -std=c++17 -Iexternals/pybind11/include -I$$(@PYTHON@  -c "import sysconfig; print(sysconfig.get_path('include'))") wrappers/python3/derivgrind_clientrequests_python.cpp -o wrappers/python3/derivgrind.so -I. -I../include $$(@PYTHON@ -c "import sys; print('' if sys.maxsize>2**32 else '-m32')")
 CLEANFILES += wrappers/python3/derivgrind.so
 endif
 

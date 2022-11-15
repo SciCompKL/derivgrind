@@ -98,9 +98,9 @@
 #include "dg_shadow.h"
 
 #ifdef BUILD_32BIT
-#include "shadow-memory/src/shadow.h"
+#include "externals/shadow-memory/src/shadow.h"
 #else
-#include "shadow-memory/src/shadow-64.h"
+#include "externals/shadow-memory/src/shadow-64.h"
 #endif
 
 inline void  shadow_free(void* addr) { VG_(free)(addr); }
