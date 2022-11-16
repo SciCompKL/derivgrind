@@ -71,13 +71,44 @@ test_torch_x86:
       import torch
       import derivgrind_torch
       import numpy as np
+      import sys
       x = torch.tensor([4.0,-2.0,6.5],dtype=torch.float64,requires_grad=True)
       y = derivgrind_torch.derivgrind("mylib.so","myfun","x86").apply(b"",x,1)
       y.backward()
       err = np.linalg.norm(x.grad-np.array([3.14,6.5,-2.0]))
       print("Error:", err)
-      exit(1 if err>1e-8 else 0)
+      sys.exit(1 if err>1e-8 else 0)
       EOF
+
+test_tensorflow_x86:
+  stage: test
+  script:
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt-get update
+    - apt-get install -y build-essential gcc-multilib g++-multilib python3 python3-numpy python3-pip
+    - pip install tensorflow
+    - |
+      cat > mylib.c <<EOF
+      void myfun(int param_size, char* param_buf, int input_count, double* input_buf, int output_count, double* output_buf){
+      output_buf[0] = 3.14*input_buf[0] + 5.0 + input_buf[1]*input_buf[2];
+      }
+      EOF
+    - gcc mylib.c -shared -fPIC -o mylib.so -m32
+    - |
+      LD_LIBRARY_PATH=$PWD PYTHONPATH=$PWD/derivgrind/wrappers/tensorflow/:$PWD/install/lib/python3/site-packages TF_CPP_MIN_LOG_LEVEL=3 python3 <<EOF
+      import tensorflow as tf
+      import derivgrind_tensorflow
+      import numpy as np
+      import sys
+      x = tf.Variable([4.0,-2.0,6.5],dtype=tf.float64)
+      with tf.GradientTape() as tape:
+        y = derivgrind_tensorflow.derivgrind("mylib.so","myfun","x86").apply(b"",x,1)
+      dy_dx = tape.gradient(y,x)
+      err = np.linalg.norm(dy_dx.numpy()-np.array([3.14,6.5,-2.0]))
+      print("Error:", err)
+      sys.exit(1 if err>1e-8 else 0)
+      EOF
+
 
 .test_dot_amd64:
   stage: test

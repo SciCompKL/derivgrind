@@ -126,7 +126,7 @@ tape_evaluation_SOURCES = bar/tape-evaluation.cpp
 
 #----------------------------------------------------------------------------
 # derivgrind-library-caller, 
-# the executable needed for the Torch external function wrapper.
+# the executable needed for the PyTorch and TensorFlow external function wrappers.
 #----------------------------------------------------------------------------
 noinst_PROGRAMS += derivgrind-library-caller-amd64
 derivgrind_library_caller_amd64_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
@@ -179,10 +179,19 @@ endif
 # PyTorch external function wrapper.
 #----------------------------------------------------------------------------
 libpython_SCRIPTS = wrappers/torch/derivgrind_torch.py
-relative_bindir = 
 wrappers/torch/derivgrind_torch.py: wrappers/torch/derivgrind_torch_in.py
-	cp wrappers/torch/derivgrind_torch_in.py wrappers/torch/derivgrind_torch.py # now append assignment of path to install bin directoy
+	cp wrappers/torch/derivgrind_torch_in.py wrappers/torch/derivgrind_torch.py # now append assignment of path to install bin directory
 	echo "bin_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${bindir}', '${libpythondir}'))")\"" >> wrappers/torch/derivgrind_torch.py
 	echo "libexec_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${libexecdir}', '${libpythondir}'))")\"" >> wrappers/torch/derivgrind_torch.py
 CLEANFILES += wrappers/torch/derivgrind_torch.py
+
+#----------------------------------------------------------------------------
+# TensorFlow external function wrapper.
+#----------------------------------------------------------------------------
+libpython_SCRIPTS += wrappers/tensorflow/derivgrind_tensorflow.py
+wrappers/tensorflow/derivgrind_tensorflow.py: wrappers/tensorflow/derivgrind_tensorflow_in.py
+	cp wrappers/tensorflow/derivgrind_tensorflow_in.py wrappers/tensorflow/derivgrind_tensorflow.py # now append assignment of path to install bin directory
+	echo "bin_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${bindir}', '${libpythondir}'))")\"" >> wrappers/tensorflow/derivgrind_tensorflow.py
+	echo "libexec_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${libexecdir}', '${libpythondir}'))")\"" >> wrappers/tensorflow/derivgrind_tensorflow.py
+CLEANFILES += wrappers/tensorflow/derivgrind_tensorflow.py
 
