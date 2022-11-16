@@ -47,10 +47,11 @@ import subprocess
 #
 
 
-def derivgrind(library,functionname):
+def derivgrind(library,functionname,arch='amd64'):
   """Create a DerivgrindLibraryCaller Torch Function class.
     @param library Full path to the shared object.
     @param functionname Symbol name of the compiled function.
+    @param arch Target architecture of the library, 'amd64' (default) or 'x86'.
   """
   class DerivgrindLibraryCaller(torch.autograd.Function):
     @staticmethod
@@ -74,7 +75,7 @@ def derivgrind(library,functionname):
       with open(tempdir.name+"/dg-libcaller-inputs", "wb") as input_buf:
         input.numpy().tofile(input_buf)
 
-      forward_process = subprocess.run([bin_path+"/valgrind", "--quiet", "--tool=derivgrind", "--record="+tempdir.name, "/home/aehle/valgrind/derivgrind/wrappers/torch/derivgrind-library-caller", library, functionname, fptype, str(len(params)), str(len(input)), str(noutput), tempdir.name])
+      forward_process = subprocess.run([bin_path+"/valgrind", "--quiet", "--tool=derivgrind", "--record="+tempdir.name, libexec_path+"/valgrind/derivgrind-library-caller-"+arch, library, functionname, fptype, str(len(params)), str(len(input)), str(noutput), tempdir.name])
       
       with open(tempdir.name+"/dg-libcaller-outputs",'rb') as output_buf:
         output = torch.tensor(np.fromfile(output_buf, dtype=input.numpy().dtype, count=noutput))
@@ -118,3 +119,4 @@ def derivgrind(library,functionname):
   return DerivgrindLibraryCaller
 
 bin_path = os.path.dirname(__file__)+"/../../../install/bin"
+libexec_path = os.path.dirname(__file__)+"/../../../install/libexec"

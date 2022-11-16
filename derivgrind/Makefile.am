@@ -128,10 +128,16 @@ tape_evaluation_SOURCES = bar/tape-evaluation.cpp
 # derivgrind-library-caller, 
 # the executable needed for the Torch external function wrapper.
 #----------------------------------------------------------------------------
-noinst_PROGRAMS += derivgrind-library-caller
-derivgrind_library_caller_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
-derivgrind_library_caller_CPPFLAGS = -I. -I../include  # needs derivgrind.h and valgrind.h
-derivgrind_library_caller_LDADD = -ldl
+noinst_PROGRAMS += derivgrind-library-caller-amd64
+derivgrind_library_caller_amd64_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
+derivgrind_library_caller_amd64_CPPFLAGS = -I. -I../include  # needs derivgrind.h and valgrind.h
+derivgrind_library_caller_amd64_LDADD = -ldl
+
+noinst_PROGRAMS += derivgrind-library-caller-x86
+derivgrind_library_caller_x86_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
+derivgrind_library_caller_x86_CPPFLAGS = -I. -I../include -m32  # needs derivgrind.h and valgrind.h
+derivgrind_library_caller_x86_LDADD = -ldl
+derivgrind_library_caller_x86_LDFLAGS = -m32
 
 #----------------------------------------------------------------------------
 # Compiled client request macros.
@@ -177,5 +183,6 @@ relative_bindir =
 wrappers/torch/derivgrind_torch.py: wrappers/torch/derivgrind_torch_in.py
 	cp wrappers/torch/derivgrind_torch_in.py wrappers/torch/derivgrind_torch.py # now append assignment of path to install bin directoy
 	echo "bin_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${bindir}', '${libpythondir}'))")\"" >> wrappers/torch/derivgrind_torch.py
+	echo "libexec_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${libexecdir}', '${libpythondir}'))")\"" >> wrappers/torch/derivgrind_torch.py
 CLEANFILES += wrappers/torch/derivgrind_torch.py
 
