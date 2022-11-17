@@ -1185,7 +1185,7 @@ burgers = PerformanceTestCase("burgers")
 burgers.mode = 'b'
 burgers.benchmark = "benchmarks/burgers.cpp"
 burgers.benchmarkargs = "50 50"
-burgers.benchmarkreps = 2
+burgers.benchmarkreps = 10
 burgers.cflags = "-O3"
 performance_templates.append(burgers)
 
