@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------*/
-/*--- Wrap client request            derivgrind_clientrequests.cpp ---*/
+/*--- Wrap client request     derivgrind_clientrequests_python.cpp ---*/
 /*--- functions for Python.                                        ---*/
 /*--------------------------------------------------------------------*/
 
@@ -31,7 +31,7 @@
 */
 
 #include <pybind11/pybind11.h>
-#include <valgrind/derivgrind.h>
+#include "derivgrind.h"
 
 namespace py = pybind11;
 
@@ -68,8 +68,5 @@ PYBIND11_MODULE(derivgrind, m){
   });
   m.def( "outputf", [](double val)->void {
     DG_OUTPUTF(val);
-  });
-  m.def( "clearf", [](void)->void {
-    DG_CLEARF;
   });
 }

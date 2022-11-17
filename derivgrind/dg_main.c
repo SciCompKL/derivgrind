@@ -84,9 +84,9 @@ Long disable_diffquotdebug = 0;
 /*! Mode: d=dot/forward, b=bar/reverse/recording
  */
 HChar mode = 'd';
-/*! Path for tape file in recording mode.
+/*! Directory for tape and index files in recording mode.
  */
-const HChar* tape_path = NULL;
+const HChar* recording_directory = NULL;
 
 static void dg_post_clo_init(void)
 {
@@ -94,7 +94,7 @@ static void dg_post_clo_init(void)
     dg_dot_initialize();
   } else {
     dg_bar_initialize();
-    dg_bar_tape_initialize(tape_path);
+    dg_bar_tape_initialize(recording_directory);
   }
 }
 
@@ -102,7 +102,7 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
 {
    if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
    else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
-   else if VG_STR_CLO(arg, "--record", tape_path) { mode = 'b'; }
+   else if VG_STR_CLO(arg, "--record", recording_directory) { mode = 'b'; }
    else return False;
    return True;
 }
@@ -112,7 +112,7 @@ static void dg_print_usage(void)
    VG_(printf)(
 "    --warn-unwrapped=no|yes   warn about unwrapped expressions\n"
 "    --diffquotdebug=no|yes    print values and dot values of intermediate results\n"
-"    --record=<path>           switch to recording mode and store tape at specified path\n"
+"    --record=<directory>      switch to recording mode and store tape and indices in specified dir\n"
    );
 }
 
@@ -316,6 +316,15 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     else
       *newindexaddr = tapeAddStatement_noActivityAnalysis(*index1addr,*index2addr,*diff1addr,*diff2addr);
     *ret = 1; return True;
+  } else if(arg[0]==VG_USERREQ__INDEX_TO_FILE){
+    if(arg[1]==DG_INDEXFILE_INPUT){
+      dg_bar_tape_write_input_index(*(ULong*)(arg[2]));
+    } else if(arg[1]==DG_INDEXFILE_OUTPUT){
+      dg_bar_tape_write_output_index(*(ULong*)(arg[2]));
+    } else {
+      VG_(printf)("Bad output file specification.");
+      tl_assert(False);
+    }
   } else {
     VG_(printf)("Unhandled user request.\n");
     return True;

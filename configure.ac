@@ -5285,6 +5285,53 @@ AM_CONDITIONAL([HAVE_SHARED_POINTER_ANNOTATION],
 
 
 #----------------------------------------------------------------------------
+# Derivgrind options.
+#----------------------------------------------------------------------------
+AC_CACHE_CHECK([whether to build the Derivgrind Fortran client request wrappers], vg_cv_dg_fortran,
+  [AC_ARG_ENABLE(fortran,
+    [  --enable-fortran          enables building the Derivgrind Fortran client request wrappers],
+    [vg_cv_dg_fortran=$enableval],
+    [vg_cv_dg_fortran=yes])])
+AM_CONDITIONAL([ENABLE_FORTRAN], [test x$vg_cv_dg_fortran = xyes])
+
+AC_CACHE_CHECK([whether to build the Derivgrind Python client request wrappers], vg_cv_dg_python,
+  [AC_ARG_ENABLE(python,
+    [  --enable-python           enables building the Derivgrind Python client request wrappers],
+    [vg_cv_dg_python=$enableval],
+    [vg_cv_dg_python=no])])
+AM_CONDITIONAL([ENABLE_PYTHON], [test x$vg_cv_dg_python != no])
+AC_SUBST(PYTHON) # the Python executable
+if test x$vg_cv_dg_python != xno; then
+  if test x$vg_cv_dg_python == xyes; then # no Python executable supplied
+    AC_MSG_CHECKING([for python3])
+    if ! command -v python3 &> /dev/null; then
+      AC_MSG_RESULT([not found])
+      AC_MSG_ERROR([python3 executable not found, specify path with --enable-python=path])
+    else
+      PYTHON=python3
+      AC_MSG_RESULT([found])
+    fi
+  else
+    PYTHON=${vg_cv_dg_python}
+  fi
+  AC_MSG_CHECKING([Python.h])
+  temp_dir=$( /usr/bin/mktemp -d )
+  echo "#include <Python.h>" >${temp_dir}/mylib.c
+  PYTHON_INCLUDES=$(${PYTHON} -c "import sysconfig; print(sysconfig.get_path('include'))")
+  ${CC} ${CFLAGS} -c -o ${temp_dir}/mylib.o ${temp_dir}/mylib.c -I${PYTHON_INCLUDES} 2>${temp_dir}/error
+  if test "$(cat ${temp_dir}/error)" != "" ; then
+    AC_MSG_RESULT([bad])
+    rm -rf ${temp_dir}
+    AC_MSG_ERROR([No or bad Python.h found in ${PYTHON_INCLUDES}. Have you installed the Python headers?])
+  else
+    AC_MSG_RESULT([ok])
+    rm -rf ${temp_dir}
+  fi
+fi
+
+
+
+#----------------------------------------------------------------------------
 # Ok.  We're done checking.
 #----------------------------------------------------------------------------
 

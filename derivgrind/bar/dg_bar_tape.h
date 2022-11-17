@@ -21,6 +21,14 @@ ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2);
  */
 ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1,double diff2);
 
+/*! Write index to input-index file.
+ */
+void dg_bar_tape_write_input_index(ULong index);
+
+/*! Write index to output-index file.
+ */
+void dg_bar_tape_write_output_index(ULong index);
+
 /*! Initialize tape.
  */
 void dg_bar_tape_initialize(const HChar* filename);

@@ -88,13 +88,7 @@ static double const dg_one = 1.;
 
 /*! Mark variable as AD input, assign new 8-byte index, and dump the index into a file.
  */
-#define DG_INPUTF(var) \
-{ \
-  int fd = open("dg-input-indices", O_WRONLY|O_APPEND);\
-  unsigned long long index = DG_INPUT(var);\
-  dprintf(fd,"%llu\n",index);\
-  close(fd);\
-}
+#define DG_INPUTF(var) { dg_indextmp2 = DG_INPUT(var); DG_INDEX_TO_FILE(DG_INDEXFILE_INPUT, &dg_indextmp2); }
 
 /*! Mark variable as AD output and retrieve its 8-byte index.
  * 
@@ -109,23 +103,7 @@ static double const dg_one = 1.;
 
 /*! Mark variable as AD output, retrieve its 8-byte index, and dump the index into a file.
  */
-#define DG_OUTPUTF(var) \
-{ \
-  int fd = open("dg-output-indices", O_WRONLY|O_APPEND);\
-  unsigned long long index = DG_OUTPUT(var);\
-  dprintf(fd,"%llu\n",index);\
-  close(fd);\
-}
-
-/*! Clear the files for the indices of input and output variables.
- */
-#define DG_CLEARF \
-{ \
-  int fd = open("dg-input-indices", O_WRONLY|O_CREAT|O_TRUNC,0777);\
-  close(fd); \
-  fd = open("dg-output-indices", O_WRONLY|O_CREAT|O_TRUNC,0777);\
-  close(fd); \
-}
+#define DG_OUTPUTF(var) { dg_indextmp2 = DG_OUTPUT(var); DG_INDEX_TO_FILE(DG_INDEXFILE_OUTPUT, &dg_indextmp2); }
 
 
 
