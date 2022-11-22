@@ -130,6 +130,10 @@ int main(int argc, char* argv[]){
       // The adjoint update for the assignment to b would add
       // (adjoint value of b = 0) * (partial derivative db/da = -inf)
       // = NaN to the adjoint of a if the check were not performed.
+      if(index1==0xffffffffffffffff || index2==0xffffffffffffffff){
+        std::cerr << "tape-evaluation: Variable with index 0xff..f influences the output." << std::endl;
+        continue;
+      }
       if(index1!=0) adjointvec[index1] += adjointvec[iIndex] * diff1;
       if(index2!=0) adjointvec[index2] += adjointvec[iIndex] * diff2;
     }

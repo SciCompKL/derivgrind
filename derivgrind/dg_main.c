@@ -90,6 +90,11 @@ const HChar* recording_directory = NULL;
 
 static void dg_post_clo_init(void)
 {
+  if(typegrind && mode!='b'){
+    VG_(printf)("Option --typegrind=yes can only be used in recording mode (--record=path).\n");
+    tl_assert(False);
+  }
+
   if(mode=='d'){
     dg_dot_initialize();
   } else {
@@ -103,6 +108,7 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
    if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
    else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
    else if VG_STR_CLO(arg, "--record", recording_directory) { mode = 'b'; }
+   else if VG_BOOL_CLO(arg, "--typegrind", typegrind) { }
    else return False;
    return True;
 }
@@ -113,6 +119,7 @@ static void dg_print_usage(void)
 "    --warn-unwrapped=no|yes   warn about unwrapped expressions\n"
 "    --diffquotdebug=no|yes    print values and dot values of intermediate results\n"
 "    --record=<directory>      switch to recording mode and store tape and indices in specified dir\n"
+"    --typegrind=no|yes        record index ff...f for results of unwrapped operations\n"
    );
 }
 

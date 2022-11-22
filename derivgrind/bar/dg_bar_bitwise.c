@@ -33,6 +33,7 @@
 
 #include "dg_bar_bitwise.h"
 #include "dg_bar_tape.h"
+#include "dg_bar.h"
 
 /*! \file dg_bar_bitwise.c
  *  Define functions for recording-mode AD handling of bitwise logical operations.
@@ -129,7 +130,7 @@ static ULong assemble64x2to64(ULong iLo, ULong iHi){
 VG_REGPARM(0) void dg_bar_bitwise_and32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
   DG_HANDLE_AND((&dg_bar_bitwise_out), float,UInt, x, y)
   else DG_HANDLE_AND((&dg_bar_bitwise_out), float,UInt, y, x)
-  else { dg_bar_bitwise_out.w64[0] = dg_bar_bitwise_out.w64[1] = 0x0; }
+  else { dg_bar_bitwise_out.w64[0] = dg_bar_bitwise_out.w64[1] = typegrind ? 0xffffffffffffffff : 0x0; }
 }
 
 /*! AD handling of logical "and" for F32 and F64 type.
@@ -164,7 +165,7 @@ VG_REGPARM(0) void dg_bar_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong y
 VG_REGPARM(0) void dg_bar_bitwise_or32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
   DG_HANDLE_OR((&dg_bar_bitwise_out), float,UInt, x, y)
   else DG_HANDLE_OR((&dg_bar_bitwise_out), float,UInt, y, x)
-  else { dg_bar_bitwise_out.w64[0] = dg_bar_bitwise_out.w64[1] = 0x0; }
+  else { dg_bar_bitwise_out.w64[0] = dg_bar_bitwise_out.w64[1] = typegrind ? 0xffffffffffffffff : 0x0; }
 }
 
 VG_REGPARM(0) void dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
@@ -187,7 +188,7 @@ VG_REGPARM(0) void dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y,
 VG_REGPARM(0) void dg_bar_bitwise_xor32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
   DG_HANDLE_XOR((&dg_bar_bitwise_out), float,UInt, x, y)
   else DG_HANDLE_XOR((&dg_bar_bitwise_out), float,UInt, y, x)
-  else { dg_bar_bitwise_out.w64[0] = dg_bar_bitwise_out.w64[1] = 0x0; }
+  else { dg_bar_bitwise_out.w64[0] = dg_bar_bitwise_out.w64[1] = typegrind ? 0xffffffffffffffff : 0x0; }
 }
 
 VG_REGPARM(0) void dg_bar_bitwise_xor64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){

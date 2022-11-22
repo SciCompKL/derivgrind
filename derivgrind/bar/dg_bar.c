@@ -19,6 +19,9 @@ void* sm_barLo = NULL;
 //! Second layer of shadow memory for the higher 4 byte of the 8-byte indices.
 void* sm_barHi = NULL;
 
+//! Whether to return 0xff..f for unhandled operations, otherwise 0x00..0.
+Bool typegrind = False;
+
 #define dg_bar_rounding_mode IRExpr_Const(IRConst_U32(0))
 
 /* --- Define ExpressionHandling. --- */
@@ -256,7 +259,17 @@ void* dg_bar_operation(DiffEnv* diffenv, IROp op,
   if(i4) { i4Lo = ((IRExpr**)i4)[0]; i4Hi = ((IRExpr**)i4)[1]; }
   switch(op){
     #include "dg_bar_operations.c"
-    default: return NULL;
+    default: {
+      if(typegrind){
+        IRType t_dst, t_arg1, t_arg2, t_arg3, t_arg4;
+        typeOfPrimop(op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
+        IRExpr* indexLo = mkIRConst_ones(t_dst);
+        IRExpr* indexHi = indexLo;
+        return mkIRExprVec_2(indexLo, indexHi);
+      } else {
+        return NULL;
+      }
+    }
   }
 }
 

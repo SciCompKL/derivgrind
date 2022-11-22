@@ -40,9 +40,9 @@ import tempfile
 
 selected_install_dir = "../../install"
 selected_temp_dir = None
-selected_codi_dir = "/home/aehle/codipack/include"
+selected_codi_dir = os.path.dirname(__file__)+"/../externals/CoDiPack/include/"
 selected_testcase = None
-if len(sys.argv)>4:
+if len(sys.argv)>5:
   print("Usage: "+sys.argv[0]+" [options]                   - Run all testcases.")
   print("       "+sys.argv[0]+" [options] name_of_testcase  - Run single testcase.")
   print("Options:")
