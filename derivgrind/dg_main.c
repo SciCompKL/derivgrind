@@ -294,8 +294,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     shadowSet(sm_dot,addr,daddr,size);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__DISABLE) {
-    if(mode!='d') return True;
-    dg_disable += arg[1];
+    dg_disable += (Long)(arg[1]) - (Long)(arg[2]);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__GET_INDEX) {
     if(mode!='b') return True;

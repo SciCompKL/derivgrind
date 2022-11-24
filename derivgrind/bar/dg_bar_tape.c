@@ -40,7 +40,7 @@ ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1
   }
   if(index1==0xffffffffffffffff||index2==0xffffffffffffffff){
     VG_(message)(Vg_UserMsg, "Result of unwrapped operation used as input of differentiable operation.\n");
-    VG_(message)(Vg_UserMsg, "Index of result of differentiable operation: %llu.\n",nextindex);
+    VG_(message)(Vg_UserMsg, "Index of result of differentiable operation: %llu.\n",nextindex-1);
     VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 16);
     VG_(message)(Vg_UserMsg, "\n");
   }

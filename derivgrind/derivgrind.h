@@ -120,8 +120,12 @@ typedef enum {
 #define VALGRIND_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size) DG_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
 
 /* Disable Derivgrind on specific code sections by putting the section
- * into a DG_DISABLE(1) ... DG_DISABLE(-1) bracket. Used by the math function
+ * into a DG_DISABLE(1,0) ... DG_DISABLE(0,1) bracket. Used by the math function
  * wrappers.
+ *
+ * The macro DG_DISABLE(plus,minus) will add plus and subtract minus from
+ * a Derivgrind-internal counter dg_disable. When the counter is non-zero,
+ * certain actions are disabled.
  *
  * In forward mode, this will enable/disable outputting of values and
  * dot values for difference quotient debugging, but dot values will still
@@ -132,11 +136,11 @@ typedef enum {
  * block index and not write to the tape. Also, typgrind warnings about an
  * index 0xff..f will be suppressed.
  */
-#define DG_DISABLE(_qzz_delta) \
+#define DG_DISABLE(_qzz_plus,_qzz_minus) \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__DISABLE,    \
-                            (_qzz_delta), 0, 0, 0, 0)
-#define DERIVGRIND_DISABLE(_qzz_delta) DG_DISABLE(_qzz_delta)
+                            (_qzz_plus), (_qzz_minus), 0, 0, 0)
+#define DERIVGRIND_DISABLE(_qzz_plus,_qzz_minus) DG_DISABLE(_qzz_plus,_qzz_minus)
 
 /* --- Recording mode. ---*/
 
