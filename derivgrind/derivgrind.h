@@ -88,7 +88,8 @@ typedef
       VG_USERREQ__SET_INDEX,
       VG_USERREQ__NEW_INDEX,
       VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS,
-      VG_USERREQ__INDEX_TO_FILE
+      VG_USERREQ__INDEX_TO_FILE,
+      VG_USERREQ__GET_MODE
    } Vg_DerivgrindClientRequest;
 
 typedef enum {
@@ -171,6 +172,14 @@ typedef enum {
                             VG_USERREQ__INDEX_TO_FILE,          \
                             (_qzz_outputfile), (_qzz_indexaddr), 0, 0, 0)
 #define DERIVGRIND_INDEX_TO_FILE(_qzz_outputfile,_qzz_addrindex) DG_INDEX_TO_FILE(_qzz_outputfile,_qzz_addrindex)
+
+/* Get AD mode.
+ */
+#define DG_GET_MODE  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__GET_MODE,          \
+                            0, 0, 0, 0, 0)
+#define DERIVGRIND_GET_MODE DG_GET_MODE
 
 
 #endif

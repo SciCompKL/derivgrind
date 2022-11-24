@@ -332,6 +332,10 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
       VG_(printf)("Bad output file specification.");
       tl_assert(False);
     }
+    return True;
+  } else if(arg[0]==VG_USERREQ__GET_MODE){
+    *ret = (UWord)mode;
+    return True;
   } else {
     VG_(printf)("Unhandled user request.\n");
     return True;
