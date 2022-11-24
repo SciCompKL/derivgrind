@@ -6,6 +6,8 @@
 #include "pub_tool_libcfile.h"
 #include "pub_tool_libcprint.h"
 #include "pub_tool_mallocfree.h"
+#include "pub_tool_stacktrace.h"
+#include "pub_tool_libcprint.h"
 
 #include "dg_bar_tape.h"
 
@@ -31,6 +33,12 @@ ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1
   nextindex++;
   if(nextindex%BUFSIZE==0){
     VG_(write)(fd_tape,buffer_tape,4*BUFSIZE*sizeof(ULong));
+  }
+  if(index1==0xffffffffffffffff||index2==0xffffffffffffffff){
+    VG_(message)(Vg_UserMsg, "Result of unwrapped operation used as input of differentiable operation.\n");
+    VG_(message)(Vg_UserMsg, "Index of result of differentiable operation: %llu.\n",nextindex);
+    VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 16);
+    VG_(message)(Vg_UserMsg, "\n");
   }
   return nextindex-1;
 }
