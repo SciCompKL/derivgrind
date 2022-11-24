@@ -79,7 +79,7 @@ Bool warn_about_unwrapped_expressions = False;
 Bool diffquotdebug = False;
 /*! If nonzero, do not print difference quotient debugging information.
  */
-Long disable_diffquotdebug = 0;
+Long dg_disable = 0;
 
 /*! Mode: d=dot/forward, b=bar/reverse/recording
  */
@@ -293,9 +293,9 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     UWord size = arg[3];
     shadowSet(sm_dot,addr,daddr,size);
     *ret = 1; return True;
-  } else if(arg[0]==VG_USERREQ__DISABLE_DIFFQUOTDEBUG) {
+  } else if(arg[0]==VG_USERREQ__DISABLE) {
     if(mode!='d') return True;
-    disable_diffquotdebug += arg[1];
+    dg_disable += arg[1];
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__GET_INDEX) {
     if(mode!='b') return True;

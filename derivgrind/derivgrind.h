@@ -83,7 +83,7 @@ typedef
    enum { 
       VG_USERREQ__GET_DOTVALUE = VG_USERREQ_TOOL_BASE('D','G'),
       VG_USERREQ__SET_DOTVALUE,
-      VG_USERREQ__DISABLE_DIFFQUOTDEBUG,
+      VG_USERREQ__DISABLE,
       VG_USERREQ__GET_INDEX,
       VG_USERREQ__SET_INDEX,
       VG_USERREQ__NEW_INDEX,
@@ -119,12 +119,24 @@ typedef enum {
 #define DERIVGRIND_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size) DG_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
 #define VALGRIND_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size) DG_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
 
-/* Enable/disable outputting of values and dot values for difference quotient debugging. */
-#define DG_DISABLE_DIFFQUOTDEBUG(_qzz_delta) \
+/* Disable Derivgrind on specific code sections by putting the section
+ * into a DG_DISABLE(1) ... DG_DISABLE(-1) bracket. Used by the math function
+ * wrappers.
+ *
+ * In forward mode, this will enable/disable outputting of values and
+ * dot values for difference quotient debugging, but dot values will still
+ * be propagated.
+ *
+ * In recording mode, whenever a block would be written on the tape, this
+ * will assign the index 0 or 0xff..f (if --typegrind=yes) instead of the
+ * block index and not write to the tape. Also, typgrind warnings about an
+ * index 0xff..f will be suppressed.
+ */
+#define DG_DISABLE(_qzz_delta) \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
-                            VG_USERREQ__DISABLE_DIFFQUOTDEBUG,    \
+                            VG_USERREQ__DISABLE,    \
                             (_qzz_delta), 0, 0, 0, 0)
-#define DERIVGRIND_DISABLE_DIFFQUOTDEBUG(_qzz_delta) DG_DISABLE_DIFFQUOTDEBUG(_qzz_delta)
+#define DERIVGRIND_DISABLE(_qzz_delta) DG_DISABLE(_qzz_delta)
 
 /* --- Recording mode. ---*/
 

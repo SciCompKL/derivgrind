@@ -17,6 +17,9 @@ static ULong buffer_tape[4*BUFSIZE];
 static Int fd_tape;
 static VgFile *fp_inputs, *fp_outputs;
 
+extern Long dg_disable;
+extern Bool typegrind;
+
 ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2){
   if(index1==0 && index2==0) // activity analysis
     return 0;
@@ -25,6 +28,7 @@ ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2){
 }
 
 ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1,double diff2){
+  if(dg_disable!=0) return typegrind ? 0xffffffffffffffff : 0;
   ULong pos = (nextindex%BUFSIZE)*4;
   buffer_tape[pos] = index1;
   buffer_tape[pos+1] = index2;

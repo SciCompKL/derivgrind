@@ -542,7 +542,7 @@ void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
 #include "pub_tool_vki.h"
 static unsigned long outcount = 0;
 extern Bool diffquotdebug;
-extern Long disable_diffquotdebug;
+extern Long dg_disable;
 ULong buffer[2000000];
 static Int fd=-1;
 static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalue){
@@ -552,7 +552,7 @@ static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalu
   if(fd==-1){
     VG_(printf)("Cannot get file descriptor.");
   }
-  if(diffquotdebug && disable_diffquotdebug==0){
+  if(diffquotdebug && dg_disable==0){
     buffer[2*(outcount%1000000)] = value;
     buffer[2*(outcount%1000000)+1] = dotvalue;
     if(outcount%1000000==999999){
