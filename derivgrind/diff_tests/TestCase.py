@@ -85,7 +85,7 @@ class TestCase:
     # set the others stmtX to None
     self.benchmark = None # C++ file to be run for performance test
     self.benchmarkargs = "" # Arguments to C++ program for performance test
-    self.benchmarkreps = 10 # Number of repetitions for performance test
+    self.benchmarkreps = 0 # Number of repetitions for performance test
     self.include = "" # Code pasted above main function
     self.vals = {} # Assigns values to input variables used by stmt
     self.dots = {} # Assigns dot values to input variables used by stmt
@@ -648,8 +648,8 @@ class PerformanceTestCase(TestCase):
     dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg])
     # Choose which output you prefer
     #return f"{noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb}"
-    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)}x"
-            
+    #return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)}x"
+    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb}"
 
   def run(self):
     print("##### Running performance test '"+self.name+"'... #####", flush=True)

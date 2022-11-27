@@ -46,9 +46,9 @@ test_perf_x86:
     - pip install anybadge
     - mkdir -p badges
     - anybadge -l 'Forward-mode run-time' -v 'Error' -f badges/dot_gcc_o3_x86.svg -c 'red'
-    - anybadge -l 'Forward-mode run-time' -v $(cd derivgrind/diff_tests && python3 run_tests.py --codidir=$PWD/../externals/CoDiPack/include perf_dot_x86_g++_o3_burgers | awk '$1 ~ /OK./ { print $2 }') -f badges/dot_gcc_o3_x86.svg --overwrite -c 'green' || true
+    - anybadge -l 'Forward-mode run-time' -v $(cd derivgrind/diff_tests && python3 run_tests.py --codidir=$PWD/../externals/CoDiPack/include perf_dot_x86_g++_o3_burgers_badge | awk '$1 ~ /OK./ { print $2 "x" }') -f badges/dot_gcc_o3_x86.svg --overwrite -c 'green' || true
     - anybadge -l 'Recording-mode run-time' -v 'Error' -f badges/bar_gcc_o3_x86.svg -c 'red'
-    - anybadge -l 'Recording-mode run-time' -v $(cd derivgrind/diff_tests && python3 run_tests.py --codidir=$PWD/../externals/CoDiPack/include perf_bar_x86_g++_o3_burgers | awk '$1 ~ /OK./ { print $2 }') -f badges/bar_gcc_o3_x86.svg --overwrite -c 'green' || true
+    - anybadge -l 'Recording-mode run-time' -v $(cd derivgrind/diff_tests && python3 run_tests.py --codidir=$PWD/../externals/CoDiPack/include perf_bar_x86_g++_o3_burgers_badge | awk '$1 ~ /OK./ { print $2 "x" }') -f badges/bar_gcc_o3_x86.svg --overwrite -c 'green' || true
   artifacts:
     paths:
       - badges/
