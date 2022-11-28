@@ -1196,6 +1196,7 @@ for nx in range(100,501,20):
     burgers_time = PerformanceTestCase(f"burgers_time_{nx}_{nt}")
     burgers_time.benchmark = "benchmarks/burgers.cpp"
     burgers_time.benchmarkargs = f"{nx} {nt}"
+    #burgers_time.benchmarkreps = 1
     performance_templates.append(burgers_time)
 
 # Memory measurements for the paper.

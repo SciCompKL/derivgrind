@@ -264,10 +264,13 @@ void* dg_bar_operation(DiffEnv* diffenv, IROp op,
       if(typegrind){
         IRType t_dst=Ity_INVALID, t_arg1=Ity_INVALID, t_arg2=Ity_INVALID, t_arg3=Ity_INVALID, t_arg4=Ity_INVALID;
         typeOfPrimop(op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
+        /*if(t_dst==Ity_I128) return NULL; // TODO: Check whether index is zero.
         IRExpr* allInputsZero = IRExpr_Binop(Iop_And1,
           IRExpr_Binop(Iop_And1, isZero(arg1, t_arg1), isZero(arg2, t_arg2)),
           IRExpr_Binop(Iop_And1, isZero(arg3, t_arg3), isZero(arg4, t_arg4)) );
         IRExpr* indexLo = IRExpr_ITE(allInputsZero,mkIRConst_zero(t_dst), mkIRConst_ones(t_dst));
+        */
+        IRExpr* indexLo = mkIRConst_ones(t_dst);
         IRExpr* indexHi = indexLo;
         return mkIRExprVec_2(indexLo, indexHi);
       } else {

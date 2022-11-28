@@ -111,7 +111,7 @@ IRExpr* mkIRConst_fptwo(int fpsize, int simdsize){
   }
 }
 
-IRExpr* isZero(IRExpr* expr, IRType type){
+IRExpr* isZero(IRExpr* expr, IRType type){ // TODO check whether index is zero
   switch(type){
     case Ity_INVALID: return IRExpr_Const(IRConst_U1(True));
     case Ity_I8: return IRExpr_Binop(Iop_CmpEQ8,expr,IRExpr_Const(IRConst_U8(0)));
@@ -122,7 +122,7 @@ IRExpr* isZero(IRExpr* expr, IRType type){
     case Ity_F32: return IRExpr_Binop(Iop_CmpEQ32,IRExpr_Unop(Iop_ReinterpF32asI32,expr),IRExpr_Const(IRConst_U32(0)));
     case Ity_F64: return IRExpr_Binop(Iop_CmpEQ64,IRExpr_Unop(Iop_ReinterpF64asI64,expr),IRExpr_Const(IRConst_U64(0)));
     case Ity_F128: return isZero(IRExpr_Unop(Iop_ReinterpF128asI128,expr),Ity_I128);
-    case Ity_V128: return isZero(IRExpr_Unop(Iop_ReinterpV128asI128,expr), Ity_I128);
+    case Ity_V128: return IRExpr_Binop(Iop_And1, isZero(IRExpr_Unop(Iop_V128to64,expr), Ity_I64), isZero(IRExpr_Unop(Iop_V128HIto64,expr), Ity_I64));
     case Ity_V256: return IRExpr_Binop(Iop_And1, isZero(IRExpr_Unop(Iop_V256toV128_0,expr), Ity_V128), isZero(IRExpr_Unop(Iop_V256toV128_1,expr), Ity_V128));
     default: return IRExpr_Const(IRConst_U1(False));
   }
