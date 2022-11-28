@@ -13,6 +13,7 @@
 #include "dg_bar.h"
 #include "dg_bar_bitwise.h"
 #include "dg_bar_tape.h"
+#include "dg_utils.h"
 
 //! First layer of shadow memory for the lower 4 byte of the 8-byte indices.
 void* sm_barLo = NULL;
@@ -261,9 +262,12 @@ void* dg_bar_operation(DiffEnv* diffenv, IROp op,
     #include "dg_bar_operations.c"
     default: {
       if(typegrind){
-        IRType t_dst, t_arg1, t_arg2, t_arg3, t_arg4;
+        IRType t_dst=Ity_INVALID, t_arg1=Ity_INVALID, t_arg2=Ity_INVALID, t_arg3=Ity_INVALID, t_arg4=Ity_INVALID;
         typeOfPrimop(op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
-        IRExpr* indexLo = mkIRConst_ones(t_dst);
+        IRExpr* allInputsZero = IRExpr_Binop(Iop_And1,
+          IRExpr_Binop(Iop_And1, isZero(arg1, t_arg1), isZero(arg2, t_arg2)),
+          IRExpr_Binop(Iop_And1, isZero(arg3, t_arg3), isZero(arg4, t_arg4)) );
+        IRExpr* indexLo = IRExpr_ITE(allInputsZero,mkIRConst_zero(t_dst), mkIRConst_ones(t_dst));
         IRExpr* indexHi = indexLo;
         return mkIRExprVec_2(indexLo, indexHi);
       } else {

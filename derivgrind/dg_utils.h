@@ -104,6 +104,17 @@ IRExpr* convertToF64(IRExpr* expr, DiffEnv* diffenv, IRType* originaltype);
  */
 IRExpr* convertFromF64(IRExpr* expr, IRType originaltype);
 
+/*! Check whether expression evaluates to zero.
+ *
+ *  Used by dg_bar_operation with typegrind==True to decide
+ *  whether to emit an index 0 or 0xff..f. If type==Ity_INVALID,
+ *  expr may be NULL and True is returned.
+ *
+ *  \param expr Expression to be compared with zero.
+ *  \param type Type of evaluated expression.
+ */
+IRExpr* isZero(IRExpr* expr, IRType type);
+
 /*! Extract one component of a SIMD vector expression, as I32 or I64 expression.
  *
  * \param[in] expression - SIMD vector.
