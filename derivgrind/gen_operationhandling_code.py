@@ -270,14 +270,14 @@ for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1),("64Fx2",8,2),("32Fx2",4,
 for suffix,fpsize,simdsize,llo in [pF64,pF32]: # p64Fx2, p32Fx2, p32Fx4 exist, but AD logic is different
   abs_ = IROp_Info(f"Iop_Abs{suffix}", 1, [1])
   abs_.dotcode = dv(f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}i(0)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)")
-  abs_.barcode = createBarCode(abs_, [1], [1], [f"IRExpr_ITE( IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1_part_f, IRExpr_Const(IRConst_{suffix}i(0)))) , IRExpr_Const(IRConst_F64(-1.)), IRExpr_Const(IRConst_F64(1.)))"], fpsize, simdsize, llo)
+  abs_.barcode = createBarCode(abs_, [1], [1], [f"IRExpr_ITE( IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64, arg1_part_f, IRExpr_Const(IRConst_{suffix}i(0)))) , IRExpr_Const(IRConst_F64(-1.)), IRExpr_Const(IRConst_F64(1.)))"], fpsize, simdsize, llo)
   IROp_Infos += [ abs_ ]
 # Min, Max
 for Op, op in [("Min", "min"), ("Max", "max")]:
   for suffix,fpsize,simdsize,llo in [p32Fx2,p32Fx4,p32F0x4,p64Fx2,p64F0x2,p32Fx8,p64Fx4]:
     the_op = IROp_Info(f"Iop_{Op}{suffix}", 2, [1,2])
     the_op.dotcode = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"dotvalue":"dotvalue_part"}, fpsize, simdsize, f'IRExpr* dotvalue_part = mkIRExprCCall(Ity_I64,0,"dg_dot_arithmetic_{op}{fpsize*8}", &dg_dot_arithmetic_{op}{fpsize*8}, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
-    the_op.barcode = createBarCode(the_op, [1,2], [1,2], [f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{'F32' if fpsize==4 else 'F64'},arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})) )",     f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{'F32' if fpsize==4 else 'F64'},arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})) )"], fpsize, simdsize,llo)
+    the_op.barcode = createBarCode(the_op, [1,2], [1,2], [f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64,arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})) )",     f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64,arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})) )"], fpsize, simdsize,llo)
     IROp_Infos += [ the_op ]
 # fused multiply-add
 for Op in ["Add", "Sub"]:
