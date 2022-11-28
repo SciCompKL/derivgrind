@@ -173,7 +173,7 @@ class InteractiveTestCase(TestCase):
       compile_process = subprocess.run(['gfortran', "-g", "-O0", self.temp_dir+"/"+self.source_filename, "-o", self.temp_dir+"/TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() + self.ldflags.split(),universal_newlines=True)
 
     if compile_process.returncode!=0:
-      self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
+      self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout.decode("utf-8")
 
   def run_code_in_vgdb(self):
     # in reverse mode, clear index and adjoints files
@@ -517,7 +517,7 @@ class ClientRequestTestCase(TestCase):
       pass
 
     if self.compiler!='python' and compile_process.returncode!=0:
-      self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
+      self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout.decode("utf-8")
 
   def run_code(self):
     self.valgrind_log = ""
@@ -532,7 +532,7 @@ class ClientRequestTestCase(TestCase):
     maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
     valgrind = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
     if valgrind.returncode!=0:
-      self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
+      self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout.decode("utf-8")+"\n\nVALGRIND STDERR:\n"+valgrind.stderr.decode("utf-8")+"\n\n"
     if self.mode=='b': # evaluate tape
       with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
         # NumPy testcases are repeated 16 times
@@ -584,7 +584,7 @@ class PerformanceTestCase(TestCase):
       self.errmsg += "COMPILATION WITH CODIPACK FAILED:\n" + comp.stdout.decode('utf-8')+ comp.stderr.decode('utf-8')
     exe = subprocess.run([f"{self.temp_dir}/main_codi",f"{self.temp_dir}/dg-performance-result-codi.json"]+self.benchmarkargs.split(), capture_output=True)
     if exe.returncode!=0:
-      self.errmsg += "EXECUTION WITH CODIPACK FAILED:\n" + "STDOUT:\n" + exe.stdout + "\nSTDERR:\n" + exe.stderr
+      self.errmsg += "EXECUTION WITH CODIPACK FAILED:\n" + "STDOUT:\n" + exe.stdout.decode("utf-8") + "\nSTDERR:\n" + exe.stderr.decode("utf-8")
     with open(self.temp_dir+"/dg-performance-result-codi.json") as f:
       self.result_codi = json.load(f)
 
