@@ -57,7 +57,7 @@ void dg_bar_tape_initialize(const HChar* path){
   VG_(memcpy)(filename,path,len+1);
 
   VG_(memcpy)(filename+len, "/dg-tape", 9);
-  fd_tape = VG_(fd_open)(filename,VKI_O_WRONLY|VKI_O_CREAT|VKI_O_TRUNC,0777);
+  fd_tape = VG_(fd_open)(filename,VKI_O_WRONLY|VKI_O_CREAT|VKI_O_TRUNC|VKI_O_LARGEFILE,0777);
   if(fd_tape==-1){
     VG_(printf)("Cannot open tape file at path '%s'.", filename ); tl_assert(False);
   }
