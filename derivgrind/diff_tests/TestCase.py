@@ -646,10 +646,11 @@ class PerformanceTestCase(TestCase):
     noad_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_noad])
     dg_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_dg])
     dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg])
+    codi_number_of_jacobians = self.result_codi["number_of_jacobians"]
     # Choose which output you prefer
     #return f"{noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb}"
     #return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)}x"
-    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb}"
+    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb} {codi_number_of_jacobians}"
 
   def run(self):
     print("##### Running performance test '"+self.name+"'... #####", flush=True)
