@@ -623,6 +623,12 @@ class PerformanceTestCase(TestCase):
         if eva.returncode!=0:
           self.errmsg += "EVALUATION OF DERIVGRIND TAPE FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
         result["input_bar"] = [float(adj) for adj in np.loadtxt(self.temp_dir+"/dg-input-adjoints")]
+        # run tape-evaluation another time for statistics
+        eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir, "--stats"], capture_output=True)
+        if eva.returncode!=0:
+          self.errmsg += "EVALUATION OF DERIVGRIND TAPE STATS FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
+        nZero,nOne,nTwo = [int(n) for n in eva.stdout.decode('utf-8').strip().split()]
+        result["number_of_jacobians"] = nOne + 2*nTwo
       self.results_dg.append(result)
 
   def verifyGradient(self):
@@ -647,10 +653,11 @@ class PerformanceTestCase(TestCase):
     dg_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_dg])
     dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg])
     codi_number_of_jacobians = self.result_codi["number_of_jacobians"]
+    dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg])
     # Choose which output you prefer
     #return f"{noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb}"
     #return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)}x"
-    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb} {codi_number_of_jacobians}"
+    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb} {codi_number_of_jacobians} {dg_number_of_jacobians}"
 
   def run(self):
     print("##### Running performance test '"+self.name+"'... #####", flush=True)

@@ -29,7 +29,7 @@ int main(int argc, char* argv[]){
 
   // open tape file
   if(argc<2){ // to few arguments
-    std::cerr << "Usage: " << argv[0] << " path" << std::endl;
+    std::cerr << "Usage: " << argv[0] << " path [--stats]" << std::endl;
     return 1;
   }
   std::string path = argv[1];
@@ -44,6 +44,13 @@ int main(int argc, char* argv[]){
   };
 
   Tapefile<bufsize,decltype(loadfun)> tape(loadfun, number_of_blocks);
+
+  if(argc>=3 && std::string(argv[2])=="--stats"){
+    unsigned long long nZero, nOne, nTwo;
+    tape.stats(nZero,nOne,nTwo);
+    std::cout << nZero << " " << nOne << " " << nTwo << std::endl;
+    exit(0);
+  }
 
   // initialize adjoint vector
   double* adjointvec = new double[number_of_blocks];

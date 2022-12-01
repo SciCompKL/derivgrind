@@ -65,6 +65,25 @@ public:
     });
   }
 
+  /*! Get tape statistics.
+   *
+   * \param nZero Number of blocks with two times a zero index, i.e., input variables plus one.
+   * \param nOne Number of blocks with one zero and one non-zero index.
+   * \param nTwo Number of blocks with two non-zero indices.
+   */
+  void stats(ull& nZero, ull& nOne, ull& nTwo){
+    nZero = nOne = nTwo = 0;
+    iterate(0,number_of_blocks-1, [&nZero,&nOne,&nTwo](ull index, ull index1, ull index2, double diff1, double diff2){
+      if(index1==0 && index2==0){
+        nZero++;
+      } else if(index1!=0 && index2!=0){
+        nTwo++;
+      } else {
+        nOne++;
+      }
+    });
+  }
+
   /*! Scan the tape for variables that influence the result, but were not recognized as the result of a floating-point operation.
    * 
    * When Derivgrind is running with --typegrind=yes, it emits an index larger or equal 0x80..0 for the result of all operations that it does not recognize as real arithmetic.
