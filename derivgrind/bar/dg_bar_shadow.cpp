@@ -26,12 +26,20 @@ extern "C" void dg_bar_shadowGet(void* sm_address, void* real_address_Lo, void* 
   Addr contiguousSize = sm_bar2->contiguousElements((Addr)sm_address);
   ULong index = sm_bar2->index((Addr)sm_address);
   if(contiguousSize >= size){
-    VG_(memcpy)(real_address_Lo, &leaf->data_Lo[index], size);
-    VG_(memcpy)(real_address_Hi, &leaf->data_Hi[index], size);
+    if(real_address_Lo) VG_(memcpy)(real_address_Lo, &leaf->data_Lo[index], size);
+    if(real_address_Hi) VG_(memcpy)(real_address_Hi, &leaf->data_Hi[index], size);
   } else {
-    VG_(memcpy)(real_address_Lo, &leaf->data_Lo[index], contiguousSize);
-    VG_(memcpy)(real_address_Hi, &leaf->data_Hi[index], contiguousSize);
-    dg_bar_shadowGet((void*)((Addr)sm_address+contiguousSize),(void*)((Addr)real_address_Lo+contiguousSize),(void*)((Addr)real_address_Hi+contiguousSize),size-contiguousSize);
+    if(real_address_Lo){
+      VG_(memcpy)(real_address_Lo, &leaf->data_Lo[index], contiguousSize);
+      real_address_Lo = (void*)((Addr)real_address_Lo+contiguousSize);
+    }
+    if(real_address_Hi){
+      VG_(memcpy)(real_address_Hi, &leaf->data_Hi[index], contiguousSize);
+      real_address_Hi = (void*)((Addr)real_address_Hi+contiguousSize);
+    }
+    sm_address = (void*)((Addr)sm_address+contiguousSize);
+    size = size-contiguousSize;
+    dg_bar_shadowGet(sm_address,real_address_Lo,real_address_Hi,size);
   }
 }
 
@@ -40,12 +48,20 @@ extern "C" void dg_bar_shadowSet(void* sm_address, void* real_address_Lo, void* 
   Addr contiguousSize = sm_bar2->contiguousElements((Addr)sm_address);
   ULong index = sm_bar2->index((Addr)sm_address);
   if(contiguousSize >= size){
-    VG_(memcpy)(&leaf->data_Lo[index], real_address_Lo, size);
-    VG_(memcpy)(&leaf->data_Hi[index], real_address_Hi, size);
+    if(real_address_Lo) VG_(memcpy)(&leaf->data_Lo[index], real_address_Lo, size);
+    if(real_address_Hi) VG_(memcpy)(&leaf->data_Hi[index], real_address_Hi, size);
   } else {
-    VG_(memcpy)(&leaf->data_Lo[index], real_address_Lo, contiguousSize);
-    VG_(memcpy)(&leaf->data_Hi[index], real_address_Hi, contiguousSize);
-    dg_bar_shadowSet((void*)((Addr)sm_address+contiguousSize),(void*)((Addr)real_address_Lo+contiguousSize),(void*)((Addr)real_address_Hi+contiguousSize),size-contiguousSize);
+    if(real_address_Lo){
+      VG_(memcpy)(&leaf->data_Lo[index], real_address_Lo, contiguousSize);
+      real_address_Lo = (void*)((Addr)real_address_Lo+contiguousSize);
+    }
+    if(real_address_Hi){
+      VG_(memcpy)(&leaf->data_Hi[index], real_address_Hi, contiguousSize);
+      real_address_Hi = (void*)((Addr)real_address_Hi+contiguousSize);
+    }
+    sm_address = (void*)((Addr)sm_address+contiguousSize);
+    size = size-contiguousSize;
+    dg_bar_shadowSet(sm_address,real_address_Lo,real_address_Hi,size);
   }
 }
 

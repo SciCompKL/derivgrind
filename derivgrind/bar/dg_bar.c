@@ -88,13 +88,11 @@ static void* dg_bar_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
  */
 void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo ( Addr addrU, ULong i64 )
 {
-  ULong i64_Hi;
-  dg_bar_shadowSet((void*)addrU,(void*)&i64,(void*)&i64_Hi,4);
+  dg_bar_shadowSet((void*)addrU,(void*)&i64,NULL,4);
 }
 void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong i64 )
 {
-  ULong i64_Lo;
-  dg_bar_shadowSet((void*)addrU,(void*)&i64_Lo,(void*)&i64,4);
+  dg_bar_shadowSet((void*)addrU,NULL,(void*)&i64,4);
 }
 /*! Dirtyhelper for the extra AD logic to dirty calls to
  *  x86g_dirtyhelper_loadF80le / amd64g_dirtyhelper_loadF80le.

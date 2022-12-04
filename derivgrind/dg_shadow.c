@@ -133,25 +133,22 @@ void destroyShadowMap(void* sm){
 }
 
 extern ShadowMap* sm_dot, *sm_barLo, *sm_barHi;
-ULong tmp1[100], tmp2[100];
 void shadowGet(void* sm, void* sm_address, void* real_address, int size){
   if(sm==sm_dot){
     dg_dot_shadowGet(sm_address,real_address,size);
   } else if(sm==sm_barLo) {
-    dg_bar_shadowGet(sm_address,real_address,tmp1,size);
+    dg_bar_shadowGet(sm_address,real_address,NULL,size);
   } else if(sm==sm_barHi) {
-    dg_bar_shadowGet(sm_address,tmp1,real_address,size);
+    dg_bar_shadowGet(sm_address,NULL,real_address,size);
   }
 }
 void shadowSet(void* sm, void* sm_address, void* real_address, int size){
   if(sm==sm_dot){
     dg_dot_shadowSet(sm_address,real_address,size);
   } else if(sm==sm_barLo) {
-    dg_bar_shadowGet(sm_address,tmp1,tmp2,size);
-    dg_bar_shadowSet(sm_address,real_address,tmp2,size);
+    dg_bar_shadowSet(sm_address,real_address,NULL,size);
   } else if(sm==sm_barHi) {
-    dg_bar_shadowGet(sm_address,tmp1,tmp2,size);
-    dg_bar_shadowSet(sm_address,tmp1,real_address,size);
+    dg_bar_shadowSet(sm_address,NULL,real_address,size);
   }
 }
 
