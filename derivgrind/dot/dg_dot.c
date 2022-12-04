@@ -14,6 +14,8 @@
 #include "dg_dot_bitwise.h"
 #include "dg_dot_minmax.h"
 
+#include "dg_dot_shadow.h"
+
 //! Shadow memory for the dot values.
 void* sm_dot = NULL;
 
@@ -167,9 +169,11 @@ void dg_dot_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){
 
 void dg_dot_initialize(void){
   sm_dot = initializeShadowMap();
+  dg_dot_shadowInit();
 }
 
 void dg_dot_finalize(void){
   destroyShadowMap(sm_dot);
+  dg_dot_shadowFini();
 }
 

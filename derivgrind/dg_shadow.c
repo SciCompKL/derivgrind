@@ -32,7 +32,7 @@
 /*! \file dg_shadow.c
  *  Shadow memory stuff for Derivgrind.
  */
-
+#include "dot/dg_dot_shadow.h"
 
 /*! \page loading_and_storing Loading and storing tangent values in memory
  *
@@ -131,12 +131,21 @@ void destroyShadowMap(void* sm){
   VG_(free)(sm);
 }
 
+extern ShadowMap* sm_dot;
 void shadowGet(void* sm, void* sm_address, void* real_address, int size){
+  if(sm==sm_dot){
+      dg_dot_shadowGet(sm_address,real_address,size);
+      return;
+    }
   for(int i=0; i<size; i++){
     shadow_get_bits(sm, (SM_Addr)(sm_address+i), (U8*)real_address+i);
   }
 }
 void shadowSet(void* sm, void* sm_address, void* real_address, int size){
+  if(sm==sm_dot){
+      dg_dot_shadowSet(sm_address,real_address,size);
+      return;
+    }
   for(int i=0; i<size; i++){
     shadow_set_bits(sm, (SM_Addr)(sm_address+i), *( (U8*)real_address+i ));
   }
