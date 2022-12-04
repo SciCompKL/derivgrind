@@ -1,5 +1,5 @@
-#include "sm2/flexible-shadow.hpp"
-#include "sm2/flexible-shadow-valgrindstdlib.hpp"
+#include "externals/flexible-shadow/flexible-shadow.hpp"
+#include "externals/flexible-shadow/flexible-shadow-valgrindstdlib.hpp"
 #include <pub_tool_libcbase.h>
 #include "dg_utils.h"
 
