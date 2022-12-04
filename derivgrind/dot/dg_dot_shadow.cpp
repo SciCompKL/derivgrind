@@ -8,25 +8,20 @@
 #else
 #define NUM_LOW_BITS 18
 #endif
-struct ShadowLeaf {
+struct ShadowLeafDot {
   UChar data[1ul<<NUM_LOW_BITS];
-  static ShadowLeaf distinguished;
+  static ShadowLeafDot distinguished;
 };
-ShadowLeaf ShadowLeaf::distinguished;
-void initialize_distinguished(){
-  for(Addr i=0; i<(1ul<<NUM_LOW_BITS); i++){
-    ShadowLeaf::distinguished.data[i] = 0;
-  }
-}
+ShadowLeafDot ShadowLeafDot::distinguished;
 #ifdef BUILD_32BIT
-using ShadowMapType = ShadowMap<Addr,ShadowLeaf,ValgrindStandardLibraryInterface,18,14>;
+using ShadowMapTypeDot = ShadowMap<Addr,ShadowLeafDot,ValgrindStandardLibraryInterface,18,14>;
 #else
-using ShadowMapType = ShadowMap<Addr,ShadowLeaf,ValgrindStandardLibraryInterface,29,17,18>;
+using ShadowMapTypeDot = ShadowMap<Addr,ShadowLeafDot,ValgrindStandardLibraryInterface,29,17,18>;
 #endif
-ShadowMapType* sm_dot2;
+ShadowMapTypeDot* sm_dot2;
 
 extern "C" void dg_dot_shadowGet(void* sm_address, void* real_address, int size){
-  ShadowLeaf* leaf = sm_dot2->leaf_for_read((Addr)sm_address);
+  ShadowLeafDot* leaf = sm_dot2->leaf_for_read((Addr)sm_address);
   Addr contiguousSize = sm_dot2->contiguousElements((Addr)sm_address);
   ULong index = sm_dot2->index((Addr)sm_address);
   if(contiguousSize >= size){
@@ -38,7 +33,7 @@ extern "C" void dg_dot_shadowGet(void* sm_address, void* real_address, int size)
 }
 
 extern "C" void dg_dot_shadowSet(void* sm_address, void* real_address, int size){
-  ShadowLeaf* leaf = sm_dot2->leaf_for_write((Addr)sm_address);
+  ShadowLeafDot* leaf = sm_dot2->leaf_for_write((Addr)sm_address);
   Addr contiguousSize = sm_dot2->contiguousElements((Addr)sm_address);
   ULong index = sm_dot2->index((Addr)sm_address);
   if(contiguousSize >= size){
@@ -50,11 +45,14 @@ extern "C" void dg_dot_shadowSet(void* sm_address, void* real_address, int size)
 }
 
 extern "C" void dg_dot_shadowInit(){
-  sm_dot2 = (ShadowMapType*)VG_(malloc)("Space for primary map",sizeof(ShadowMapType));
-  ShadowMapType::constructAt(sm_dot2);
+  for(Addr i=0; i<(1ul<<NUM_LOW_BITS); i++){
+    ShadowLeafDot::distinguished.data[i] = 0;
+  }
+  sm_dot2 = (ShadowMapTypeDot*)VG_(malloc)("Space for primary map",sizeof(ShadowMapTypeDot));
+  ShadowMapTypeDot::constructAt(sm_dot2);
 }
 extern "C" void dg_dot_shadowFini(){
-  ShadowMapType::destructAt(sm_dot2);
+  ShadowMapTypeDot::destructAt(sm_dot2);
   VG_(free)(sm_dot2);
 }
 

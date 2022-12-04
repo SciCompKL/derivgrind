@@ -9,6 +9,7 @@
 #include "pub_tool_tooliface.h"
 
 #include "../dg_shadow.h"
+#include "dg_bar_shadow.h"
 
 #include "dg_bar.h"
 #include "dg_bar_bitwise.h"
@@ -87,11 +88,13 @@ static void* dg_bar_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
  */
 void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo ( Addr addrU, ULong i64 )
 {
-   shadowSet(sm_barLo,(void*)addrU,(void*)&i64,4);
+  ULong i64_Hi;
+  dg_bar_shadowSet((void*)addrU,(void*)&i64,(void*)&i64_Hi,4);
 }
 void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong i64 )
 {
-   shadowSet(sm_barHi,(void*)addrU,(void*)&i64,4);
+  ULong i64_Lo;
+  dg_bar_shadowSet((void*)addrU,(void*)&i64_Lo,(void*)&i64,4);
 }
 /*! Dirtyhelper for the extra AD logic to dirty calls to
  *  x86g_dirtyhelper_loadF80le / amd64g_dirtyhelper_loadF80le.
@@ -101,15 +104,15 @@ void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong i64 )
  */
 ULong dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Lo ( Addr addrU )
 {
-   ULong i64;
-   shadowGet(sm_barLo,(void*)addrU, (void*)&i64, 4);
-   return i64;
+  ULong i64_Lo, i64_Hi;
+  dg_bar_shadowGet((void*)addrU, (void*)&i64_Lo, (void*)&i64_Hi, 4);
+  return i64_Lo;
 }
 ULong dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
 {
-   ULong i64;
-   shadowGet(sm_barHi,(void*)addrU, (void*)&i64, 4);
-   return i64;
+  ULong i64_Lo, i64_Hi;
+  dg_bar_shadowGet((void*)addrU, (void*)&i64_Lo, (void*)&i64_Hi, 4);
+  return i64_Hi;
 }
 
 static void dg_bar_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
@@ -297,10 +300,12 @@ void dg_bar_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){
 void dg_bar_initialize(void){
   sm_barLo = initializeShadowMap();
   sm_barHi = initializeShadowMap();
+  dg_bar_shadowInit();
 }
 
 void dg_bar_finalize(void){
   destroyShadowMap(sm_barLo);
   destroyShadowMap(sm_barHi);
+  dg_bar_shadowFini();
 }
 

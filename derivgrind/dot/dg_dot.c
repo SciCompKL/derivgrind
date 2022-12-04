@@ -9,12 +9,11 @@
 #include "pub_tool_tooliface.h"
 
 #include "../dg_shadow.h"
+#include "dg_dot_shadow.h"
 
 #include "dg_dot.h"
 #include "dg_dot_bitwise.h"
 #include "dg_dot_minmax.h"
-
-#include "dg_dot_shadow.h"
 
 //! Shadow memory for the dot values.
 void* sm_dot = NULL;
@@ -66,7 +65,7 @@ void dg_dot_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
 {
    ULong f128[2];
    convert_f64le_to_f80le( (UChar*)&f64, (UChar*)f128 );
-   shadowSet(sm_dot,(void*)addrU,(void*)f128,10);
+   dg_dot_shadowSet((void*)addrU,(void*)f128,10);
 }
 /*! Dirtyhelper for the extra AD logic to dirty calls to
  *  x86g_dirtyhelper_loadF80le / amd64g_dirtyhelper_loadF80le.
@@ -82,7 +81,7 @@ void dg_dot_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
 ULong dg_dot_x86g_amd64g_dirtyhelper_loadF80le ( Addr addrU )
 {
    ULong f64, f128[2];
-   shadowGet(sm_dot,(void*)addrU, (void*)f128, 10);
+   dg_dot_shadowGet((void*)addrU, (void*)f128, 10);
    convert_f80le_to_f64le ( (UChar*)f128, (UChar*)&f64 );
    return f64;
 }

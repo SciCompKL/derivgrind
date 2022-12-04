@@ -42,7 +42,8 @@
 
 #include "dg_utils.h"
 
-#include "dg_shadow.h"
+#include "dot/dg_dot_shadow.h"
+#include "bar/dg_bar_shadow.h"
 
 #include "dot/dg_dot.h"
 #include "bar/dg_bar.h"
@@ -184,7 +185,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         case 5: size = 10; break;
       }
       union {unsigned char l[10]; double d; float f;} shadow, init;
-      shadowGet(sm_dot,(void*)address, (void*)&shadow, size);
+      dg_dot_shadowGet((void*)address, (void*)&shadow, size);
       VG_(gdb_printf)("dot value: ");
       switch(key){
         case 1:
@@ -231,7 +232,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
           break;
         }
       }
-      shadowSet(sm_dot,(void*)address,(void*)&shadow,size);
+      dg_dot_shadowSet((void*)address,(void*)&shadow,size);
       return True;
     }
     case 7: case 8: { // index, mark
@@ -244,8 +245,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         return False;
       }
       ULong index;
-      shadowGet(sm_barLo,(void*)address,(void*)&index,4);
-      shadowGet(sm_barHi,(void*)address,(void*)&index+4,4);
+      dg_bar_shadowGet((void*)address,(void*)&index,(void*)&index+4,4);
       if(key==7){ // index
         VG_(gdb_printf)("index: %llu\n",index);
         return True;
@@ -254,8 +254,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
           VG_(gdb_printf)("Warning: Variable depends on other inputs, previous index was %llu.\n",index);
         }
         ULong setIndex = tapeAddStatement_noActivityAnalysis(0,0,0.,0.);
-        shadowSet(sm_barLo,(void*)address,(void*)&setIndex,4);
-        shadowSet(sm_barHi,(void*)address,(void*)&setIndex+4,4);
+        dg_bar_shadowSet((void*)address,(void*)&setIndex,(void*)&setIndex+4,4);
         VG_(gdb_printf)("index: %llu\n",setIndex);
         return True;
       }
@@ -284,14 +283,14 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
-    shadowGet(sm_dot,(void*)addr,(void*)daddr,size);
+    dg_dot_shadowGet((void*)addr,(void*)daddr,size);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__SET_DOTVALUE) {
     if(mode!='d') return True;
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
-    shadowSet(sm_dot,addr,daddr,size);
+    dg_dot_shadowSet(addr,daddr,size);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__DISABLE) {
     dg_disable += (Long)(arg[1]) - (Long)(arg[2]);
@@ -300,15 +299,13 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     if(mode!='b') return True;
     void* addr = (void*) arg[1];
     void* iaddr = (void*) arg[2];
-    shadowGet(sm_barLo,(void*)addr,(void*)iaddr,4);
-    shadowGet(sm_barHi,(void*)addr,(void*)iaddr+4,4);
+    dg_bar_shadowGet((void*)addr,(void*)iaddr,(void*)iaddr+4,4);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__SET_INDEX) {
     if(mode!='b') return True;
     void* addr = (void*) arg[1];
     void* iaddr = (void*) arg[2];
-    shadowSet(sm_barLo,(void*)addr,(void*)iaddr,4);
-    shadowSet(sm_barHi,(void*)addr,(void*)iaddr+4,4);
+    dg_bar_shadowSet((void*)addr,(void*)iaddr,(void*)iaddr+4,4);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__NEW_INDEX || arg[0]==VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS) {
     if(mode!='b') return True;
