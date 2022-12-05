@@ -18,6 +18,9 @@
 //! Shadow memory for the dot values.
 void* sm_dot = NULL;
 
+//! Data is copied to/from shadow memory via this buffer of 1x V256.
+V256* dg_dot_shadow_mem_buffer;
+
 /* --- Define ExpressionHandling. --- */
 
 static void dg_dot_wrtmp(DiffEnv* diffenv, IRTemp temp, void* expr){
@@ -46,12 +49,56 @@ static void* dg_dot_geti(DiffEnv* diffenv, Int offset, IRType type, IRRegArray* 
     return (void*)IRExpr_Get(offset+diffenv->gs_offset,type);
   }
 }
+/*! Dirty call to copy shadow data from buffer into shadow memory.
+ *  \param addr Address for memory location whose shadow should be written to.
+ *  \param size Number of bytes per layer to be copied.
+ */
+void dg_dot_x86g_amd64g_dirtyhelper_store(Addr addr, ULong size){
+  dg_dot_shadowSet((void*)addr,dg_dot_shadow_mem_buffer,size);
+}
+
+/*! Dirty call to copy shadow data from shadow memory into buffer.
+ *  \param addr Address for memory location whose shadow should be read from.
+ *  \param size Number of bytes per layer to be copied.
+ */
+void dg_dot_x86g_amd64g_dirtyhelper_load(Addr addr, ULong size){
+  dg_dot_shadowGet((void*)addr,dg_dot_shadow_mem_buffer,size);
+}
 
 static void dg_dot_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* guard){
-  storeShadowMemory(sm_dot,diffenv->sb_out,addr,(IRExpr*)expr,guard);
+  //storeShadowMemory(sm_dot,diffenv->sb_out,addr,(IRExpr*)expr,guard);
+  #ifdef BUILD_32BIT
+  IRExpr* buffer_addr = IRExpr_Const(IRConst_U32((Addr)dg_dot_shadow_mem_buffer));
+  #else
+  IRExpr* buffer_addr = IRExpr_Const(IRConst_U64((Addr)dg_dot_shadow_mem_buffer));
+  #endif
+  addStmtToIRSB(diffenv->sb_out,IRStmt_Store(Iend_LE,buffer_addr,(IRExpr*)expr));
+  IRType type = typeOfIRExpr(diffenv->sb_out->tyenv, (IRExpr*)expr);
+  ULong size = sizeofIRType(type);
+  IRDirty* dd = unsafeIRDirty_0_N(
+        0, "dg_dot_x86g_amd64g_dirtyhelper_store",
+        &dg_dot_x86g_amd64g_dirtyhelper_store,
+        mkIRExprVec_2(addr,IRExpr_Const(IRConst_U64(size))) );
+  if(guard) dd->guard=guard;
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
 }
+
 static void* dg_dot_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
-  return (void*)loadShadowMemory(sm_dot,diffenv->sb_out,addr,type);
+  //return (void*)loadShadowMemory(sm_dot,diffenv->sb_out,addr,type);
+  #ifdef BUILD_32BIT
+  IRExpr* buffer_addr = IRExpr_Const(IRConst_U32((Addr)dg_dot_shadow_mem_buffer));
+  #else
+  IRExpr* buffer_addr = IRExpr_Const(IRConst_U64((Addr)dg_dot_shadow_mem_buffer));
+  #endif
+  ULong size = sizeofIRType(type);
+  IRDirty* dd = unsafeIRDirty_0_N(
+        0, "dg_dot_x86g_amd64g_dirtyhelper_load",
+        &dg_dot_x86g_amd64g_dirtyhelper_load,
+        mkIRExprVec_2(addr,IRExpr_Const(IRConst_U64(size))) );
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
+  IRTemp ex_tmp = newIRTemp(diffenv->sb_out->tyenv,type);
+  addStmtToIRSB(diffenv->sb_out,IRStmt_WrTmp(ex_tmp,IRExpr_Load(Iend_LE,type,buffer_addr)));
+  return (void*)IRExpr_RdTmp(ex_tmp);
 }
 
 #include <VEX/priv/guest_generic_x87.h>
@@ -167,11 +214,13 @@ void dg_dot_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){
 }
 
 void dg_dot_initialize(void){
+  dg_dot_shadow_mem_buffer = VG_(malloc)("dg_dot_shadow_mem_buffer",sizeof(V256));
   sm_dot = initializeShadowMap();
   dg_dot_shadowInit();
 }
 
 void dg_dot_finalize(void){
+  VG_(free)(dg_dot_shadow_mem_buffer);
   destroyShadowMap(sm_dot);
   dg_dot_shadowFini();
 }
