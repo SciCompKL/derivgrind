@@ -3,22 +3,28 @@
 #include <pub_tool_libcbase.h>
 #include "dg_utils.h"
 
-#ifdef BUILD_32BIT
-#define NUM_LOW_BITS 14
-#else
-#define NUM_LOW_BITS 18
+#ifndef SHADOW_LAYERS_32
+  #define SHADOW_LAYERS_32 18,14
 #endif
+#ifndef SHADOW_LAYERS_64
+  #define SHADOW_LAYERS_64 29,17,18
+#endif
+
+#ifdef BUILD_32BIT
+  #define SHADOW_LAYERS SHADOW_LAYERS_32
+#else
+  #define SHADOW_LAYERS SHADOW_LAYERS_64
+#endif
+
 struct ShadowLeafBar {
-  UChar data_Lo[1ul<<NUM_LOW_BITS];
-  UChar data_Hi[1ul<<NUM_LOW_BITS];
+  UChar data_Lo[1ul<<(SHADOW_LAYERS)];
+  UChar data_Hi[1ul<<(SHADOW_LAYERS)];
   static ShadowLeafBar distinguished;
 };
 ShadowLeafBar ShadowLeafBar::distinguished;
-#ifdef BUILD_32BIT
-using ShadowMapTypeBar = ShadowMap<Addr,ShadowLeafBar,ValgrindStandardLibraryInterface,18,14>;
-#else
-using ShadowMapTypeBar = ShadowMap<Addr,ShadowLeafBar,ValgrindStandardLibraryInterface,29,17,18>;
-#endif
+
+using ShadowMapTypeBar = ShadowMap<Addr,ShadowLeafBar,ValgrindStandardLibraryInterface,SHADOW_LAYERS>;
+
 ShadowMapTypeBar* sm_bar2;
 
 extern "C" void dg_bar_shadowGet(void* sm_address, void* real_address_Lo, void* real_address_Hi, int size){
@@ -66,7 +72,7 @@ extern "C" void dg_bar_shadowSet(void* sm_address, void* real_address_Lo, void* 
 }
 
 extern "C" void dg_bar_shadowInit(){
-  for(Addr i=0; i<(1ul<<NUM_LOW_BITS); i++){
+  for(Addr i=0; i<(1ul<<(SHADOW_LAYERS)); i++){
     ShadowLeafBar::distinguished.data_Lo[i] = 0;
     ShadowLeafBar::distinguished.data_Hi[i] = 0;
   }

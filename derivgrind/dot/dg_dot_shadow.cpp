@@ -3,21 +3,27 @@
 #include <pub_tool_libcbase.h>
 #include "dg_utils.h"
 
-#ifdef BUILD_32BIT
-#define NUM_LOW_BITS 14
-#else
-#define NUM_LOW_BITS 18
+#ifndef SHADOW_LAYERS_32
+  #define SHADOW_LAYERS_32 18,14
 #endif
+#ifndef SHADOW_LAYERS_64
+  #define SHADOW_LAYERS_64 29,17,18
+#endif
+
+#ifdef BUILD_32BIT
+  #define SHADOW_LAYERS SHADOW_LAYERS_32
+#else
+  #define SHADOW_LAYERS SHADOW_LAYERS_64
+#endif
+
 struct ShadowLeafDot {
-  UChar data[1ul<<NUM_LOW_BITS];
+  UChar data[1ul<<(SHADOW_LAYERS)];
   static ShadowLeafDot distinguished;
 };
 ShadowLeafDot ShadowLeafDot::distinguished;
-#ifdef BUILD_32BIT
-using ShadowMapTypeDot = ShadowMap<Addr,ShadowLeafDot,ValgrindStandardLibraryInterface,18,14>;
-#else
-using ShadowMapTypeDot = ShadowMap<Addr,ShadowLeafDot,ValgrindStandardLibraryInterface,29,17,18>;
-#endif
+
+using ShadowMapTypeDot = ShadowMap<Addr,ShadowLeafDot,ValgrindStandardLibraryInterface,SHADOW_LAYERS>;
+
 ShadowMapTypeDot* sm_dot2;
 
 extern "C" void dg_dot_shadowGet(void* sm_address, void* real_address, int size){
@@ -45,7 +51,7 @@ extern "C" void dg_dot_shadowSet(void* sm_address, void* real_address, int size)
 }
 
 extern "C" void dg_dot_shadowInit(){
-  for(Addr i=0; i<(1ul<<NUM_LOW_BITS); i++){
+  for(Addr i=0; i<(1ul<<(SHADOW_LAYERS)); i++){
     ShadowLeafDot::distinguished.data[i] = 0;
   }
   sm_dot2 = (ShadowMapTypeDot*)VG_(malloc)("Space for primary map",sizeof(ShadowMapTypeDot));
