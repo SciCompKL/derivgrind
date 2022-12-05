@@ -15,9 +15,6 @@
 #include "dg_dot_bitwise.h"
 #include "dg_dot_minmax.h"
 
-//! Shadow memory for the dot values.
-void* sm_dot = NULL;
-
 //! Data is copied to/from shadow memory via this buffer of 1x V256.
 V256* dg_dot_shadow_mem_buffer;
 
@@ -66,7 +63,6 @@ void dg_dot_x86g_amd64g_dirtyhelper_load(Addr addr, ULong size){
 }
 
 static void dg_dot_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* guard){
-  //storeShadowMemory(sm_dot,diffenv->sb_out,addr,(IRExpr*)expr,guard);
   #ifdef BUILD_32BIT
   IRExpr* buffer_addr = IRExpr_Const(IRConst_U32((Addr)dg_dot_shadow_mem_buffer));
   #else
@@ -84,7 +80,6 @@ static void dg_dot_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* gua
 }
 
 static void* dg_dot_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
-  //return (void*)loadShadowMemory(sm_dot,diffenv->sb_out,addr,type);
   #ifdef BUILD_32BIT
   IRExpr* buffer_addr = IRExpr_Const(IRConst_U32((Addr)dg_dot_shadow_mem_buffer));
   #else
@@ -215,13 +210,11 @@ void dg_dot_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){
 
 void dg_dot_initialize(void){
   dg_dot_shadow_mem_buffer = VG_(malloc)("dg_dot_shadow_mem_buffer",sizeof(V256));
-  sm_dot = initializeShadowMap();
   dg_dot_shadowInit();
 }
 
 void dg_dot_finalize(void){
   VG_(free)(dg_dot_shadow_mem_buffer);
-  destroyShadowMap(sm_dot);
   dg_dot_shadowFini();
 }
 

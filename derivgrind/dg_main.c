@@ -131,9 +131,6 @@ static void dg_print_debug_usage(void)
    );
 }
 
-extern void* sm_dot;
-extern void *sm_barLo, *sm_barHi;
-
 #include <VEX/priv/guest_generic_x87.h>
 /*! React to gdb monitor commands.
  */

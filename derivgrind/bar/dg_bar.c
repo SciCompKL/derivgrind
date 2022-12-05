@@ -16,11 +16,6 @@
 #include "dg_bar_tape.h"
 #include "dg_utils.h"
 
-//! First layer of shadow memory for the lower 4 byte of the 8-byte indices.
-void* sm_barLo = NULL;
-//! Second layer of shadow memory for the higher 4 byte of the 8-byte indices.
-void* sm_barHi = NULL;
-
 //! Whether to return 0xff..f for unhandled operations, otherwise 0x00..0.
 Bool typegrind = False;
 
@@ -89,8 +84,6 @@ void dg_bar_x86g_amd64g_dirtyhelper_load(Addr addr, ULong size){
 }
 
 static void dg_bar_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* guard){
-  //storeShadowMemory(sm_barLo,diffenv->sb_out,addr,((IRExpr**)expr)[0],guard);
-  //storeShadowMemory(sm_barHi,diffenv->sb_out,addr,((IRExpr**)expr)[1],guard);
   #ifdef BUILD_32BIT
   IRExpr* buffer_addr_Lo = IRExpr_Const(IRConst_U32((Addr)dg_bar_shadow_mem_buffer));
   IRExpr* buffer_addr_Hi = IRExpr_Const(IRConst_U32((Addr)(dg_bar_shadow_mem_buffer+1)));
@@ -111,8 +104,6 @@ static void dg_bar_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* gua
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
 }
 static void* dg_bar_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
-  //IRExpr* exLo = loadShadowMemory(sm_barLo,diffenv->sb_out,addr,type);
-  //IRExpr* exHi = loadShadowMemory(sm_barHi,diffenv->sb_out,addr,type);
   #ifdef BUILD_32BIT
   IRExpr* buffer_addr_Lo = IRExpr_Const(IRConst_U32((Addr)dg_bar_shadow_mem_buffer));
   IRExpr* buffer_addr_Hi = IRExpr_Const(IRConst_U32((Addr)(dg_bar_shadow_mem_buffer+1)));
@@ -351,15 +342,11 @@ void dg_bar_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){
 
 void dg_bar_initialize(void){
   dg_bar_shadow_mem_buffer = VG_(malloc)("dg_bar_shadow_mem_buffer",2*sizeof(V256));
-  sm_barLo = initializeShadowMap();
-  sm_barHi = initializeShadowMap();
   dg_bar_shadowInit();
 }
 
 void dg_bar_finalize(void){
   VG_(free)(dg_bar_shadow_mem_buffer);
-  destroyShadowMap(sm_barLo);
-  destroyShadowMap(sm_barHi);
   dg_bar_shadowFini();
 }
 
