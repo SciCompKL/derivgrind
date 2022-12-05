@@ -1,6 +1,3 @@
-[submodule "derivgrind/externals/shadow-memory"]
-	path = derivgrind/externals/shadow-memory
-	url = https://github.com/maxaehle/shadow-memory
 [submodule "derivgrind/externals/pybind11"]
 	path = derivgrind/externals/pybind11
 	url = https://github.com/pybind/pybind11.git
