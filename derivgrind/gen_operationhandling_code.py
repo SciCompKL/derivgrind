@@ -371,6 +371,14 @@ for op in ops:
   the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Binop({op},i1{HiLo},i2{HiLo});" for HiLo in ["Lo","Hi"]])
   IROp_Infos += [the_op]
 
+# Bitshifts, as a special case of data move operations
+for direction in ["Shr","Shl"]:
+  for size in [8,16,32,64]:
+    the_op = IROp_Info(f"Iop_{direction}{size}", 2, [1]);
+    the_op.dotcode = dv(f"IRExpr_Binop(Iop_{direction}{size},d1,arg2)")
+    the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Binop(Iop_{direction}{size},i1{HiLo},arg2);" for HiLo in ["Lo","Hi"]])
+    IROp_Infos += [the_op]
+
 # Conversion F64 -> F32: Apply analogously to dot value, and cut bytes from index.
 f64tof32 = IROp_Info("Iop_F64toF32",2,[2])
 f64tof32.dotcode = dv(f64tof32.apply("arg1","d2"))
