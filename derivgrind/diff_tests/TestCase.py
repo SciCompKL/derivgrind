@@ -530,9 +530,9 @@ class ClientRequestTestCase(TestCase):
     else:
       commands = [self.temp_dir+"/TestCase_exec"]
     maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
-    valgrind = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
+    valgrind = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,capture_output=True,env=environ)
     if valgrind.returncode!=0:
-      self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout.decode("utf-8")+"\n\nVALGRIND STDERR:\n"+valgrind.stderr.decode("utf-8")+"\n\n"
+      self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout.decode('utf-8')+"\n\nVALGRIND STDERR:\n"+valgrind.stderr.decode('utf-8')+"\n\n"
     if self.mode=='b': # evaluate tape
       with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
         # NumPy testcases are repeated 16 times
