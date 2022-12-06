@@ -573,6 +573,7 @@ class PerformanceTestCase(TestCase):
   """Methods to run a Derivgrind performance test case, using Valgrind client requests."""
   def __init__(self,name):
     super().__init__(name)
+    self.disable_codi = False # CoDiPack must be disabled for x86 tests with more than about 2.5 GB memory consumption for the tape.
 
   def runCoDi(self):
     """Build with CoDiPack types and run."""
@@ -673,7 +674,7 @@ class PerformanceTestCase(TestCase):
     dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg])
     dg_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_dg])
     dg_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_dg])
-    if self.mode=='b':
+    if not self.disable_codi and self.mode=='b':
       codi_number_of_jacobians = self.result_codi["number_of_jacobians"]
       dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg])
     else:
@@ -687,13 +688,13 @@ class PerformanceTestCase(TestCase):
   def run(self):
     print("##### Running performance test '"+self.name+"'... #####", flush=True)
     self.errmsg = ""
-    if self.errmsg=="":
+    if self.errmsg=="" and not self.disable_codi:
       self.runCoDi()
     if self.errmsg=="":
       self.runNoAD(self.benchmarkreps)
     if self.errmsg=="":
       self.runDG(self.benchmarkreps)
-    if self.errmsg=="":
+    if self.errmsg=="" and not self.disable_codi:
       if not self.verifyGradient():
         self.errmsg="DERIVATIVES DISAGREE\n"
     if self.errmsg=="":

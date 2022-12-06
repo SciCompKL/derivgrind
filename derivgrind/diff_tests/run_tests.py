@@ -1283,6 +1283,7 @@ for test_mode in ["dot", "bar"]:
 
           if test_arch == "x86":
             test.arch = 32
+            test.disable_codi = True
           elif test_arch == "amd64":
             test.arch = 64
 
