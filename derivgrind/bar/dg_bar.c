@@ -22,7 +22,7 @@ Bool typegrind = False;
 //! Data is copied to/from shadow memory via this buffer of 2x V256.
 V256* dg_bar_shadow_mem_buffer;
 
-#define dg_bar_rounding_mode IRExpr_Const(IRConst_U32(0))
+#define dg_rounding_mode IRExpr_Const(IRConst_U32(0))
 
 /* --- Define ExpressionHandling. --- */
 

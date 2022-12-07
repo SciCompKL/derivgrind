@@ -240,23 +240,32 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
     arg1 = None; arg2 = "arg1"; arg3 = "arg2"; d2 = "d1"; d3 = "d2";
   else:
     arg1 = "arg1"; arg2 = "arg2"; arg3 = "arg3"; d2 = "d2"; d3 = "d3";
+  # additionally, Sqrt64Fx4 and Sqrt32Fx8 have no rounding mode
+  sqrt_noroundingmode = llo or fpsize*simdsize==32
+  if sqrt_noroundingmode:
+    sqrt_arg1 = None; sqrt_arg2 = "arg1"; sqrt_d2 = "d1";
+    rounding_mode = None if llo else "dg_rounding_mode" # rounding mode for div and mul
+  else:
+    sqrt_arg1 = "arg1"; sqrt_arg2 = "arg2"; sqrt_d2 = "d2";
+    rounding_mode = "arg1"
+
   add = IROp_Info(f"Iop_Add{suffix}",3-llo,[2-llo,3-llo])
   sub = IROp_Info(f"Iop_Sub{suffix}",3-llo,[2-llo,3-llo])
   mul = IROp_Info(f"Iop_Mul{suffix}",3-llo,[2-llo,3-llo])
   div = IROp_Info(f"Iop_Div{suffix}",3-llo,[2-llo,3-llo])
-  sqrt = IROp_Info(f"Iop_Sqrt{suffix}",2-llo,[2-llo])
+  sqrt = IROp_Info(f"Iop_Sqrt{suffix}",2-sqrt_noroundingmode,[2-sqrt_noroundingmode])
 
   add.dotcode = dv(add.apply(arg1,d2,d3))
   sub.dotcode = dv(sub.apply(arg1,d2,d3))
   mul.dotcode = dv(add.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,d3,arg2)))
   div.dotcode = dv(div.apply(arg1,sub.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,arg2,d3)),mul.apply(arg1,arg3,arg3)))
-  sqrt.dotcode = dv(div.apply(arg1,d2,mul.apply(arg1,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(arg1,arg2))))
+  sqrt.dotcode = dv(div.apply(rounding_mode,sqrt_d2,mul.apply(rounding_mode,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(sqrt_arg1,sqrt_arg2))))
 
   add.barcode = createBarCode(add, [2-llo,3-llo], [], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(1.))"], fpsize, simdsize, llo)
   sub.barcode = createBarCode(sub, [2-llo,3-llo], [], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(-1.))"], fpsize, simdsize, llo)
   mul.barcode = createBarCode(mul, [2-llo,3-llo], [2-llo, 3-llo], [f"{arg3}_part_f", f"{arg2}_part_f"], fpsize, simdsize, llo)
-  div.barcode = createBarCode(div, [2-llo,3-llo], [2-llo, 3-llo], [f"IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(1.)),{arg3}_part_f)", f"IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Triop(Iop_MulF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(-1.)), {arg2}_part_f),IRExpr_Triop(Iop_MulF64,dg_bar_rounding_mode,{arg3}_part_f,{arg3}_part_f))"], fpsize, simdsize, llo)
-  sqrt.barcode = createBarCode(sqrt, [2-llo], [2-llo], [f"IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(0.5)), IRExpr_Binop(Iop_SqrtF64,dg_bar_rounding_mode,{arg2}_part_f))"], fpsize, simdsize, llo)
+  div.barcode = createBarCode(div, [2-llo,3-llo], [2-llo, 3-llo], [f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(1.)),{arg3}_part_f)", f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Triop(Iop_MulF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(-1.)), {arg2}_part_f),IRExpr_Triop(Iop_MulF64,dg_rounding_mode,{arg3}_part_f,{arg3}_part_f))"], fpsize, simdsize, llo)
+  sqrt.barcode = createBarCode(sqrt, [2-sqrt_noroundingmode], [2-sqrt_noroundingmode], [f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(0.5)), IRExpr_Binop(Iop_SqrtF64,dg_rounding_mode,{sqrt_arg2}_part_f))"], fpsize, simdsize, llo)
 
   IROp_Infos += [add,sub,mul,div,sqrt]
 

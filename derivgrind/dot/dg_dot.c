@@ -18,6 +18,8 @@
 //! Data is copied to/from shadow memory via this buffer of 1x V256.
 V256* dg_dot_shadow_mem_buffer;
 
+#define dg_rounding_mode IRExpr_Const(IRConst_U32(0))
+
 /* --- Define ExpressionHandling. --- */
 
 static void dg_dot_wrtmp(DiffEnv* diffenv, IRTemp temp, void* expr){
