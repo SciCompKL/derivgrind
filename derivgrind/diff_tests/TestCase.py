@@ -574,6 +574,7 @@ class PerformanceTestCase(TestCase):
   def __init__(self,name):
     super().__init__(name)
     self.disable_codi = False # CoDiPack must be disabled for x86 tests with more than about 2.5 GB memory consumption for the tape.
+    self.tape_in_ram = False # Write tape to RAM instead of file system.
 
   def runCoDi(self):
     """Build with CoDiPack types and run."""
@@ -615,11 +616,12 @@ class PerformanceTestCase(TestCase):
     """Build with Derivgrind client request types and run repeatedly."""
     comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_dg", f"-I{self.install_dir}/include", "-DDG_DOT" if self.mode=='d' else "-DDG_BAR"]+self.cflags.split() + (["-m32"] if self.arch==32 else []), capture_output=True)
     if comp.returncode!=0:
-      self.errmsg += "COMPILATION WITH DERIVGRIND FAILED:\n" + comp.stderr.decode('utf-8')
+      self.errmsg += "COMPILATION FOR DERIVGRIND FAILED:\n" + comp.stderr.decode('utf-8')
     self.results_dg = []
     for irep in range(nrep):
       maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
-      exe = subprocess.run(["/usr/bin/time", "-f", "time_output %e %M", self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+[f"{self.temp_dir}/main_dg", f"{self.temp_dir}/dg-performance-result-dg.json"]+self.benchmarkargs.split(), capture_output=True)
+      maybetapeinram = ["--tape-in-ram=yes"] if self.tape_in_ram else []
+      exe = subprocess.run(["/usr/bin/time", "-f", "time_output %e %M", self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+maybetapeinram+[f"{self.temp_dir}/main_dg", f"{self.temp_dir}/dg-performance-result-dg.json"]+self.benchmarkargs.split(), capture_output=True)
       if exe.returncode!=0:
         self.errmsg += "EXECUTION WITH DERIVGRIND FAILED:\n" + "STDOUT:\n" + exe.stdout.decode('utf-8') + "\nSTDERR:\n" + exe.stderr.decode('utf-8')
       with open(self.temp_dir+"/dg-performance-result-dg.json") as f:
@@ -632,21 +634,24 @@ class PerformanceTestCase(TestCase):
           break
       else:
         self.errmsg += "EXECUTION WITH DERIVGRIND FAILED: NO GNU TIME OUTPUT\n"
-      if self.mode=='b':
-        with open(self.temp_dir+"/dg-output-indices", "r") as f:
-          number_of_outputs = len(f.readlines())
-        with open(self.temp_dir+"/dg-output-adjoints", "w") as f:
-          f.writelines(["1.0\n"]*number_of_outputs)
-        eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir], capture_output=True)
-        if eva.returncode!=0:
-          self.errmsg += "EVALUATION OF DERIVGRIND TAPE FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
-        result["input_bar"] = [float(adj) for adj in np.loadtxt(self.temp_dir+"/dg-input-adjoints")]
-        # run tape-evaluation another time for statistics
-        eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir, "--stats"], capture_output=True)
-        if eva.returncode!=0:
-          self.errmsg += "EVALUATION OF DERIVGRIND TAPE STATS FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
-        nZero,nOne,nTwo = [int(n) for n in eva.stdout.decode('utf-8').strip().split()]
-        result["number_of_jacobians"] = nOne + 2*nTwo
+      if self.mode=='b': # reverse pass
+        if not self.tape_in_ram:
+          with open(self.temp_dir+"/dg-output-indices", "r") as f:
+            number_of_outputs = len(f.readlines())
+          with open(self.temp_dir+"/dg-output-adjoints", "w") as f:
+            f.writelines(["1.0\n"]*number_of_outputs)
+          eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir], capture_output=True)
+          if eva.returncode!=0:
+            self.errmsg += "EVALUATION OF DERIVGRIND TAPE FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
+          result["input_bar"] = [float(adj) for adj in np.loadtxt(self.temp_dir+"/dg-input-adjoints")]
+          # run tape-evaluation another time for statistics
+          eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir, "--stats"], capture_output=True)
+          if eva.returncode!=0:
+            self.errmsg += "EVALUATION OF DERIVGRIND TAPE STATS FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
+          nZero,nOne,nTwo = [int(n) for n in eva.stdout.decode('utf-8').strip().split()]
+          result["number_of_jacobians"] = nOne + 2*nTwo
+        else:
+          result["number_of_jacobians"] = 0
       self.results_dg.append(result)
 
   def verifyGradient(self):
@@ -694,7 +699,7 @@ class PerformanceTestCase(TestCase):
       self.runNoAD(self.benchmarkreps)
     if self.errmsg=="":
       self.runDG(self.benchmarkreps)
-    if self.errmsg=="" and not self.disable_codi:
+    if self.errmsg=="" and not self.disable_codi and not self.tape_in_ram:
       if not self.verifyGradient():
         self.errmsg="DERIVATIVES DISAGREE\n"
     if self.errmsg=="":

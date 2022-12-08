@@ -89,6 +89,11 @@ HChar mode = 'd';
  */
 const HChar* recording_directory = NULL;
 
+/*! If true, write tape to RAM instead of file.
+ *  Only for benchmarking purposes!
+ */
+Bool tape_in_ram = False;
+
 static void dg_post_clo_init(void)
 {
   if(typegrind && mode!='b'){
@@ -110,6 +115,7 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
    else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
    else if VG_STR_CLO(arg, "--record", recording_directory) { mode = 'b'; }
    else if VG_BOOL_CLO(arg, "--typegrind", typegrind) { }
+   else if VG_BOOL_CLO(arg, "--tape-in-ram", tape_in_ram) { }
    else return False;
    return True;
 }
