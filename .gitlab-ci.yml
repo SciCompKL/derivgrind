@@ -15,15 +15,24 @@ build:
     paths:
       - install/
 
+build_lightweight:
+  stage: build
+  script:
+    - apt-get update
+    - apt-get install -y build-essential binutils gfortran automake gcc-multilib g++-multilib python3 python3-dev
+    - ./autogen.sh
+    - CFLAGS=-g ./configure --prefix=$PWD/install_lightweight --enable-fortran --enable-python SHADOW_LAYERS_64=16,16,16,16
+    - make install
+  artifacts:
+    paths:
+      - install_lightweight/
+
 test_dot_x86:
   stage: test
   script:
     - export DEBIAN_FRONTEND=noninteractive
     - apt-get update
     - apt-get install -y build-essential gfortran gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg clang libomp-dev python3 python3-numpy
-#    - dpkg --add-architecture i386
-#    - apt-get update
-#    - apt-get install -y python3:i386 python3-numpy:i386 python3-dev:i386
     - cd derivgrind/diff_tests && python3 run_tests.py dot_x86*
 
 test_bar_x86:
@@ -32,23 +41,36 @@ test_bar_x86:
     - export DEBIAN_FRONTEND=noninteractive
     - apt-get update
     - apt-get install -y build-essential gfortran gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg clang libomp-dev python3 python3-numpy
-#    - dpkg --add-architecture i386
-#    - apt-get update
-#    - apt-get install -y python3:i386 python3-numpy:i386 python3-dev:i386
     - cd derivgrind/diff_tests && python3 run_tests.py bar_x86*
+
+test_dot_amd64:
+  stage: test
+  script:
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt-get update
+    - apt-get install -y build-essential gfortran gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg clang libomp-dev python3 python3-numpy
+    - cd derivgrind/diff_tests && python3 run_tests.py dot_amd64* --prefix=$PWD/../../install_lightweight
+
+test_bar_amd64:
+  stage: test
+  script:
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt-get update
+    - apt-get install -y build-essential gfortran gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg clang libomp-dev python3 python3-numpy
+    - cd derivgrind/diff_tests && python3 run_tests.py bar_amd64* --prefix=$PWD/../../install_lightweight
 
 test_perf_x86:
   stage: test
   script:
     - export DEBIAN_FRONTEND=noninteractive
     - apt-get update
-    - apt-get install -y build-essential gcc-multilib g++-multilib clang python3 python3-numpy python3-pip
+    - apt-get install -y build-essential gcc-multilib g++-multilib clang python3 python3-numpy python3-pip time
     - pip install anybadge
     - mkdir -p badges
-    - anybadge -l 'Forward-mode run-time' -v 'Error' -f badges/dot_gcc_o3_x86.svg
-    - anybadge -l 'Forward-mode run-time' -v $(cd derivgrind/diff_tests && python3 run_tests.py --codidir=$PWD/../externals/CoDiPack/include perf_dot_x86_g++_o3_burgers | awk '$1 ~ /OK./ { print $2 }') -f badges/dot_gcc_o3_x86.svg || true
-    - anybadge -l 'Recording-mode run-time' -v 'Error' -f badges/bar_gcc_o3_x86.svg
-    - anybadge -l 'Recording-mode run-time' -v $(cd derivgrind/diff_tests && python3 run_tests.py --codidir=$PWD/../externals/CoDiPack/include perf_bar_x86_g++_o3_burgers | awk '$1 ~ /OK./ { print $2 }') -f badges/bar_gcc_o3_x86.svg || true
+    - anybadge -l 'Forward-mode run-time' -v 'Error' -f badges/dot_gcc_o3_x86.svg -c 'red'
+    - anybadge -l 'Forward-mode run-time' -v $(cd derivgrind/diff_tests && python3 run_tests.py --codidir=$PWD/../externals/CoDiPack/include perf_dot_x86_g++_o3_burgers_badge | awk '$1 ~ /OK./ { print $2 "x" }') -f badges/dot_gcc_o3_x86.svg --overwrite -c 'green' || true
+    - anybadge -l 'Recording-mode run-time' -v 'Error' -f badges/bar_gcc_o3_x86.svg -c 'red'
+    - anybadge -l 'Recording-mode run-time' -v $(cd derivgrind/diff_tests && python3 run_tests.py --codidir=$PWD/../externals/CoDiPack/include perf_bar_x86_g++_o3_burgers_badge | awk '$1 ~ /OK./ { print $2 "x" }') -f badges/bar_gcc_o3_x86.svg --overwrite -c 'green' || true
   artifacts:
     paths:
       - badges/

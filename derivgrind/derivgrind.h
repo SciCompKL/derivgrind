@@ -83,12 +83,13 @@ typedef
    enum { 
       VG_USERREQ__GET_DOTVALUE = VG_USERREQ_TOOL_BASE('D','G'),
       VG_USERREQ__SET_DOTVALUE,
-      VG_USERREQ__DISABLE_DIFFQUOTDEBUG,
+      VG_USERREQ__DISABLE,
       VG_USERREQ__GET_INDEX,
       VG_USERREQ__SET_INDEX,
       VG_USERREQ__NEW_INDEX,
       VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS,
-      VG_USERREQ__INDEX_TO_FILE
+      VG_USERREQ__INDEX_TO_FILE,
+      VG_USERREQ__GET_MODE
    } Vg_DerivgrindClientRequest;
 
 typedef enum {
@@ -118,12 +119,28 @@ typedef enum {
 #define DERIVGRIND_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size) DG_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
 #define VALGRIND_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size) DG_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
 
-/* Enable/disable outputting of values and dot values for difference quotient debugging. */
-#define DG_DISABLE_DIFFQUOTDEBUG(_qzz_delta) \
+/* Disable Derivgrind on specific code sections by putting the section
+ * into a DG_DISABLE(1,0) ... DG_DISABLE(0,1) bracket. Used by the math function
+ * wrappers.
+ *
+ * The macro DG_DISABLE(plus,minus) will add plus and subtract minus from
+ * a Derivgrind-internal counter dg_disable. When the counter is non-zero,
+ * certain actions are disabled.
+ *
+ * In forward mode, this will enable/disable outputting of values and
+ * dot values for difference quotient debugging, but dot values will still
+ * be propagated.
+ *
+ * In recording mode, whenever a block would be written on the tape, this
+ * will assign the index 0 or 0xff..f (if --typegrind=yes) instead of the
+ * block index and not write to the tape. Also, typgrind warnings about an
+ * index 0xff..f will be suppressed.
+ */
+#define DG_DISABLE(_qzz_plus,_qzz_minus) \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
-                            VG_USERREQ__DISABLE_DIFFQUOTDEBUG,    \
-                            (_qzz_delta), 0, 0, 0, 0)
-#define DERIVGRIND_DISABLE_DIFFQUOTDEBUG(_qzz_delta) DG_DISABLE_DIFFQUOTDEBUG(_qzz_delta)
+                            VG_USERREQ__DISABLE,    \
+                            (_qzz_plus), (_qzz_minus), 0, 0, 0)
+#define DERIVGRIND_DISABLE(_qzz_plus,_qzz_minus) DG_DISABLE(_qzz_plus,_qzz_minus)
 
 /* --- Recording mode. ---*/
 
@@ -171,6 +188,14 @@ typedef enum {
                             VG_USERREQ__INDEX_TO_FILE,          \
                             (_qzz_outputfile), (_qzz_indexaddr), 0, 0, 0)
 #define DERIVGRIND_INDEX_TO_FILE(_qzz_outputfile,_qzz_addrindex) DG_INDEX_TO_FILE(_qzz_outputfile,_qzz_addrindex)
+
+/* Get AD mode.
+ */
+#define DG_GET_MODE  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
+                            VG_USERREQ__GET_MODE,          \
+                            0, 0, 0, 0, 0)
+#define DERIVGRIND_GET_MODE DG_GET_MODE
 
 
 #endif

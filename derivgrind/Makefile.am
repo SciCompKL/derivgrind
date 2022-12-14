@@ -19,12 +19,12 @@ if VGCONF_HAVE_PLATFORM_SEC
 noinst_PROGRAMS += derivgrind-@VGCONF_ARCH_SEC@-@VGCONF_OS@
 endif
 
-DERIVGRIND_SOURCES_COMMON = dg_main.c externals/shadow-memory/src/shadow-64.c dg_shadow.c dg_utils.c dg_expressionhandling.c dot/dg_dot.c dot/dg_dot_bitwise.c dot/dg_dot_minmax.c bar/dg_bar.c bar/dg_bar_bitwise.c bar/dg_bar_tape.c
+DERIVGRIND_SOURCES_COMMON = dg_main.c dg_shadow.c dg_utils.c dg_expressionhandling.c dot/dg_dot.c dot/dg_dot_bitwise.c dot/dg_dot_minmax.c bar/dg_bar.c bar/dg_bar_bitwise.c bar/dg_bar_tape.c dot/dg_dot_shadow.cpp bar/dg_bar_shadow.cpp
 
 derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES      = \
 	$(DERIVGRIND_SOURCES_COMMON)
 derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CPPFLAGS     = \
-	$(AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@)
+	$(AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@) -nostdlib -fno-exceptions -fno-rtti -fno-use-cxa-atexit $(LTO_CFLAGS) $(AM_CFLAGS_@VGCONF_PLATFORM_PRI_CAPS@) $(SHADOW_LAYERS_32_CPPFLAGS) $(SHADOW_LAYERS_64_CPPFLAGS)
 derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CFLAGS       = $(LTO_CFLAGS) \
 	$(AM_CFLAGS_@VGCONF_PLATFORM_PRI_CAPS@)
 derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_DEPENDENCIES = \
@@ -44,7 +44,7 @@ if VGCONF_HAVE_PLATFORM_SEC
 derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_SOURCES      = \
 	$(DERIVGRIND_SOURCES_COMMON)
 derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS     = \
-	$(AM_CPPFLAGS_@VGCONF_PLATFORM_SEC_CAPS@)
+	$(AM_CPPFLAGS_@VGCONF_PLATFORM_SEC_CAPS@) -nostdlib -fno-exceptions -fno-rtti -fno-use-cxa-atexit  $(LTO_CFLAGS) $(AM_CFLAGS_@VGCONF_PLATFORM_SEC_CAPS@) $(SHADOW_LAYERS_32_CPPFLAGS) $(SHADOW_LAYERS_64_CPPFLAGS)
 derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CFLAGS       = $(LTO_CFLAGS) \
 	$(AM_CFLAGS_@VGCONF_PLATFORM_SEC_CAPS@)
 derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_DEPENDENCIES = \

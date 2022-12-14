@@ -5287,6 +5287,19 @@ AM_CONDITIONAL([HAVE_SHARED_POINTER_ANNOTATION],
 #----------------------------------------------------------------------------
 # Derivgrind options.
 #----------------------------------------------------------------------------
+
+AC_SUBST(SHADOW_LAYERS_32_CPPFLAGS)
+AC_ARG_VAR([SHADOW_LAYERS_32],[Numbers of address bits covered by 32-bit shadow map levels])
+if test "x${SHADOW_LAYERS_32}" != "x"; then
+  SHADOW_LAYERS_32_CPPFLAGS="-DSHADOW_LAYERS_32=${SHADOW_LAYERS_32}"
+fi
+
+AC_SUBST(SHADOW_LAYERS_64_CPPFLAGS)
+AC_ARG_VAR([SHADOW_LAYERS_64],[Numbers of address bits covered by 64-bit shadow map levels])
+if test "x${SHADOW_LAYERS_64}" != "x"; then
+  SHADOW_LAYERS_64_CPPFLAGS="-DSHADOW_LAYERS_64=${SHADOW_LAYERS_64}"
+fi
+
 AC_CACHE_CHECK([whether to build the Derivgrind Fortran client request wrappers], vg_cv_dg_fortran,
   [AC_ARG_ENABLE(fortran,
     [  --enable-fortran          enables building the Derivgrind Fortran client request wrappers],

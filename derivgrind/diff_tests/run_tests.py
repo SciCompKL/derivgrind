@@ -40,9 +40,9 @@ import tempfile
 
 selected_install_dir = "../../install"
 selected_temp_dir = None
-selected_codi_dir = "/home/aehle/codipack/include"
+selected_codi_dir = os.path.dirname(__file__)+"/../externals/CoDiPack/include/"
 selected_testcase = None
-if len(sys.argv)>4:
+if len(sys.argv)>5:
   print("Usage: "+sys.argv[0]+" [options]                   - Run all testcases.")
   print("       "+sys.argv[0]+" [options] name_of_testcase  - Run single testcase.")
   print("Options:")
@@ -1180,15 +1180,33 @@ sin_100_interactive.test_bars = {'a':np.cos(100)*3.1}
 regression_templates.append(sin_100_interactive)
 
 ### Performance Tests ###
-performance_templates = []
-burgers = PerformanceTestCase("burgers")
-burgers.mode = 'b'
-burgers.benchmark = "benchmarks/burgers.cpp"
-burgers.benchmarkargs = "50 50"
-burgers.benchmarkreps = 2
-burgers.cflags = "-O3"
-performance_templates.append(burgers)
 
+performance_templates = []
+
+# Run-time measurements for CI badges.
+burgers_badge = PerformanceTestCase("burgers_badge")
+burgers_badge.benchmark = "benchmarks/burgers.cpp"
+burgers_badge.benchmarkargs = "50 50"
+burgers_badge.benchmarkreps = 10
+performance_templates.append(burgers_badge)
+
+# Run-time measurements for the paper.
+for nx in range(100,501,20):
+  for nt in range(100,501,100):
+    burgers_time = PerformanceTestCase(f"burgers_time_{nx}_{nt}")
+    burgers_time.benchmark = "benchmarks/burgers.cpp"
+    burgers_time.benchmarkargs = f"{nx} {nt}"
+    #burgers_time.benchmarkreps = 1
+    #burgers_time.tape_in_ram = True
+    performance_templates.append(burgers_time)
+
+# Memory measurements for the paper.
+for nx in range(200,5001,200):
+  nt = 4
+  burgers_mem = PerformanceTestCase(f"burgers_mem_{nx}_{nt}")
+  burgers_mem.benchmark = "benchmarks/burgers.cpp"
+  burgers_mem.benchmarkargs = f"{nx} {nt}"
+  performance_templates.append(burgers_mem)
 
 ### Take "cross product" of regression test templates with other configuation options ###
 regression_tests = []
@@ -1259,13 +1277,14 @@ performance_tests = []
 for test_mode in ["dot", "bar"]:
   for test_arch in ["x86", "amd64"]:
     for test_compiler in ["g++", "clang++"]:
-      for test_optimizationflags in ["o3", "o0g"]:
+      for test_optimizationflags in ["o3", "o0"]:
         for performance_template in performance_templates:
           test = copy.deepcopy(performance_template)
           test.name = "perf_"+test_mode+"_"+test_arch+"_"+test_compiler+"_"+test_optimizationflags+"_"+performance_template.name
 
           if test_arch == "x86":
             test.arch = 32
+            test.disable_codi = True
           elif test_arch == "amd64":
             test.arch = 64
 
@@ -1279,7 +1298,10 @@ for test_mode in ["dot", "bar"]:
           if test_optimizationflags=='o3':
             test.cflags += " -O3"
           else:
-            test.cflags += " -O0 -g"
+            test.cflags += " -O0"
+
+          if test.benchmarkreps==0:
+            test.benchmarkreps = 100 if test_optimizationflags=='o3' else 10
 
           performance_tests.append(test)
 

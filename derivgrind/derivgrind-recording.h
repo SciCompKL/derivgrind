@@ -62,10 +62,6 @@
 #ifndef DERIVGRIND_RECORDING_H
 #define DERIVGRIND_RECORDING_H
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdio.h>
-
 /*! \file derivgrind-recording.h
  * Helper macros for simple marking of 
  * input and output variables in the client code.

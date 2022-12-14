@@ -42,7 +42,8 @@
 
 #include "dg_utils.h"
 
-#include "dg_shadow.h"
+#include "dot/dg_dot_shadow.h"
+#include "bar/dg_bar_shadow.h"
 
 #include "dot/dg_dot.h"
 #include "bar/dg_bar.h"
@@ -79,7 +80,7 @@ Bool warn_about_unwrapped_expressions = False;
 Bool diffquotdebug = False;
 /*! If nonzero, do not print difference quotient debugging information.
  */
-Long disable_diffquotdebug = 0;
+Long dg_disable = 0;
 
 /*! Mode: d=dot/forward, b=bar/reverse/recording
  */
@@ -88,8 +89,18 @@ HChar mode = 'd';
  */
 const HChar* recording_directory = NULL;
 
+/*! If true, write tape to RAM instead of file.
+ *  Only for benchmarking purposes!
+ */
+Bool tape_in_ram = False;
+
 static void dg_post_clo_init(void)
 {
+  if(typegrind && mode!='b'){
+    VG_(printf)("Option --typegrind=yes can only be used in recording mode (--record=path).\n");
+    tl_assert(False);
+  }
+
   if(mode=='d'){
     dg_dot_initialize();
   } else {
@@ -103,6 +114,8 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
    if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
    else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
    else if VG_STR_CLO(arg, "--record", recording_directory) { mode = 'b'; }
+   else if VG_BOOL_CLO(arg, "--typegrind", typegrind) { }
+   else if VG_BOOL_CLO(arg, "--tape-in-ram", tape_in_ram) { }
    else return False;
    return True;
 }
@@ -113,6 +126,7 @@ static void dg_print_usage(void)
 "    --warn-unwrapped=no|yes   warn about unwrapped expressions\n"
 "    --diffquotdebug=no|yes    print values and dot values of intermediate results\n"
 "    --record=<directory>      switch to recording mode and store tape and indices in specified dir\n"
+"    --typegrind=no|yes        record index ff...f for results of unwrapped operations\n"
    );
 }
 
@@ -122,9 +136,6 @@ static void dg_print_debug_usage(void)
 "    (none)\n"
    );
 }
-
-extern void* sm_dot;
-extern void *sm_barLo, *sm_barHi;
 
 #include <VEX/priv/guest_generic_x87.h>
 /*! React to gdb monitor commands.
@@ -177,7 +188,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         case 5: size = 10; break;
       }
       union {unsigned char l[10]; double d; float f;} shadow, init;
-      shadowGet(sm_dot,(void*)address, (void*)&shadow, size);
+      dg_dot_shadowGet((void*)address, (void*)&shadow, size);
       VG_(gdb_printf)("dot value: ");
       switch(key){
         case 1:
@@ -224,7 +235,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
           break;
         }
       }
-      shadowSet(sm_dot,(void*)address,(void*)&shadow,size);
+      dg_dot_shadowSet((void*)address,(void*)&shadow,size);
       return True;
     }
     case 7: case 8: { // index, mark
@@ -237,8 +248,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         return False;
       }
       ULong index;
-      shadowGet(sm_barLo,(void*)address,(void*)&index,4);
-      shadowGet(sm_barHi,(void*)address,(void*)&index+4,4);
+      dg_bar_shadowGet((void*)address,(void*)&index,(void*)&index+4,4);
       if(key==7){ // index
         VG_(gdb_printf)("index: %llu\n",index);
         return True;
@@ -247,8 +257,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
           VG_(gdb_printf)("Warning: Variable depends on other inputs, previous index was %llu.\n",index);
         }
         ULong setIndex = tapeAddStatement_noActivityAnalysis(0,0,0.,0.);
-        shadowSet(sm_barLo,(void*)address,(void*)&setIndex,4);
-        shadowSet(sm_barHi,(void*)address,(void*)&setIndex+4,4);
+        dg_bar_shadowSet((void*)address,(void*)&setIndex,(void*)&setIndex+4,4);
         VG_(gdb_printf)("index: %llu\n",setIndex);
         return True;
       }
@@ -277,32 +286,29 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
-    shadowGet(sm_dot,(void*)addr,(void*)daddr,size);
+    dg_dot_shadowGet((void*)addr,(void*)daddr,size);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__SET_DOTVALUE) {
     if(mode!='d') return True;
     void* addr = (void*) arg[1];
     void* daddr = (void*) arg[2];
     UWord size = arg[3];
-    shadowSet(sm_dot,addr,daddr,size);
+    dg_dot_shadowSet(addr,daddr,size);
     *ret = 1; return True;
-  } else if(arg[0]==VG_USERREQ__DISABLE_DIFFQUOTDEBUG) {
-    if(mode!='d') return True;
-    disable_diffquotdebug += arg[1];
+  } else if(arg[0]==VG_USERREQ__DISABLE) {
+    dg_disable += (Long)(arg[1]) - (Long)(arg[2]);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__GET_INDEX) {
     if(mode!='b') return True;
     void* addr = (void*) arg[1];
     void* iaddr = (void*) arg[2];
-    shadowGet(sm_barLo,(void*)addr,(void*)iaddr,4);
-    shadowGet(sm_barHi,(void*)addr,(void*)iaddr+4,4);
+    dg_bar_shadowGet((void*)addr,(void*)iaddr,(void*)iaddr+4,4);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__SET_INDEX) {
     if(mode!='b') return True;
     void* addr = (void*) arg[1];
     void* iaddr = (void*) arg[2];
-    shadowSet(sm_barLo,(void*)addr,(void*)iaddr,4);
-    shadowSet(sm_barHi,(void*)addr,(void*)iaddr+4,4);
+    dg_bar_shadowSet((void*)addr,(void*)iaddr,(void*)iaddr+4,4);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__NEW_INDEX || arg[0]==VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS) {
     if(mode!='b') return True;
@@ -325,6 +331,10 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
       VG_(printf)("Bad output file specification.");
       tl_assert(False);
     }
+    return True;
+  } else if(arg[0]==VG_USERREQ__GET_MODE){
+    *ret = (UWord)mode;
+    return True;
   } else {
     VG_(printf)("Unhandled user request.\n");
     return True;

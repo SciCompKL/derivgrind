@@ -85,7 +85,7 @@ class TestCase:
     # set the others stmtX to None
     self.benchmark = None # C++ file to be run for performance test
     self.benchmarkargs = "" # Arguments to C++ program for performance test
-    self.benchmarkreps = 10 # Number of repetitions for performance test
+    self.benchmarkreps = 0 # Number of repetitions for performance test
     self.include = "" # Code pasted above main function
     self.vals = {} # Assigns values to input variables used by stmt
     self.dots = {} # Assigns dot values to input variables used by stmt
@@ -173,7 +173,7 @@ class InteractiveTestCase(TestCase):
       compile_process = subprocess.run(['gfortran', "-g", "-O0", self.temp_dir+"/"+self.source_filename, "-o", self.temp_dir+"/TestCase_exec"] + (["-m32"] if self.arch==32 else []) + self.fflags.split() + self.ldflags.split(),universal_newlines=True)
 
     if compile_process.returncode!=0:
-      self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
+      self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout.decode("utf-8")
 
   def run_code_in_vgdb(self):
     # in reverse mode, clear index and adjoints files
@@ -517,7 +517,7 @@ class ClientRequestTestCase(TestCase):
       pass
 
     if self.compiler!='python' and compile_process.returncode!=0:
-      self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout
+      self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout.decode("utf-8")
 
   def run_code(self):
     self.valgrind_log = ""
@@ -530,9 +530,9 @@ class ClientRequestTestCase(TestCase):
     else:
       commands = [self.temp_dir+"/TestCase_exec"]
     maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
-    valgrind = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,env=environ)
+    valgrind = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,capture_output=True,env=environ)
     if valgrind.returncode!=0:
-      self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout+"\n\nVALGRIND STDERR:\n"+valgrind.stderr+"\n\n"
+      self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout.decode('utf-8')+"\n\nVALGRIND STDERR:\n"+valgrind.stderr.decode('utf-8')+"\n\n"
     if self.mode=='b': # evaluate tape
       with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
         # NumPy testcases are repeated 16 times
@@ -573,6 +573,8 @@ class PerformanceTestCase(TestCase):
   """Methods to run a Derivgrind performance test case, using Valgrind client requests."""
   def __init__(self,name):
     super().__init__(name)
+    self.disable_codi = False # CoDiPack must be disabled for x86 tests with more than about 2.5 GB memory consumption for the tape.
+    self.tape_in_ram = False # Write tape to RAM instead of file system.
 
   def runCoDi(self):
     """Build with CoDiPack types and run."""
@@ -584,7 +586,7 @@ class PerformanceTestCase(TestCase):
       self.errmsg += "COMPILATION WITH CODIPACK FAILED:\n" + comp.stdout.decode('utf-8')+ comp.stderr.decode('utf-8')
     exe = subprocess.run([f"{self.temp_dir}/main_codi",f"{self.temp_dir}/dg-performance-result-codi.json"]+self.benchmarkargs.split(), capture_output=True)
     if exe.returncode!=0:
-      self.errmsg += "EXECUTION WITH CODIPACK FAILED:\n" + "STDOUT:\n" + exe.stdout + "\nSTDERR:\n" + exe.stderr
+      self.errmsg += "EXECUTION WITH CODIPACK FAILED:\n" + "STDOUT:\n" + exe.stdout.decode("utf-8") + "\nSTDERR:\n" + exe.stderr.decode("utf-8")
     with open(self.temp_dir+"/dg-performance-result-codi.json") as f:
       self.result_codi = json.load(f)
 
@@ -595,34 +597,61 @@ class PerformanceTestCase(TestCase):
       self.errmsg += "COMPILATION WITHOUT AD FAILED:\n" + comp.stdout.decode('utf-8') + comp.stderr.decode('utf-8')
     self.results_noad = []
     for irep in range(nrep):
-      exe = subprocess.run([f"{self.temp_dir}/main_noad", f"{self.temp_dir}/dg-performance-result-noad.json"]+self.benchmarkargs.split(), capture_output=True)
+      exe = subprocess.run(["/usr/bin/time", "-f", "time_output %e %M", f"{self.temp_dir}/main_noad", f"{self.temp_dir}/dg-performance-result-noad.json"]+self.benchmarkargs.split(), capture_output=True)
       if exe.returncode!=0:
         self.errmsg += "EXECUTION WITHOUT AD FAILED:\n" + "STDOUT:\n" + exe.stdout.decode('utf-8') + "\nSTDERR:\n" + exe.stderr.decode('utf-8')
       with open(self.temp_dir+"/dg-performance-result-noad.json") as f:
-        self.results_noad.append(json.load(f))
+        result = json.load(f)
+      for line in exe.stderr.decode('utf-8').split("\n"):
+        line = line.strip().split()
+        if len(line)>=3 and line[0]=="time_output":
+          result["forward_outer_time_in_s"] = float(line[1])
+          result["forward_outer_maxrss_in_kb"] = float(line[2])
+          break
+      else:
+        self.errmsg += "EXECUTION WITHOUT AD FAILED: NO GNU TIME OUTPUT\n"
+      self.results_noad.append(result)
 
   def runDG(self, nrep):
     """Build with Derivgrind client request types and run repeatedly."""
     comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_dg", f"-I{self.install_dir}/include", "-DDG_DOT" if self.mode=='d' else "-DDG_BAR"]+self.cflags.split() + (["-m32"] if self.arch==32 else []), capture_output=True)
     if comp.returncode!=0:
-      self.errmsg += "COMPILATION WITH DERIVGRIND FAILED:\n" + comp.stderr.decode('utf-8')
+      self.errmsg += "COMPILATION FOR DERIVGRIND FAILED:\n" + comp.stderr.decode('utf-8')
     self.results_dg = []
     for irep in range(nrep):
       maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
-      exe = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+[f"{self.temp_dir}/main_dg", f"{self.temp_dir}/dg-performance-result-dg.json"]+self.benchmarkargs.split(), capture_output=True)
+      maybetapeinram = ["--tape-in-ram=yes"] if self.tape_in_ram else []
+      exe = subprocess.run(["/usr/bin/time", "-f", "time_output %e %M", self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+maybetapeinram+[f"{self.temp_dir}/main_dg", f"{self.temp_dir}/dg-performance-result-dg.json"]+self.benchmarkargs.split(), capture_output=True)
       if exe.returncode!=0:
         self.errmsg += "EXECUTION WITH DERIVGRIND FAILED:\n" + "STDOUT:\n" + exe.stdout.decode('utf-8') + "\nSTDERR:\n" + exe.stderr.decode('utf-8')
       with open(self.temp_dir+"/dg-performance-result-dg.json") as f:
         result = json.load(f)
-      if self.mode=='b':
-        with open(self.temp_dir+"/dg-output-indices", "r") as f:
-          number_of_outputs = len(f.readlines())
-        with open(self.temp_dir+"/dg-output-adjoints", "w") as f:
-          f.writelines(["1.0\n"]*number_of_outputs)
-        eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir], capture_output=True)
-        if eva.returncode!=0:
-          self.errmsg += "EVALUATION OF DERIVGRIND TAPE FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
-        result["input_bar"] = [float(adj) for adj in np.loadtxt(self.temp_dir+"/dg-input-adjoints")]
+      for line in exe.stderr.decode('utf-8').split("\n"):
+        line = line.strip().split()
+        if len(line)>=3 and line[0]=="time_output":
+          result["forward_outer_time_in_s"] = float(line[1])
+          result["forward_outer_maxrss_in_kb"] = float(line[2])
+          break
+      else:
+        self.errmsg += "EXECUTION WITH DERIVGRIND FAILED: NO GNU TIME OUTPUT\n"
+      if self.mode=='b': # reverse pass
+        if not self.tape_in_ram:
+          with open(self.temp_dir+"/dg-output-indices", "r") as f:
+            number_of_outputs = len(f.readlines())
+          with open(self.temp_dir+"/dg-output-adjoints", "w") as f:
+            f.writelines(["1.0\n"]*number_of_outputs)
+          eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir], capture_output=True)
+          if eva.returncode!=0:
+            self.errmsg += "EVALUATION OF DERIVGRIND TAPE FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
+          result["input_bar"] = [float(adj) for adj in np.loadtxt(self.temp_dir+"/dg-input-adjoints")]
+          # run tape-evaluation another time for statistics
+          eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir, "--stats"], capture_output=True)
+          if eva.returncode!=0:
+            self.errmsg += "EVALUATION OF DERIVGRIND TAPE STATS FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
+          nZero,nOne,nTwo = [int(n) for n in eva.stdout.decode('utf-8').strip().split()]
+          result["number_of_jacobians"] = nOne + 2*nTwo
+        else:
+          result["number_of_jacobians"] = 0
       self.results_dg.append(result)
 
   def verifyGradient(self):
@@ -644,23 +673,33 @@ class PerformanceTestCase(TestCase):
     """Average no-AD and Derivgrind runtime and memory performances."""
     noad_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_noad])
     noad_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_noad])
+    noad_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_noad])
+    noad_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_noad])
     dg_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_dg])
     dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg])
+    dg_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_dg])
+    dg_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_dg])
+    if not self.disable_codi and self.mode=='b':
+      codi_number_of_jacobians = self.result_codi["number_of_jacobians"]
+      dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg])
+    else:
+      codi_number_of_jacobians = 0
+      dg_number_of_jacobians = 0
     # Choose which output you prefer
     #return f"{noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb}"
-    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)}x"
-            
+    #return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)}x"
+    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb} {codi_number_of_jacobians} {dg_number_of_jacobians} {noad_forward_outer_time_in_s} {noad_forward_outer_maxrss_in_kb} {dg_forward_outer_time_in_s} {dg_forward_outer_maxrss_in_kb}"
 
   def run(self):
     print("##### Running performance test '"+self.name+"'... #####", flush=True)
     self.errmsg = ""
-    if self.errmsg=="":
+    if self.errmsg=="" and not self.disable_codi:
       self.runCoDi()
     if self.errmsg=="":
       self.runNoAD(self.benchmarkreps)
     if self.errmsg=="":
       self.runDG(self.benchmarkreps)
-    if self.errmsg=="":
+    if self.errmsg=="" and not self.disable_codi and not self.tape_in_ram:
       if not self.verifyGradient():
         self.errmsg="DERIVATIVES DISAGREE\n"
     if self.errmsg=="":

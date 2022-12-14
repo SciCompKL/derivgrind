@@ -240,23 +240,32 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
     arg1 = None; arg2 = "arg1"; arg3 = "arg2"; d2 = "d1"; d3 = "d2";
   else:
     arg1 = "arg1"; arg2 = "arg2"; arg3 = "arg3"; d2 = "d2"; d3 = "d3";
+  # additionally, Sqrt64Fx4 and Sqrt32Fx8 have no rounding mode
+  sqrt_noroundingmode = llo or fpsize*simdsize==32
+  if sqrt_noroundingmode:
+    sqrt_arg1 = None; sqrt_arg2 = "arg1"; sqrt_d2 = "d1";
+    rounding_mode = None if llo else "dg_rounding_mode" # rounding mode for div and mul
+  else:
+    sqrt_arg1 = "arg1"; sqrt_arg2 = "arg2"; sqrt_d2 = "d2";
+    rounding_mode = "arg1"
+
   add = IROp_Info(f"Iop_Add{suffix}",3-llo,[2-llo,3-llo])
   sub = IROp_Info(f"Iop_Sub{suffix}",3-llo,[2-llo,3-llo])
   mul = IROp_Info(f"Iop_Mul{suffix}",3-llo,[2-llo,3-llo])
   div = IROp_Info(f"Iop_Div{suffix}",3-llo,[2-llo,3-llo])
-  sqrt = IROp_Info(f"Iop_Sqrt{suffix}",2-llo,[2-llo])
+  sqrt = IROp_Info(f"Iop_Sqrt{suffix}",2-sqrt_noroundingmode,[2-sqrt_noroundingmode])
 
   add.dotcode = dv(add.apply(arg1,d2,d3))
   sub.dotcode = dv(sub.apply(arg1,d2,d3))
   mul.dotcode = dv(add.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,d3,arg2)))
   div.dotcode = dv(div.apply(arg1,sub.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,arg2,d3)),mul.apply(arg1,arg3,arg3)))
-  sqrt.dotcode = dv(div.apply(arg1,d2,mul.apply(arg1,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(arg1,arg2))))
+  sqrt.dotcode = dv(div.apply(rounding_mode,sqrt_d2,mul.apply(rounding_mode,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(sqrt_arg1,sqrt_arg2))))
 
   add.barcode = createBarCode(add, [2-llo,3-llo], [], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(1.))"], fpsize, simdsize, llo)
   sub.barcode = createBarCode(sub, [2-llo,3-llo], [], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(-1.))"], fpsize, simdsize, llo)
   mul.barcode = createBarCode(mul, [2-llo,3-llo], [2-llo, 3-llo], [f"{arg3}_part_f", f"{arg2}_part_f"], fpsize, simdsize, llo)
-  div.barcode = createBarCode(div, [2-llo,3-llo], [2-llo, 3-llo], [f"IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(1.)),{arg3}_part_f)", f"IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Triop(Iop_MulF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(-1.)), {arg2}_part_f),IRExpr_Triop(Iop_MulF64,dg_bar_rounding_mode,{arg3}_part_f,{arg3}_part_f))"], fpsize, simdsize, llo)
-  sqrt.barcode = createBarCode(sqrt, [2-llo], [2-llo], [f"IRExpr_Triop(Iop_DivF64,dg_bar_rounding_mode,IRExpr_Const(IRConst_F64(0.5)), IRExpr_Binop(Iop_SqrtF64,dg_bar_rounding_mode,{arg2}_part_f))"], fpsize, simdsize, llo)
+  div.barcode = createBarCode(div, [2-llo,3-llo], [2-llo, 3-llo], [f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(1.)),{arg3}_part_f)", f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Triop(Iop_MulF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(-1.)), {arg2}_part_f),IRExpr_Triop(Iop_MulF64,dg_rounding_mode,{arg3}_part_f,{arg3}_part_f))"], fpsize, simdsize, llo)
+  sqrt.barcode = createBarCode(sqrt, [2-sqrt_noroundingmode], [2-sqrt_noroundingmode], [f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(0.5)), IRExpr_Binop(Iop_SqrtF64,dg_rounding_mode,{sqrt_arg2}_part_f))"], fpsize, simdsize, llo)
 
   IROp_Infos += [add,sub,mul,div,sqrt]
 
@@ -270,14 +279,14 @@ for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1),("64Fx2",8,2),("32Fx2",4,
 for suffix,fpsize,simdsize,llo in [pF64,pF32]: # p64Fx2, p32Fx2, p32Fx4 exist, but AD logic is different
   abs_ = IROp_Info(f"Iop_Abs{suffix}", 1, [1])
   abs_.dotcode = dv(f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}i(0)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)")
-  abs_.barcode = createBarCode(abs_, [1], [1], [f"IRExpr_ITE( IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1_part_f, IRExpr_Const(IRConst_{suffix}i(0)))) , IRExpr_Const(IRConst_F64(-1.)), IRExpr_Const(IRConst_F64(1.)))"], fpsize, simdsize, llo)
+  abs_.barcode = createBarCode(abs_, [1], [1], [f"IRExpr_ITE( IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64, arg1_part_f, IRExpr_Const(IRConst_{suffix}i(0)))) , IRExpr_Const(IRConst_F64(-1.)), IRExpr_Const(IRConst_F64(1.)))"], fpsize, simdsize, llo)
   IROp_Infos += [ abs_ ]
 # Min, Max
 for Op, op in [("Min", "min"), ("Max", "max")]:
   for suffix,fpsize,simdsize,llo in [p32Fx2,p32Fx4,p32F0x4,p64Fx2,p64F0x2,p32Fx8,p64Fx4]:
     the_op = IROp_Info(f"Iop_{Op}{suffix}", 2, [1,2])
     the_op.dotcode = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"dotvalue":"dotvalue_part"}, fpsize, simdsize, f'IRExpr* dotvalue_part = mkIRExprCCall(Ity_I64,0,"dg_dot_arithmetic_{op}{fpsize*8}", &dg_dot_arithmetic_{op}{fpsize*8}, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
-    the_op.barcode = createBarCode(the_op, [1,2], [1,2], [f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{'F32' if fpsize==4 else 'F64'},arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})) )",     f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{'F32' if fpsize==4 else 'F64'},arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})) )"], fpsize, simdsize,llo)
+    the_op.barcode = createBarCode(the_op, [1,2], [1,2], [f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64,arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})) )",     f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64,arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})) )"], fpsize, simdsize,llo)
     IROp_Infos += [ the_op ]
 # fused multiply-add
 for Op in ["Add", "Sub"]:
@@ -370,6 +379,14 @@ for op in ops:
   the_op.dotcode = dv(f"IRExpr_Binop({op},d1,d2)")
   the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Binop({op},i1{HiLo},i2{HiLo});" for HiLo in ["Lo","Hi"]])
   IROp_Infos += [the_op]
+
+# Bitshifts, as a special case of data move operations
+for direction in ["Shr","Shl"]:
+  for size in [8,16,32,64]:
+    the_op = IROp_Info(f"Iop_{direction}{size}", 2, [1]);
+    the_op.dotcode = dv(f"IRExpr_Binop(Iop_{direction}{size},d1,arg2)")
+    the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Binop(Iop_{direction}{size},i1{HiLo},arg2);" for HiLo in ["Lo","Hi"]])
+    IROp_Infos += [the_op]
 
 # Conversion F64 -> F32: Apply analogously to dot value, and cut bytes from index.
 f64tof32 = IROp_Info("Iop_F64toF32",2,[2])

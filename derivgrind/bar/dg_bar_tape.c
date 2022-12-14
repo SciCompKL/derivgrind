@@ -6,14 +6,25 @@
 #include "pub_tool_libcfile.h"
 #include "pub_tool_libcprint.h"
 #include "pub_tool_mallocfree.h"
+#include "pub_tool_stacktrace.h"
+#include "pub_tool_libcprint.h"
 
 #include "dg_bar_tape.h"
 
 static ULong nextindex = 1;
+
+//! Number of tape blocks fitting into the buffer.
 #define BUFSIZE 1000000
-static ULong buffer_tape[4*BUFSIZE];
+
+//! Buffer for tape blocks.
+static ULong* buffer_tape;
+
 static Int fd_tape;
 static VgFile *fp_inputs, *fp_outputs;
+
+extern Long dg_disable;
+extern Bool typegrind;
+extern Bool tape_in_ram;
 
 ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2){
   if(index1==0 && index2==0) // activity analysis
@@ -23,6 +34,7 @@ ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2){
 }
 
 ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1,double diff2){
+  if(dg_disable!=0) return typegrind ? 0xffffffffffffffff : 0;
   ULong pos = (nextindex%BUFSIZE)*4;
   buffer_tape[pos] = index1;
   buffer_tape[pos+1] = index2;
@@ -30,7 +42,19 @@ ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1
   buffer_tape[pos+3] = *(ULong*)&diff2;
   nextindex++;
   if(nextindex%BUFSIZE==0){
-    VG_(write)(fd_tape,buffer_tape,4*BUFSIZE*sizeof(ULong));
+    if(tape_in_ram){
+      buffer_tape = VG_(malloc)("Tape buffer reallocation.",BUFSIZE*4*sizeof(ULong));
+      // The connection to previous tape buffers is lost and they will never be freed;
+      // note that --tape-to-ram=yes is only for benchmarking purposes.
+    } else {
+      VG_(write)(fd_tape,buffer_tape,4*BUFSIZE*sizeof(ULong));
+    }
+  }
+  if(index1==0xffffffffffffffff||index2==0xffffffffffffffff){
+    VG_(message)(Vg_UserMsg, "Result of unwrapped operation used as input of differentiable operation.\n");
+    VG_(message)(Vg_UserMsg, "Index of result of differentiable operation: %llu.\n",nextindex-1);
+    VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 16);
+    VG_(message)(Vg_UserMsg, "\n");
   }
   return nextindex-1;
 }
@@ -45,7 +69,7 @@ void dg_bar_tape_initialize(const HChar* path){
   VG_(memcpy)(filename,path,len+1);
 
   VG_(memcpy)(filename+len, "/dg-tape", 9);
-  fd_tape = VG_(fd_open)(filename,VKI_O_WRONLY|VKI_O_CREAT|VKI_O_TRUNC,0777);
+  fd_tape = VG_(fd_open)(filename,VKI_O_WRONLY|VKI_O_CREAT|VKI_O_TRUNC|VKI_O_LARGEFILE,0777);
   if(fd_tape==-1){
     VG_(printf)("Cannot open tape file at path '%s'.", filename ); tl_assert(False);
   }
@@ -61,7 +85,8 @@ void dg_bar_tape_initialize(const HChar* path){
   }
   VG_(free)(filename);
 
-  // zero buffer for tape
+  // allocate and zero buffer for tape
+  buffer_tape = VG_(malloc)("Tape buffer", BUFSIZE*4*sizeof(ULong));
   for(ULong i=0; i<4*BUFSIZE; i++){
     buffer_tape[i] = 0;
   }
@@ -82,4 +107,7 @@ void dg_bar_tape_finalize(void){
   VG_(close)(fd_tape);
   VG_(fclose)(fp_inputs);
   VG_(fclose)(fp_outputs);
+
+  VG_(free)(buffer_tape);
 }
+

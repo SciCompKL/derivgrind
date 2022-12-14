@@ -9,17 +9,20 @@
 #include "pub_tool_tooliface.h"
 
 #include "../dg_shadow.h"
+#include "dg_bar_shadow.h"
 
 #include "dg_bar.h"
 #include "dg_bar_bitwise.h"
 #include "dg_bar_tape.h"
+#include "dg_utils.h"
 
-//! First layer of shadow memory for the lower 4 byte of the 8-byte indices.
-void* sm_barLo = NULL;
-//! Second layer of shadow memory for the higher 4 byte of the 8-byte indices.
-void* sm_barHi = NULL;
+//! Whether to return 0xff..f for unhandled operations, otherwise 0x00..0.
+Bool typegrind = False;
 
-#define dg_bar_rounding_mode IRExpr_Const(IRConst_U32(0))
+//! Data is copied to/from shadow memory via this buffer of 2x V256.
+V256* dg_bar_shadow_mem_buffer;
+
+#define dg_rounding_mode IRExpr_Const(IRConst_U32(0))
 
 /* --- Define ExpressionHandling. --- */
 
@@ -64,14 +67,61 @@ static void* dg_bar_geti(DiffEnv* diffenv, Int offset, IRType type, IRRegArray* 
   }
 }
 
+/*! Dirty call to copy shadow data from buffer into shadow memory.
+ *  \param addr Address for memory location whose shadow should be written to.
+ *  \param size Number of bytes per layer to be copied.
+ */
+void dg_bar_x86g_amd64g_dirtyhelper_store(Addr addr, ULong size){
+  dg_bar_shadowSet((void*)addr,dg_bar_shadow_mem_buffer,dg_bar_shadow_mem_buffer+1,size);
+}
+
+/*! Dirty call to copy shadow data from shadow memory into buffer.
+ *  \param addr Address for memory location whose shadow should be read from.
+ *  \param size Number of bytes per layer to be copied.
+ */
+void dg_bar_x86g_amd64g_dirtyhelper_load(Addr addr, ULong size){
+  dg_bar_shadowGet((void*)addr,dg_bar_shadow_mem_buffer,dg_bar_shadow_mem_buffer+1,size);
+}
+
 static void dg_bar_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* guard){
-  storeShadowMemory(sm_barLo,diffenv->sb_out,addr,((IRExpr**)expr)[0],guard);
-  storeShadowMemory(sm_barHi,diffenv->sb_out,addr,((IRExpr**)expr)[1],guard);
+  #ifdef BUILD_32BIT
+  IRExpr* buffer_addr_Lo = IRExpr_Const(IRConst_U32((Addr)dg_bar_shadow_mem_buffer));
+  IRExpr* buffer_addr_Hi = IRExpr_Const(IRConst_U32((Addr)(dg_bar_shadow_mem_buffer+1)));
+  #else
+  IRExpr* buffer_addr_Lo = IRExpr_Const(IRConst_U64((Addr)dg_bar_shadow_mem_buffer));
+  IRExpr* buffer_addr_Hi = IRExpr_Const(IRConst_U64((Addr)(dg_bar_shadow_mem_buffer+1)));
+  #endif
+  addStmtToIRSB(diffenv->sb_out,IRStmt_Store(Iend_LE,buffer_addr_Lo,((IRExpr**)expr)[0]));
+  addStmtToIRSB(diffenv->sb_out,IRStmt_Store(Iend_LE,buffer_addr_Hi,((IRExpr**)expr)[1]));
+  IRType type = typeOfIRExpr(diffenv->sb_out->tyenv, ((IRExpr**)expr)[0]);
+  tl_assert(type == typeOfIRExpr(diffenv->sb_out->tyenv, ((IRExpr**)expr)[1]));
+  ULong size = sizeofIRType(type);
+  IRDirty* dd = unsafeIRDirty_0_N(
+        0, "dg_bar_x86g_amd64g_dirtyhelper_store",
+        &dg_bar_x86g_amd64g_dirtyhelper_store,
+        mkIRExprVec_2(addr,IRExpr_Const(IRConst_U64(size))) );
+  if(guard) dd->guard=guard;
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
 }
 static void* dg_bar_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
-  IRExpr* exLo = loadShadowMemory(sm_barLo,diffenv->sb_out,addr,type);
-  IRExpr* exHi = loadShadowMemory(sm_barHi,diffenv->sb_out,addr,type);
-  return (void*)mkIRExprVec_2(exLo,exHi);
+  #ifdef BUILD_32BIT
+  IRExpr* buffer_addr_Lo = IRExpr_Const(IRConst_U32((Addr)dg_bar_shadow_mem_buffer));
+  IRExpr* buffer_addr_Hi = IRExpr_Const(IRConst_U32((Addr)(dg_bar_shadow_mem_buffer+1)));
+  #else
+  IRExpr* buffer_addr_Lo = IRExpr_Const(IRConst_U64((Addr)dg_bar_shadow_mem_buffer));
+  IRExpr* buffer_addr_Hi = IRExpr_Const(IRConst_U64((Addr)(dg_bar_shadow_mem_buffer+1)));
+  #endif
+  ULong size = sizeofIRType(type);
+  IRDirty* dd = unsafeIRDirty_0_N(
+        0, "dg_bar_x86g_amd64g_dirtyhelper_load",
+        &dg_bar_x86g_amd64g_dirtyhelper_load,
+        mkIRExprVec_2(addr,IRExpr_Const(IRConst_U64(size))) );
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
+  IRTemp exLo_tmp = newIRTemp(diffenv->sb_out->tyenv,type);
+  IRTemp exHi_tmp = newIRTemp(diffenv->sb_out->tyenv,type);
+  addStmtToIRSB(diffenv->sb_out,IRStmt_WrTmp(exLo_tmp,IRExpr_Load(Iend_LE,type,buffer_addr_Lo)));
+  addStmtToIRSB(diffenv->sb_out,IRStmt_WrTmp(exHi_tmp,IRExpr_Load(Iend_LE,type,buffer_addr_Hi)));
+  return (void*)mkIRExprVec_2(IRExpr_RdTmp(exLo_tmp),IRExpr_RdTmp(exHi_tmp));
 }
 
 #include <VEX/priv/guest_generic_x87.h>
@@ -83,11 +133,11 @@ static void* dg_bar_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
  */
 void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo ( Addr addrU, ULong i64 )
 {
-   shadowSet(sm_barLo,(void*)addrU,(void*)&i64,4);
+  dg_bar_shadowSet((void*)addrU,(void*)&i64,NULL,4);
 }
 void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong i64 )
 {
-   shadowSet(sm_barHi,(void*)addrU,(void*)&i64,4);
+  dg_bar_shadowSet((void*)addrU,NULL,(void*)&i64,4);
 }
 /*! Dirtyhelper for the extra AD logic to dirty calls to
  *  x86g_dirtyhelper_loadF80le / amd64g_dirtyhelper_loadF80le.
@@ -97,15 +147,15 @@ void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong i64 )
  */
 ULong dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Lo ( Addr addrU )
 {
-   ULong i64;
-   shadowGet(sm_barLo,(void*)addrU, (void*)&i64, 4);
-   return i64;
+  ULong i64_Lo, i64_Hi;
+  dg_bar_shadowGet((void*)addrU, (void*)&i64_Lo, (void*)&i64_Hi, 4);
+  return i64_Lo;
 }
 ULong dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
 {
-   ULong i64;
-   shadowGet(sm_barHi,(void*)addrU, (void*)&i64, 4);
-   return i64;
+  ULong i64_Lo, i64_Hi;
+  dg_bar_shadowGet((void*)addrU, (void*)&i64_Lo, (void*)&i64_Hi, 4);
+  return i64_Hi;
 }
 
 static void dg_bar_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
@@ -256,7 +306,23 @@ void* dg_bar_operation(DiffEnv* diffenv, IROp op,
   if(i4) { i4Lo = ((IRExpr**)i4)[0]; i4Hi = ((IRExpr**)i4)[1]; }
   switch(op){
     #include "dg_bar_operations.c"
-    default: return NULL;
+    default: {
+      if(typegrind){
+        IRType t_dst=Ity_INVALID, t_arg1=Ity_INVALID, t_arg2=Ity_INVALID, t_arg3=Ity_INVALID, t_arg4=Ity_INVALID;
+        typeOfPrimop(op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
+        /*if(t_dst==Ity_I128) return NULL; // TODO: Check whether index is zero.
+        IRExpr* allInputsZero = IRExpr_Binop(Iop_And1,
+          IRExpr_Binop(Iop_And1, isZero(arg1, t_arg1), isZero(arg2, t_arg2)),
+          IRExpr_Binop(Iop_And1, isZero(arg3, t_arg3), isZero(arg4, t_arg4)) );
+        IRExpr* indexLo = IRExpr_ITE(allInputsZero,mkIRConst_zero(t_dst), mkIRConst_ones(t_dst));
+        */
+        IRExpr* indexLo = mkIRConst_ones(t_dst);
+        IRExpr* indexHi = indexLo;
+        return mkIRExprVec_2(indexLo, indexHi);
+      } else {
+        return NULL;
+      }
+    }
   }
 }
 
@@ -275,12 +341,12 @@ void dg_bar_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){
 }
 
 void dg_bar_initialize(void){
-  sm_barLo = initializeShadowMap();
-  sm_barHi = initializeShadowMap();
+  dg_bar_shadow_mem_buffer = VG_(malloc)("dg_bar_shadow_mem_buffer",2*sizeof(V256));
+  dg_bar_shadowInit();
 }
 
 void dg_bar_finalize(void){
-  destroyShadowMap(sm_barLo);
-  destroyShadowMap(sm_barHi);
+  VG_(free)(dg_bar_shadow_mem_buffer);
+  dg_bar_shadowFini();
 }
 
