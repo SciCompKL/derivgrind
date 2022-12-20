@@ -189,44 +189,6 @@ struct Problem {
     rValue = totalNorm / props.totalSize;
   }
 
-  void optimizedProblemSize(long& stackSize, long& varSize) {
-    stackSize = 37 + -32 * x + 10 * x * x + t * (152 + -152 * x + 38 * x * x);
-    varSize = 10 + -8 * x + 4 * x * x + t * (32 + -32 * x + 8 * x * x);
-  }
-
-  void problemSize(long& stackSize, long& varSize) {
-    stackSize = 52 + -32 * x + 32 * x * x + t *(179 + -88 * x + 44 * x * x);
-    varSize = 15 + -8 * x + 10 * x * x + t *(33 + -8 * x + 8 * x * x);
-  }
-
-  bool mkpath( std::string path ) {
-    bool bSuccess = false;
-    int nRC = ::mkdir( path.c_str(), 0775 );
-    if( nRC == -1 ) {
-      switch( errno ) {
-        case ENOENT:
-          //parent didn't exist, try to create it
-          if( mkpath( path.substr(0, path.find_last_of('/')) ) ) {
-            //Now, try to create again.
-            bSuccess = 0 == ::mkdir( path.c_str(), 0775 );
-          } else {
-            bSuccess = false;
-          }
-          break;
-        case EEXIST:
-          //Done!
-          bSuccess = true;
-          break;
-        default:
-          bSuccess = false;
-          break;
-      }
-    } else {
-      bSuccess = true;
-    }
-    return bSuccess;
-  }
-
   Settings setup(int nArgs, char** args) {
     if (nArgs != 4) {
       std::cerr << "Need 2 arguments: outputfile grid_size time_steps" << std::endl;
