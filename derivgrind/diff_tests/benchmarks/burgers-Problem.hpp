@@ -227,19 +227,4 @@ struct Problem {
     delete[] vStart;
     delete[] uStart;
   }
-  /*
-  void outputResults(Settings& props, int id, const double* times, const size_t timesSize, MemoryMeasurement& mem, const size_t* sizes, const size_t n) {
-    std::string fileName = format("%s/%stimes_%02d.txt", outDir.c_str(), prefix.c_str(), id);
-    FILE *file = fopen(fileName.c_str(), "a");
-    fprintf(file, "%5lu %5lu", props.gridSize, props.timeSteps);
-    for(size_t i = 0; i < n; ++i) {
-      fprintf(file, " %5lu", sizes[i]);
-    }
-    for(size_t i = 0; i < timesSize; ++i) {
-      fprintf(file, " %0.4e", times[i]);
-    }
-    fprintf(file, " %0.2f\n", (NumberOff) mem.physicalMemory / (1024.0 * 1024.0));
-    fclose(file);
-  }
-  */
 };
