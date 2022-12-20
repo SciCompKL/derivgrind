@@ -74,10 +74,12 @@ int main(int nArgs, char** args) {
     tape.evaluate();
     resfile << ",\n \"number_of_jacobians\" : " << tape.getParameter(codi::TapeParameters::JacobianSize);
     resfile << ",\n \"input_bar\" : [" << problem.u1[0].getGradient();
-    for (size_t i = 1; i < props.totalSize; ++i)
+    for (size_t i = 1; i < props.totalSize; ++i){
       resfile << ", " << problem.uStart[i].getGradient();
-    for (size_t i = 0; i < props.totalSize; ++i)
+    }
+    for (size_t i = 0; i < props.totalSize; ++i){
       resfile << ", " << problem.vStart[i].getGradient();
+    }
     resfile << "]";
   #endif
   resfile << "\n}";
