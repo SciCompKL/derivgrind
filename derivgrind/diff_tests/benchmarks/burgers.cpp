@@ -1,3 +1,7 @@
+/*!
+ * Original author: Max Sagebaum
+ * Modified by: Max Aehle
+ */
 
 /*! \file burgers.cpp
  * Simple program solving Burgers' PDE, as a benchmark for Derivgrind.

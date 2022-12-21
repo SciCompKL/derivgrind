@@ -1,5 +1,10 @@
 #pragma once
 
+/*!
+ * Original author: Max Sagebaum
+ * Modified by: Max Aehle
+ */
+
 #include <math.h>
 #include <string>
 #include <sys/stat.h>
