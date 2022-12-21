@@ -1,3 +1,9 @@
+/* NOTE: This is not the original valgrind.h shipped with the
+ * the Valgrind dynamic binary instrumentation framework. We have
+ * modified it to provide functions wrappers for math.h functions
+ * in Derivgrind.
+ */
+
 /* -*- c -*-
    ----------------------------------------------------------------
 
