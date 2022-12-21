@@ -596,7 +596,7 @@ class PerformanceTestCase(TestCase):
     if comp.returncode!=0:
       self.errmsg += "COMPILATION WITHOUT AD FAILED:\n" + comp.stdout.decode('utf-8') + comp.stderr.decode('utf-8')
     self.results_noad = []
-    for irep in range(nrep):
+    for irep in range(nrep+2): # measurements for the first two iterations are not taken into account
       exe = subprocess.run(["/usr/bin/time", "-f", "time_output %e %M", f"{self.temp_dir}/main_noad", f"{self.temp_dir}/dg-performance-result-noad.json"]+self.benchmarkargs.split(), capture_output=True)
       if exe.returncode!=0:
         self.errmsg += "EXECUTION WITHOUT AD FAILED:\n" + "STDOUT:\n" + exe.stdout.decode('utf-8') + "\nSTDERR:\n" + exe.stderr.decode('utf-8')
@@ -618,7 +618,7 @@ class PerformanceTestCase(TestCase):
     if comp.returncode!=0:
       self.errmsg += "COMPILATION FOR DERIVGRIND FAILED:\n" + comp.stderr.decode('utf-8')
     self.results_dg = []
-    for irep in range(nrep):
+    for irep in range(nrep+2): # measurements for the first two iterations are not taken into account
       maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
       maybetapeinram = ["--tape-in-ram=yes"] if self.tape_in_ram else []
       exe = subprocess.run(["/usr/bin/time", "-f", "time_output %e %M", self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+maybetapeinram+[f"{self.temp_dir}/main_dg", f"{self.temp_dir}/dg-performance-result-dg.json"]+self.benchmarkargs.split(), capture_output=True)
@@ -671,14 +671,14 @@ class PerformanceTestCase(TestCase):
 
   def averagePerformance(self):
     """Average no-AD and Derivgrind runtime and memory performances."""
-    noad_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_noad])
-    noad_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_noad])
-    noad_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_noad])
-    noad_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_noad])
-    dg_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_dg])
-    dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg])
-    dg_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_dg])
-    dg_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_dg])
+    noad_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_noad[2:]])
+    noad_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_noad[2:]])
+    noad_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_noad[2:]])
+    noad_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_noad[2:]])
+    dg_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_dg[2:]])
+    dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg[2:]])
+    dg_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_dg[2:]])
+    dg_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_dg[2:]])
     if not self.disable_codi and self.mode=='b':
       codi_number_of_jacobians = self.result_codi["number_of_jacobians"]
       dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg])
