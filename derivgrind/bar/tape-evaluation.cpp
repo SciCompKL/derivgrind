@@ -43,11 +43,11 @@ int main(int argc, char* argv[]){
     tapefile.read(reinterpret_cast<char*>(tape_buf), count*4*sizeof(double));
   };
 
-  Tapefile<bufsize,decltype(loadfun)> tape(loadfun, number_of_blocks);
+  Tapefile<bufsize,decltype(loadfun)>* tape = new Tapefile<bufsize,decltype(loadfun)>(loadfun, number_of_blocks);
 
   if(argc>=3 && std::string(argv[2])=="--stats"){
     unsigned long long nZero, nOne, nTwo;
-    tape.stats(nZero,nOne,nTwo);
+    tape->stats(nZero,nOne,nTwo);
     std::cout << nZero << " " << nOne << " " << nTwo << std::endl;
     exit(0);
   }
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]){
   }
 
   // evaluate tape
-  tape.evaluate(adjointvec);
+  tape->evaluate(adjointvec);
 
 
   // read indices of input variables and write corresponding adjoints

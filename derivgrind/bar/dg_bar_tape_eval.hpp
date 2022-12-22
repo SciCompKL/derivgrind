@@ -1,4 +1,4 @@
-template<int bufsize, typename loadfun_t>
+template<unsigned long long bufsize, typename loadfun_t>
 class Tapefile {
   using ull = unsigned long long;
   ull number_of_blocks; //!< Number of blocks on the tape.
@@ -20,7 +20,7 @@ private:
       ull chunk_count = (chunk==number_of_chunks_in_subtape-1) ? (number_of_blocks_in_subtape - (number_of_chunks_in_subtape-1)*bufsize) : bufsize;
       ull chunk_begin = forward ? (begin+chunk*bufsize) : (begin-chunk*bufsize-chunk_count+1);
       loadfun(chunk_begin, chunk_count, tape_buf);
-      for(int block_in_chunk= (forward ? 0 : chunk_count-1);
+      for(unsigned long long block_in_chunk= (forward ? 0 : chunk_count-1);
           forward ? (block_in_chunk<chunk_count) : (block_in_chunk>=0); 
           block_in_chunk += (forward ? 1 : -1)) {
         ull index1 = tape_buf[4*block_in_chunk];
