@@ -576,7 +576,7 @@ class PerformanceTestCase(TestCase):
     self.disable_codi = False # CoDiPack must be disabled for x86 tests with more than about 2.5 GB memory consumption for the tape.
     self.tape_in_ram = False # Write tape to RAM instead of file system.
 
-  def runCoDi(self):
+  def runCoDi(self,nrep):
     """Build with CoDiPack types and run."""
     if self.codi_dir==None:
       self.errmsg += "NO CODIPACK INCLUDE PATH SUPPLIED\n"
@@ -584,11 +584,13 @@ class PerformanceTestCase(TestCase):
     comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_codi", "-DCODI_DOT" if self.mode=='d' else "-DCODI_BAR"]+self.cflags.split()+[f"-I{self.codi_dir}"] + (["-m32"] if self.arch==32 else []), capture_output=True)
     if comp.returncode!=0:
       self.errmsg += "COMPILATION WITH CODIPACK FAILED:\n" + comp.stdout.decode('utf-8')+ comp.stderr.decode('utf-8')
-    exe = subprocess.run([f"{self.temp_dir}/main_codi",f"{self.temp_dir}/dg-performance-result-codi.json"]+self.benchmarkargs.split(), capture_output=True)
-    if exe.returncode!=0:
-      self.errmsg += "EXECUTION WITH CODIPACK FAILED:\n" + "STDOUT:\n" + exe.stdout.decode("utf-8") + "\nSTDERR:\n" + exe.stderr.decode("utf-8")
-    with open(self.temp_dir+"/dg-performance-result-codi.json") as f:
-      self.result_codi = json.load(f)
+    self.results_codi = []
+    for irep in range(nrep+2): # measurements for the first two iterations are not taken into account
+      exe = subprocess.run([f"{self.temp_dir}/main_codi",f"{self.temp_dir}/dg-performance-result-codi.json"]+self.benchmarkargs.split(), capture_output=True)
+      if exe.returncode!=0:
+        self.errmsg += "EXECUTION WITH CODIPACK FAILED:\n" + "STDOUT:\n" + exe.stdout.decode("utf-8") + "\nSTDERR:\n" + exe.stderr.decode("utf-8")
+      with open(self.temp_dir+"/dg-performance-result-codi.json") as f:
+        self.results_codi.append(json.load(f))
 
   def runNoAD(self, nrep):
     """Build without AD and run repeatedly."""
@@ -660,11 +662,11 @@ class PerformanceTestCase(TestCase):
     for result_dg in self.results_dg:
       if self.mode=='b':
         input_bar_dg = np.array(result_dg["input_bar"])
-        input_bar_codi = np.array(self.result_codi["input_bar"])
+        input_bar_codi = np.array(self.results_codi[0]["input_bar"])
         err = np.linalg.norm( input_bar_dg - input_bar_codi ) / ( np.linalg.norm(input_bar_codi) * np.sqrt(len(input_bar_codi)) )
       else:
         output_dot_dg = np.array(result_dg["output_dot"])
-        output_dot_codi = np.array(self.result_codi["output_dot"])
+        output_dot_codi = np.array(self.results_codi[0]["output_dot"])
         err = np.linalg.norm( output_dot_dg - output_dot_codi) / ( np.linalg.norm(output_dot_codi) * np.sqrt(len(output_dot_codi)) )
       correct = correct and err < self.type["tol"]
     return correct  
@@ -679,8 +681,9 @@ class PerformanceTestCase(TestCase):
     dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg[2:]])
     dg_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_dg[2:]])
     dg_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_dg[2:]])
+    codi_reverse_time_in_s = np.mean([res["reverse_time_in_s"] for res in self.results_codi[2:]])
     if not self.disable_codi and self.mode=='b':
-      codi_number_of_jacobians = self.result_codi["number_of_jacobians"]
+      codi_number_of_jacobians = self.results_codi[0]["number_of_jacobians"]
       dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg])
     else:
       codi_number_of_jacobians = 0
@@ -688,13 +691,13 @@ class PerformanceTestCase(TestCase):
     # Choose which output you prefer
     #return f"{noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb}"
     #return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)}x"
-    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb} {codi_number_of_jacobians} {dg_number_of_jacobians} {noad_forward_outer_time_in_s} {noad_forward_outer_maxrss_in_kb} {dg_forward_outer_time_in_s} {dg_forward_outer_maxrss_in_kb}"
+    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb} {codi_number_of_jacobians} {dg_number_of_jacobians} {noad_forward_outer_time_in_s} {noad_forward_outer_maxrss_in_kb} {dg_forward_outer_time_in_s} {dg_forward_outer_maxrss_in_kb} {codi_reverse_time_in_s}"
 
   def run(self):
     print("##### Running performance test '"+self.name+"'... #####", flush=True)
     self.errmsg = ""
     if self.errmsg=="" and not self.disable_codi:
-      self.runCoDi()
+      self.runCoDi(self.benchmarkreps)
     if self.errmsg=="":
       self.runNoAD(self.benchmarkreps)
     if self.errmsg=="":

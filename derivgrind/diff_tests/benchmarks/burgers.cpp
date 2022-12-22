@@ -75,7 +75,13 @@ int main(int nArgs, char** args) {
     tape.registerOutput(w);
     tape.setPassive();
     w.setGradient(one);
-    tape.evaluate();
+    {
+      std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+      tape.evaluate();
+      std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+      double time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+      resfile << ",\n \"reverse_time_in_s\": " << time/1e6 ;
+    }
     resfile << ",\n \"number_of_jacobians\" : " << tape.getParameter(codi::TapeParameters::JacobianSize);
     resfile << ",\n \"input_bar\" : [" << problem.u1[0].getGradient();
     for (size_t i = 1; i < props.totalSize; ++i){
