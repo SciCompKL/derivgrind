@@ -673,6 +673,7 @@ class PerformanceTestCase(TestCase):
             self.errmsg += "EVALUATION OF DERIVGRIND TAPE STATS FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
           nZero,nOne,nTwo = [int(n) for n in eva.stdout.decode('utf-8').strip().split()]
           result["number_of_jacobians"] = nOne + 2*nTwo
+          result["tape_size_in_b"] = (nZero+nOne+nTwo)*32
         else:
           result["number_of_jacobians"] = 0
       self.results_dg.append(result)
@@ -705,6 +706,7 @@ class PerformanceTestCase(TestCase):
     codi_reverse_time_in_s = np.mean([res["reverse_time_in_s"] for res in self.results_codi[2:]])
     if not self.disable_codi and self.mode=='b':
       codi_number_of_jacobians = self.results_codi[0]["number_of_jacobians"]
+      dg_tape_size_in_b = np.mean([res["tape_size_in_b"] for res in self.results_ds])
       dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg])
     else:
       codi_number_of_jacobians = 0
