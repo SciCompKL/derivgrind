@@ -663,10 +663,20 @@ class PerformanceTestCase(TestCase):
             number_of_outputs = len(f.readlines())
           with open(self.temp_dir+"/dg-output-adjoints", "w") as f:
             f.writelines(["1.0\n"]*number_of_outputs)
+          try: # remove file with reverse evaluation run-time
+            os.remove(self.temp_dir+"/dg-perf-tapeeval-time")
+          except OSError:
+            pass
           eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir], capture_output=True)
           if eva.returncode!=0:
             self.errmsg += "EVALUATION OF DERIVGRIND TAPE FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
           result["input_bar"] = [float(adj) for adj in np.loadtxt(self.temp_dir+"/dg-input-adjoints")]
+          try:
+            result["reverse_time_in_s"] = np.loadtxt(self.temp_dir+"/dg-perf-tapeeval-time")
+          except OSError:
+            # need to set measure_evaluation_time to true, or
+            # increase bufsize, in tape-evaluation.cpp, and recompile
+            result["reverse_time_in_s"] = 0
           # run tape-evaluation another time for statistics
           eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir, "--stats"], capture_output=True)
           if eva.returncode!=0:
@@ -703,14 +713,18 @@ class PerformanceTestCase(TestCase):
     dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg[2:]])
     dg_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_dg[2:]])
     dg_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_dg[2:]])
-    dg_reverse_time_in_s = 0 # TODO
-    codi_reverse_time_in_s = np.mean([res["reverse_time_in_s"] for res in self.results_codi[2:]])
+    if self.mode=='b':
+      dg_reverse_time_in_s = np.mean([res["reverse_time_in_s"] for res in self.results_dg[2:]]) 
+      # The tape evaluator does not measure the run-time by default, in which case dg_reverse_time_in_s is 0.
+      # To enable the time measurement, edit tape-evaluator.cpp.
     if not self.disable_codi and self.mode=='b':
+      codi_reverse_time_in_s = np.mean([res["reverse_time_in_s"] for res in self.results_codi[2:]])
       codi_tape_size_in_b = np.mean([res["tape_size_in_b"] for res in self.results_codi[2:]])
       codi_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_codi[2:]])
       dg_tape_size_in_b = np.mean([res["tape_size_in_b"] for res in self.results_dg[2:]])
       dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg[2:]])
     else:
+      codi_reverse_time_in_s = 0
       codi_tape_size_in_b = 0
       codi_number_of_jacobians = 0
       dg_tape_size_in_b = 0
