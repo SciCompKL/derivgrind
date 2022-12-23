@@ -83,6 +83,9 @@ int main(int nArgs, char** args) {
       resfile << ",\n \"reverse_time_in_s\": " << time/1e6 ;
     }
     resfile << ",\n \"number_of_jacobians\" : " << tape.getParameter(codi::TapeParameters::JacobianSize);
+    resfile << ",\n \"tape_size_in_b\" : " << 
+      (5 * tape.getParameter(codi::TapeParameters::StatementSize) + 
+       12 * tape.getParameter(codi::TapeParameters::JacobianSize) );
     resfile << ",\n \"input_bar\" : [" << problem.u1[0].getGradient();
     for (size_t i = 1; i < props.totalSize; ++i){
       resfile << ", " << problem.uStart[i].getGradient();

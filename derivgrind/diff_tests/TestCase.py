@@ -703,18 +703,22 @@ class PerformanceTestCase(TestCase):
     dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg[2:]])
     dg_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_dg[2:]])
     dg_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_dg[2:]])
+    dg_reverse_time_in_s = 0 # TODO
     codi_reverse_time_in_s = np.mean([res["reverse_time_in_s"] for res in self.results_codi[2:]])
     if not self.disable_codi and self.mode=='b':
-      codi_number_of_jacobians = self.results_codi[0]["number_of_jacobians"]
-      dg_tape_size_in_b = np.mean([res["tape_size_in_b"] for res in self.results_ds])
-      dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg])
+      codi_tape_size_in_b = np.mean([res["tape_size_in_b"] for res in self.results_codi[2:]])
+      codi_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_codi[2:]])
+      dg_tape_size_in_b = np.mean([res["tape_size_in_b"] for res in self.results_dg[2:]])
+      dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg[2:]])
     else:
+      codi_tape_size_in_b = 0
       codi_number_of_jacobians = 0
+      dg_tape_size_in_b = 0
       dg_number_of_jacobians = 0
     # Choose which output you prefer
     #return f"{noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb}"
     #return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)}x"
-    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb} {codi_number_of_jacobians} {dg_number_of_jacobians} {noad_forward_outer_time_in_s} {noad_forward_outer_maxrss_in_kb} {dg_forward_outer_time_in_s} {dg_forward_outer_maxrss_in_kb} {codi_reverse_time_in_s}"
+    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb} {codi_number_of_jacobians} {dg_number_of_jacobians} {noad_forward_outer_time_in_s} {noad_forward_outer_maxrss_in_kb} {dg_forward_outer_time_in_s} {dg_forward_outer_maxrss_in_kb} {codi_reverse_time_in_s} {dg_reverse_time_in_s} {codi_tape_size_in_b} {dg_tape_size_in_b}"
 
   def run(self):
     print("##### Running performance test '"+self.name+"'... #####", flush=True)
