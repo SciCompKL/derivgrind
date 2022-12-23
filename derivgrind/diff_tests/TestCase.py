@@ -73,7 +73,7 @@ class TestCase:
   """Basic data for a Derivgrind regression test case."""
   def __init__(self, name):
     self.name = name # Name of TestCase
-    self.mode = 'd' # 'd': dot/forward, 'b': bar/recording
+    self.mode = 'd' # 'd': direct forward mode, 'b': recording plus reverse and forward tape evaluation
     self.stmtd = None # Code to be run in C/C++ main function for double regression test
     self.stmtf = None # Code to be run in C/C++ main function for float regression test
     self.stmtl = None # Code to be run in C/C++ main function for long double regression test
@@ -178,22 +178,17 @@ class InteractiveTestCase(TestCase):
   def run_code_in_vgdb(self):
     # in reverse mode, clear index and adjoints files
     if self.mode=='b':
-      try:
-        os.remove(self.temp_dir+"/dg-input-indices")
-      except OSError:
-        pass
-      try:
-        os.remove(self.temp_dir+"/dg-input-adjoints")
-      except OSError:
-        pass
-      try:
-        os.remove(self.temp_dir+"/dg-output-indices")
-      except OSError:
-        pass
-      try:
-        os.remove(self.temp_dir+"/dg-output-adjoints")
-      except OSError:
-        pass
+      def save_remove(filename):
+        try:
+          os.remove(self.temp_dir+"/"+filename)
+        except OSError:
+          pass
+      save_remove("dg-input-indices")
+      save_remove("dg-output-indices")
+      save_remove("dg-input-adjoints")
+      save_remove("dg-output-adjoints")
+      save_remove("dg-input-dots")
+      save_remove("dg-output-dots")
     # logs are shown in case of failure
     self.valgrind_log = ""
     self.gdb_log = ""
@@ -281,7 +276,7 @@ class InteractiveTestCase(TestCase):
             if abs(computed_dot-self.test_dots[var]) > self.type["tol"]:
               self.errmsg += "DOT VALUES DISAGREE: "+var+" stored="+str(self.test_dots[var])+" computed="+str(computed_dot)+"\n"
             break
-    elif self.mode=='b': # reverse mode, record indices
+    elif self.mode=='b': # recording mode, record indices
       for var in self.bars:
         gdb.stdin.write("print &"+var+"\n")
         while True:
@@ -308,8 +303,9 @@ class InteractiveTestCase(TestCase):
     self.valgrind_log += stdout_data
     (stdout_data, stderr_data) = gdb.communicate()
     self.gdb_log += stdout_data
-    # for reverse mode, evaluate tape
+    # for recording mode, evaluate tape
     if self.mode=='b':
+      # reverse evaluation of tape
       with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
         for var in self.bars:
           outputadjoints.writelines([str(self.bars[var])+"\n"])
@@ -318,7 +314,17 @@ class InteractiveTestCase(TestCase):
         for var in self.test_bars:
           bar = float(inputadjoints.readline())
           if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
-            self.errmsg += f"BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
+            self.errmsg += f"RECORDING-MODE BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
+      # forward evaluation of tape
+      with open(self.temp_dir+"/dg-input-dots","w") as inputdots:
+        for var in self.dots:
+          inputdots.writelines([str(self.dots[var])+"\n"])
+      tape_evaluation = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir, "--forward"])
+      with open(self.temp_dir+"/dg-output-dots","r") as outputdots:
+        for var in self.test_dots:
+          dot = float(outputdots.readline())
+          if dot < self.test_dots[var]-self.type["tol"] or dot > self.test_dots[var]+self.type["tol"]:
+            self.errmsg += f"RECORDING-MODE DOT VALUES DISAGREE: {var} stored={self.test_dots[var]} computed={dot}\n"
 
 
   def run(self):
@@ -533,7 +539,9 @@ class ClientRequestTestCase(TestCase):
     valgrind = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,capture_output=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout.decode('utf-8')+"\n\nVALGRIND STDERR:\n"+valgrind.stderr.decode('utf-8')+"\n\n"
-    if self.mode=='b': # evaluate tape
+    # for recording mode, evaluate tape
+    if self.mode=='b':
+      # reverse evaluation of tape
       with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
         # NumPy testcases are repeated 16 times
         repetitions = 16 if self.compiler=='python' and self.type["pytype"] in ["np.float32","np.float64"] else 1
@@ -546,7 +554,20 @@ class ClientRequestTestCase(TestCase):
           for i in range(repetitions):
             bar = float(inputadjoints.readline())
             if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
-              self.errmsg += f"BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
+              self.errmsg += f"RECORDING-MODE BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
+      # forward evaluation of tape
+      with open(self.temp_dir+"/dg-input-dots","w") as inputdots:
+        repetitions = 16 if self.compiler=='python' and self.type["pytype"] in ["np.float32","np.float64"] else 1
+        for var in self.dots: 
+          for i in range(repetitions):
+            print(str(self.dots[var]), file=inputdots)
+      tape_evaluation = subprocess.run([self.install_dir+"/bin/tape-evaluation",self.temp_dir,"--forward"],env=environ)
+      with open(self.temp_dir+"/dg-output-dots","r") as outputdots:
+        for var in self.test_dots: 
+          for i in range(repetitions):
+            dot = float(outputdots.readline())
+            if dot < self.test_dots[var]-self.type["tol"] or dot > self.test_dots[var]+self.type["tol"]:
+              self.errmsg += f"RECORDING-MODE DOT VALUES DISAGREE: {var} stored={self.test_dots[var]} computed={dot}\n"
     
 
   def run(self):

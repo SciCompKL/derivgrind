@@ -51,16 +51,32 @@ public:
       iterate_impl<fun_t,false>(begin,end,fun);
   }
 
-  /*! Evaluate the tape.
+  /*! Reverse evaluation of the tape.
    *
    * \param adjointvec Adjoint vector with the signature of a double[number_of_blocks]. Must be a initialized with zeros and output adjoints before calling this function.
    */
   template<typename adjointvec_t>
-  void evaluate(adjointvec_t& adjointvec){
+  void evaluateBackward(adjointvec_t& adjointvec){
     iterate(number_of_blocks-1, 0, [&adjointvec](ull index, ull index1, ull index2, double diff1, double diff2){
       if(adjointvec[index]!=0) {
         if(index1!=0 && index1 < 0x8000000000000000) adjointvec[index1] += adjointvec[index] * diff1;
         if(index2!=0 && index2 < 0x8000000000000000) adjointvec[index2] += adjointvec[index] * diff2;
+      }
+    });
+  }
+
+  /*! Forward evaluation of the tape.
+   *
+   * \param adjointvec Adjoint vector with the signature of a double[number_of_blocks]. Must be a initialized with zeros and input dot values before calling this function.
+   */
+  template<typename adjointvec_t>
+  void evaluateForward(adjointvec_t& adjointvec){
+    iterate(0, number_of_blocks-1, [&adjointvec](ull index, ull index1, ull index2, double diff1, double diff2){
+      if(index1!=0 && index1 < 0x8000000000000000 && adjointvec[index1]!=0){
+        adjointvec[index] += adjointvec[index1] * diff1;
+      }
+      if(index2!=0 && index2 < 0x8000000000000000 && adjointvec[index2]!=0){
+        adjointvec[index] += adjointvec[index2] * diff2;
       }
     });
   }
