@@ -68,6 +68,7 @@
  */
 
 static unsigned long long dg_indextmp, dg_indextmp2;
+static double dg_valtmp;
 static unsigned long long const dg_zero = 0;
 static double const dg_one = 1.;
 
@@ -80,7 +81,7 @@ static double const dg_one = 1.;
  * to print the index from your client code. Or use the DG_INPUTF macro to
  * write it directly into a file.
  */
-#define DG_INPUT(var) (DG_NEW_INDEX_NOACTIVITYANALYSIS(&dg_zero,&dg_zero,&dg_zero,&dg_zero,&dg_indextmp), DG_SET_INDEX(&var,&dg_indextmp), dg_indextmp)
+#define DG_INPUT(var) (dg_valtmp=(double)(var),DG_NEW_INDEX_NOACTIVITYANALYSIS(&dg_zero,&dg_zero,&dg_zero,&dg_zero,&dg_indextmp,&dg_valtmp), DG_SET_INDEX(&var,&dg_indextmp), dg_indextmp)
 
 /*! Mark variable as AD input, assign new 8-byte index, and dump the index into a file.
  */
@@ -95,7 +96,7 @@ static double const dg_one = 1.;
  * to print the index from your client code. Or use the DG_OUTPUTF macro to
  * write it directly into a file.
  */
-#define DG_OUTPUT(var) (DG_GET_INDEX(&var,&dg_indextmp2), DG_NEW_INDEX_NOACTIVITYANALYSIS(&dg_indextmp2,&dg_zero,&dg_one,&dg_zero,&dg_indextmp), dg_indextmp)
+#define DG_OUTPUT(var) (dg_valtmp=(double)(var),DG_GET_INDEX(&var,&dg_indextmp2), DG_NEW_INDEX_NOACTIVITYANALYSIS(&dg_indextmp2,&dg_zero,&dg_one,&dg_zero,&dg_indextmp,&dg_valtmp), dg_indextmp)
 
 /*! Mark variable as AD output, retrieve its 8-byte index, and dump the index into a file.
  */
