@@ -53,10 +53,10 @@
 #if defined(ENABLE_INNER)
 /* 5 times more memory to be on the safe side:  consider each allocation is
    8 bytes, and we need 16 bytes redzone before and after. */
-#define N_TEMPORARY_BYTES (5*5000000)
+#define N_TEMPORARY_BYTES (5*10000000)
 static Bool mempools_created = False;
 #else
-#define N_TEMPORARY_BYTES 5000000
+#define N_TEMPORARY_BYTES 10000000
 #endif
 
 static HChar  temporary[N_TEMPORARY_BYTES] __attribute__((aligned(REQ_ALIGN)));
