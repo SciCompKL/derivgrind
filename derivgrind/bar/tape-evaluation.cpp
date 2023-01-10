@@ -21,7 +21,7 @@ using ull = unsigned long long;
 #define WARNING(condition, message) \
   if(condition) {\
     std::cerr << message << std::endl; \
-    return 1; \
+    exit(1); \
   }
 
 // Chunks with bufsize-many blocks are loaded from the tape file into the heap.
@@ -48,11 +48,42 @@ void eventhandler(TapefileEvent event){
   }
 }
 
+/*! Read vector of scalars from text file.
+ *  \param filename Relative or absolute path.
+ *  \returns Vector of scalars stored in the text file.
+ */
+template<typename T>
+std::vector<T> readFromTextFile(std::string filename){
+  std::ifstream file(filename);
+  WARNING(!file.good(), "Error: while opening '"<<filename<<"'.")
+  std::vector<T> result;
+  while(true){
+    T data;
+    file >> data;
+    if(file.eof()) break;
+    result.push_back(data);
+  }
+  return result;
+}
+
+/*! Write vector of scalars to text file.
+ *  \param filename Relative or absolute path.
+ *  \param data Vector of scalars to be stored in the text file.
+ */
+template<typename T>
+void writeToTextFile(std::string filename, std::vector<T> data){
+  std::ofstream file(filename);
+  WARNING(!file.good(), "Error: while opening '"<<filename<<"'.")
+  for(unsigned int i=0; i<data.size(); i++){
+    file << std::setprecision(16) << data[i] << "\n";
+  }
+}
+
 int main(int argc, char* argv[]){
 
   // open tape file
-  if(argc<2){ // to few arguments
-    std::cerr << "Usage: " << argv[0] << " path [--stats]" << std::endl;
+  if(argc<2){ // too few arguments
+    std::cerr << "Usage: " << argv[0] << " path [--stats|--forward]" << std::endl;
     return 1;
   }
   std::string path = argv[1];
@@ -86,38 +117,20 @@ int main(int argc, char* argv[]){
   }
 
   if(!forward) { // set bar values of output variables
-    std::ifstream outputindices(path+"/dg-output-indices");
-    WARNING(!outputindices.good(), "Error: while opening dg-output-indices.")
-    std::ifstream outputadjoints(path+"/dg-output-adjoints");
-    WARNING(!outputadjoints.good(), "Error: while opening dg-output-adjoints.")
-    while(true){
-      ull index;
-      outputindices >> index;
-      double adjoint;
-      outputadjoints >> adjoint;
-      if(outputindices.eof() ^ outputadjoints.eof()){
-        WARNING(true, "Error: Sizes of dg-output-indices and dg-output-adjoints mismatch.")
-      } else if(outputindices.eof() && outputadjoints.eof()){
-        break;
-      }
-      adjointvec[index] += adjoint;
+    std::vector<ull> outputindices = readFromTextFile<ull>(path+"/dg-output-indices");
+    std::vector<double> outputadjoints = readFromTextFile<double>(path+"/dg-output-adjoints");
+    WARNING(outputindices.size()!=outputadjoints.size(),
+            "Error: Sizes of dg-output-indices and dg-output-adjoints mismatch.")
+    for(unsigned int i=0; i<outputindices.size(); i++){
+      adjointvec[outputindices[i]] += outputadjoints[i];
     }
   } else { // set dot values of input variables
-    std::ifstream inputindices(path+"/dg-input-indices");
-    WARNING(!inputindices.good(), "Error: while opening dg-input-indices.")
-    std::ifstream inputdots(path+"/dg-input-dots");
-    WARNING(!inputdots.good(), "Error: while opening dg-input-dots.")
-    while(true){
-      ull index;
-      inputindices >> index;
-      double dot;
-      inputdots >> dot;
-      if(inputindices.eof() ^ inputdots.eof()){
-        WARNING(true, "Error: Sizes of dg-input-indices and dg-input-dots mismatch.")
-      } else if(inputindices.eof() && inputdots.eof()){
-        break;
-      }
-      adjointvec[index] += dot;
+    std::vector<ull> inputindices = readFromTextFile<ull>(path+"/dg-input-indices");
+    std::vector<double> inputdots = readFromTextFile<double>(path+"/dg-input-dots");
+    WARNING(inputindices.size()!=inputdots.size(),
+            "Error: Sizes of dg-input-indices and dg-input-dots mismatch.")
+    for(unsigned int i=0; i<inputindices.size(); i++){
+      adjointvec[inputindices[i]] += inputdots[i];
     }
   }
 
@@ -129,25 +142,19 @@ int main(int argc, char* argv[]){
   }
 
   if(!forward){ // read indices of input variables and write corresponding adjoints
-    std::ifstream inputindices(path+"/dg-input-indices");
-    WARNING(!inputindices.good(), "Error: while opening dg-input-indices.")
-    std::ofstream inputadjoints(path+"/dg-input-adjoints");
-    while(true){
-      ull index;
-      inputindices >> index;
-      if(inputindices.eof()) break;
-      inputadjoints << std::setprecision(16) << adjointvec[index] << std::endl;
+    std::vector<ull> inputindices = readFromTextFile<ull>(path+"/dg-input-indices");
+    std::vector<double> inputadjoints(inputindices.size());
+    for(unsigned int i=0; i<inputindices.size(); i++){
+      inputadjoints[i] = adjointvec[inputindices[i]];
     }
+    writeToTextFile(path+"/dg-input-adjoints", inputadjoints);
   } else { // read indices of output variables and write corresponding dots
-    std::ifstream outputindices(path+"/dg-output-indices");
-    WARNING(!outputindices.good(), "Error: while opening dg-output-indices.")
-    std::ofstream outputdots(path+"/dg-output-dots");
-    while(true){
-      ull index;
-      outputindices >> index;
-      if(outputindices.eof()) break;
-      outputdots << std::setprecision(16) << adjointvec[index] << std::endl;
+    std::vector<ull> outputindices = readFromTextFile<ull>(path+"/dg-output-indices");
+    std::vector<double> outputdots(outputindices.size());
+    for(unsigned int i=0; i<outputindices.size(); i++){
+      outputdots[i] = adjointvec[outputindices[i]];
     }
+    writeToTextFile(path+"/dg-output-dots", outputdots);
   }
 
   if(measure_evaluation_time){
