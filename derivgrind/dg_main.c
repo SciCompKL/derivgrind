@@ -90,6 +90,13 @@ HChar mode = 'd';
  */
 const HChar* recording_directory = NULL;
 
+/*! Comma-separated list of indices where the recording should be stopped.
+ */
+const HChar* recording_stop_indices_str = NULL;
+/*! List indices where the recording should be stopped, 0-terminated.
+ */
+const ULong* recording_stop_indices = NULL;
+
 /*! If true, write tape to RAM instead of file.
  *  Only for benchmarking purposes!
  */
@@ -107,6 +114,29 @@ static void dg_post_clo_init(void)
     tl_assert(False);
   }
 
+  if(recording_stop_indices_str && mode!='b'){
+    VG_(printf)("Option --record-stop can only be used in recording mode (--record=path).\n");
+    tl_assert(False);
+  }
+
+  if(recording_stop_indices_str){ // parse the comma-separated list of indices
+    HChar* recording_stop_indices_str_copy = VG_(malloc)("Stopping indices",VG_(strlen)(recording_stop_indices_str)+1);
+    VG_(strcpy)(recording_stop_indices_str_copy, recording_stop_indices_str);
+    Int maxsize = VG_(strlen)(recording_stop_indices_str_copy)/2+2; // sloppy upper bound for the maximal number of indices plus one
+    ULong* indices = VG_(malloc)("Stopping indices",maxsize*sizeof(ULong));
+    HChar* ssaveptr;
+    HChar* indexstr = VG_(strtok_r)(recording_stop_indices_str_copy, ",", &ssaveptr);
+    Int i=0;
+    while(indexstr){
+      indices[i] = VG_(strtoull10)(indexstr, NULL);
+      i++;
+      indexstr = VG_(strtok_r)(NULL, ",", &ssaveptr);
+    }
+    indices[i] = 0;
+    recording_stop_indices = indices;
+    VG_(free)(recording_stop_indices_str_copy);
+  }
+
   if(mode=='d'){
     dg_dot_initialize();
   } else {
@@ -122,6 +152,7 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
    else if VG_STR_CLO(arg, "--record", recording_directory) { mode = 'b'; }
    else if VG_BOOL_CLO(arg, "--typegrind", typegrind) { }
    else if VG_BOOL_CLO(arg, "--record-values", bar_record_values) { }
+   else if VG_STR_CLO(arg, "--record-stop", recording_stop_indices_str) { }
    else if VG_BOOL_CLO(arg, "--tape-in-ram", tape_in_ram) { }
    else return False;
    return True;
@@ -130,11 +161,12 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
 static void dg_print_usage(void)
 {
    VG_(printf)(
-"    --warn-unwrapped=no|yes   warn about unwrapped expressions\n"
-"    --diffquotdebug=no|yes    print values and dot values of intermediate results\n"
-"    --record=<directory>      switch to recording mode and store tape and indices in specified dir\n"
-"    --typegrind=no|yes        record index ff...f for results of unwrapped operations\n"
-"    --record-values=no|yes    record values of elementary operations for debugging purposes\n"
+"    --warn-unwrapped=no|yes    warn about unwrapped expressions\n"
+"    --diffquotdebug=no|yes     print values and dot values of intermediate results\n"
+"    --record=<directory>       switch to recording mode and store tape and indices in specified dir\n"
+"    --typegrind=no|yes         record index ff...f for results of unwrapped operations\n"
+"    --record-values=no|yes     record values of elementary operations for debugging purposes\n"
+"    --record-stop=<i1>,..,<ik> stop recording in debugger when the given indices are assigned\n"
    );
 }
 

@@ -9,6 +9,10 @@
 #include "pub_tool_stacktrace.h"
 #include "pub_tool_libcprint.h"
 
+#include "pub_tool_gdbserver.h"
+#include "pub_tool_threadstate.h"
+
+
 #include "dg_bar_tape.h"
 
 static ULong nextindex = 1;
@@ -30,6 +34,7 @@ extern Long dg_disable;
 extern Bool typegrind;
 extern Bool bar_record_values;
 extern Bool tape_in_ram;
+extern const ULong* recording_stop_indices;
 
 ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2){
   if(index1==0 && index2==0) // activity analysis
@@ -45,6 +50,21 @@ ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1
   buffer_tape[4*pos+1] = index2;
   buffer_tape[4*pos+2] = *(ULong*)&diff1;
   buffer_tape[4*pos+3] = *(ULong*)&diff2;
+  if(recording_stop_indices){
+    Int i=0;
+    ULong stop_index = recording_stop_indices[i];
+    while(stop_index!=0){
+      if(nextindex==stop_index){
+        VG_(message)(Vg_UserMsg, "User-specified index has been reached (--record-stop).\n");
+        VG_(message)(Vg_UserMsg, "Index %llu assigned at\n",nextindex);
+        VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 16);
+        VG_(message)(Vg_UserMsg, "\n");
+        VG_(gdbserver)(VG_(get_running_tid)());
+      }
+      i++;
+      stop_index = recording_stop_indices[i];
+    }
+  }
   nextindex++;
   if(nextindex%BUFSIZE==0){
     if(tape_in_ram){
