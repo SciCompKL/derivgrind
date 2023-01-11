@@ -341,7 +341,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     } else {
       *newindexaddr = tapeAddStatement_noActivityAnalysis(*index1addr,*index2addr,*diff1addr,*diff2addr);
     }
-    if(bar_record_values && newindexaddr!=0) valuesAddStatement(*valueaddr);
+    if(bar_record_values && *newindexaddr!=0) valuesAddStatement(*valueaddr);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__INDEX_TO_FILE){
     if(arg[1]==DG_INDEXFILE_INPUT){
