@@ -79,6 +79,38 @@ void writeToTextFile(std::string filename, std::vector<T> data){
   }
 }
 
+/*! Read indices and gradients from text files and seed the gradient vector accordingly.
+ *  \param filename_indices Relative or absolute path to text file containing indices.
+ *  \param filename_gradients Relative or absolute path to text file containing dot or bar values.
+ *  \param gradient_vector Gradient vector to be seeded.
+ */
+template<typename Vector>
+void seedGradientVectorFromTextFile(std::string filename_indices, std::string filename_gradients, Vector& gradient_vector){
+  std::vector<ull> indices = readFromTextFile<ull>(filename_indices);
+  std::vector<double> gradients = readFromTextFile<double>(filename_gradients);
+  WARNING(indices.size()!=gradients.size(),
+          "Error: Sizes of '"<<filename_indices<<"' and '"<<filename_gradients<<"' mismatch.")
+  for(unsigned int i=0; i<indices.size(); i++){
+    gradient_vector[indices[i]] += gradients[i];
+  }
+}
+
+/*! Read indices from a text file, extract the corresponding derivatives
+ *  from the gradient vector, and write them to another text file.
+ *  \param filename_indices Relative or absolute path to text file containing indices.
+ *  \param filename_gradients Relative or absolute path to text file in which gradients are to be stored.
+ *  \param gradient_vector Gradient vector from which derivatives are to be extracted.
+ */
+template<typename Vector>
+void readGradientVectorToTextFile(std::string filename_indices, std::string filename_gradients, Vector const& gradient_vector){
+  std::vector<ull> indices = readFromTextFile<ull>(filename_indices);
+  std::vector<double> gradients(indices.size());
+  for(unsigned int i=0; i<indices.size(); i++){
+    gradients[i] = gradient_vector[indices[i]];
+  }
+  writeToTextFile(filename_gradients, gradients);
+}
+
 int main(int argc, char* argv[]){
 
   // open tape file
@@ -117,21 +149,9 @@ int main(int argc, char* argv[]){
   }
 
   if(!forward) { // set bar values of output variables
-    std::vector<ull> outputindices = readFromTextFile<ull>(path+"/dg-output-indices");
-    std::vector<double> outputadjoints = readFromTextFile<double>(path+"/dg-output-adjoints");
-    WARNING(outputindices.size()!=outputadjoints.size(),
-            "Error: Sizes of dg-output-indices and dg-output-adjoints mismatch.")
-    for(unsigned int i=0; i<outputindices.size(); i++){
-      adjointvec[outputindices[i]] += outputadjoints[i];
-    }
+    seedGradientVectorFromTextFile(path+"/dg-output-indices", path+"/dg-output-adjoints", adjointvec);
   } else { // set dot values of input variables
-    std::vector<ull> inputindices = readFromTextFile<ull>(path+"/dg-input-indices");
-    std::vector<double> inputdots = readFromTextFile<double>(path+"/dg-input-dots");
-    WARNING(inputindices.size()!=inputdots.size(),
-            "Error: Sizes of dg-input-indices and dg-input-dots mismatch.")
-    for(unsigned int i=0; i<inputindices.size(); i++){
-      adjointvec[inputindices[i]] += inputdots[i];
-    }
+    seedGradientVectorFromTextFile(path+"/dg-input-indices", path+"/dg-input-dots", adjointvec);
   }
 
   // evaluate tape
@@ -142,19 +162,9 @@ int main(int argc, char* argv[]){
   }
 
   if(!forward){ // read indices of input variables and write corresponding adjoints
-    std::vector<ull> inputindices = readFromTextFile<ull>(path+"/dg-input-indices");
-    std::vector<double> inputadjoints(inputindices.size());
-    for(unsigned int i=0; i<inputindices.size(); i++){
-      inputadjoints[i] = adjointvec[inputindices[i]];
-    }
-    writeToTextFile(path+"/dg-input-adjoints", inputadjoints);
+    readGradientVectorToTextFile(path+"/dg-input-indices", path+"/dg-input-adjoints", adjointvec);
   } else { // read indices of output variables and write corresponding dots
-    std::vector<ull> outputindices = readFromTextFile<ull>(path+"/dg-output-indices");
-    std::vector<double> outputdots(outputindices.size());
-    for(unsigned int i=0; i<outputindices.size(); i++){
-      outputdots[i] = adjointvec[outputindices[i]];
-    }
-    writeToTextFile(path+"/dg-output-dots", outputdots);
+    readGradientVectorToTextFile(path+"/dg-output-indices", path+"/dg-output-dots", adjointvec);
   }
 
   if(measure_evaluation_time){
