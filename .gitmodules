@@ -7,3 +7,6 @@
 [submodule "derivgrind/externals/flexible-shadow"]
 	path = derivgrind/externals/flexible-shadow
 	url = https://github.com/maxaehle/flexible-shadow.git
+[submodule "derivgrind/externals/eigen"]
+	path = derivgrind/externals/eigen
+	url = https://gitlab.com/libeigen/eigen.git
