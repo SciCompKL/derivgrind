@@ -73,7 +73,7 @@ class TestCase:
   """Basic data for a Derivgrind regression test case."""
   def __init__(self, name):
     self.name = name # Name of TestCase
-    self.mode = 'd' # 'd': dot/forward, 'b': bar/recording
+    self.mode = 'd' # 'd': direct forward mode, 'b': recording plus reverse and forward tape evaluation
     self.stmtd = None # Code to be run in C/C++ main function for double regression test
     self.stmtf = None # Code to be run in C/C++ main function for float regression test
     self.stmtl = None # Code to be run in C/C++ main function for long double regression test
@@ -178,22 +178,17 @@ class InteractiveTestCase(TestCase):
   def run_code_in_vgdb(self):
     # in reverse mode, clear index and adjoints files
     if self.mode=='b':
-      try:
-        os.remove(self.temp_dir+"/dg-input-indices")
-      except OSError:
-        pass
-      try:
-        os.remove(self.temp_dir+"/dg-input-adjoints")
-      except OSError:
-        pass
-      try:
-        os.remove(self.temp_dir+"/dg-output-indices")
-      except OSError:
-        pass
-      try:
-        os.remove(self.temp_dir+"/dg-output-adjoints")
-      except OSError:
-        pass
+      def save_remove(filename):
+        try:
+          os.remove(self.temp_dir+"/"+filename)
+        except OSError:
+          pass
+      save_remove("dg-input-indices")
+      save_remove("dg-output-indices")
+      save_remove("dg-input-adjoints")
+      save_remove("dg-output-adjoints")
+      save_remove("dg-input-dots")
+      save_remove("dg-output-dots")
     # logs are shown in case of failure
     self.valgrind_log = ""
     self.gdb_log = ""
@@ -281,7 +276,7 @@ class InteractiveTestCase(TestCase):
             if abs(computed_dot-self.test_dots[var]) > self.type["tol"]:
               self.errmsg += "DOT VALUES DISAGREE: "+var+" stored="+str(self.test_dots[var])+" computed="+str(computed_dot)+"\n"
             break
-    elif self.mode=='b': # reverse mode, record indices
+    elif self.mode=='b': # recording mode, record indices
       for var in self.bars:
         gdb.stdin.write("print &"+var+"\n")
         while True:
@@ -308,8 +303,9 @@ class InteractiveTestCase(TestCase):
     self.valgrind_log += stdout_data
     (stdout_data, stderr_data) = gdb.communicate()
     self.gdb_log += stdout_data
-    # for reverse mode, evaluate tape
+    # for recording mode, evaluate tape
     if self.mode=='b':
+      # reverse evaluation of tape
       with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
         for var in self.bars:
           outputadjoints.writelines([str(self.bars[var])+"\n"])
@@ -318,7 +314,17 @@ class InteractiveTestCase(TestCase):
         for var in self.test_bars:
           bar = float(inputadjoints.readline())
           if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
-            self.errmsg += f"BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
+            self.errmsg += f"RECORDING-MODE BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
+      # forward evaluation of tape
+      with open(self.temp_dir+"/dg-input-dots","w") as inputdots:
+        for var in self.dots:
+          inputdots.writelines([str(self.dots[var])+"\n"])
+      tape_evaluation = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir, "--forward"])
+      with open(self.temp_dir+"/dg-output-dots","r") as outputdots:
+        for var in self.test_dots:
+          dot = float(outputdots.readline())
+          if dot < self.test_dots[var]-self.type["tol"] or dot > self.test_dots[var]+self.type["tol"]:
+            self.errmsg += f"RECORDING-MODE DOT VALUES DISAGREE: {var} stored={self.test_dots[var]} computed={dot}\n"
 
 
   def run(self):
@@ -533,7 +539,9 @@ class ClientRequestTestCase(TestCase):
     valgrind = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,capture_output=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout.decode('utf-8')+"\n\nVALGRIND STDERR:\n"+valgrind.stderr.decode('utf-8')+"\n\n"
-    if self.mode=='b': # evaluate tape
+    # for recording mode, evaluate tape
+    if self.mode=='b':
+      # reverse evaluation of tape
       with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
         # NumPy testcases are repeated 16 times
         repetitions = 16 if self.compiler=='python' and self.type["pytype"] in ["np.float32","np.float64"] else 1
@@ -546,7 +554,20 @@ class ClientRequestTestCase(TestCase):
           for i in range(repetitions):
             bar = float(inputadjoints.readline())
             if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
-              self.errmsg += f"BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
+              self.errmsg += f"RECORDING-MODE BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
+      # forward evaluation of tape
+      with open(self.temp_dir+"/dg-input-dots","w") as inputdots:
+        repetitions = 16 if self.compiler=='python' and self.type["pytype"] in ["np.float32","np.float64"] else 1
+        for var in self.dots: 
+          for i in range(repetitions):
+            print(str(self.dots[var]), file=inputdots)
+      tape_evaluation = subprocess.run([self.install_dir+"/bin/tape-evaluation",self.temp_dir,"--forward"],env=environ)
+      with open(self.temp_dir+"/dg-output-dots","r") as outputdots:
+        for var in self.test_dots: 
+          for i in range(repetitions):
+            dot = float(outputdots.readline())
+            if dot < self.test_dots[var]-self.type["tol"] or dot > self.test_dots[var]+self.type["tol"]:
+              self.errmsg += f"RECORDING-MODE DOT VALUES DISAGREE: {var} stored={self.test_dots[var]} computed={dot}\n"
     
 
   def run(self):
@@ -576,7 +597,7 @@ class PerformanceTestCase(TestCase):
     self.disable_codi = False # CoDiPack must be disabled for x86 tests with more than about 2.5 GB memory consumption for the tape.
     self.tape_in_ram = False # Write tape to RAM instead of file system.
 
-  def runCoDi(self):
+  def runCoDi(self,nrep):
     """Build with CoDiPack types and run."""
     if self.codi_dir==None:
       self.errmsg += "NO CODIPACK INCLUDE PATH SUPPLIED\n"
@@ -584,11 +605,13 @@ class PerformanceTestCase(TestCase):
     comp = subprocess.run(["g++", self.benchmark, "-o", f"{self.temp_dir}/main_codi", "-DCODI_DOT" if self.mode=='d' else "-DCODI_BAR"]+self.cflags.split()+[f"-I{self.codi_dir}"] + (["-m32"] if self.arch==32 else []), capture_output=True)
     if comp.returncode!=0:
       self.errmsg += "COMPILATION WITH CODIPACK FAILED:\n" + comp.stdout.decode('utf-8')+ comp.stderr.decode('utf-8')
-    exe = subprocess.run([f"{self.temp_dir}/main_codi",f"{self.temp_dir}/dg-performance-result-codi.json"]+self.benchmarkargs.split(), capture_output=True)
-    if exe.returncode!=0:
-      self.errmsg += "EXECUTION WITH CODIPACK FAILED:\n" + "STDOUT:\n" + exe.stdout.decode("utf-8") + "\nSTDERR:\n" + exe.stderr.decode("utf-8")
-    with open(self.temp_dir+"/dg-performance-result-codi.json") as f:
-      self.result_codi = json.load(f)
+    self.results_codi = []
+    for irep in range(nrep+2): # measurements for the first two iterations are not taken into account
+      exe = subprocess.run([f"{self.temp_dir}/main_codi",f"{self.temp_dir}/dg-performance-result-codi.json"]+self.benchmarkargs.split(), capture_output=True)
+      if exe.returncode!=0:
+        self.errmsg += "EXECUTION WITH CODIPACK FAILED:\n" + "STDOUT:\n" + exe.stdout.decode("utf-8") + "\nSTDERR:\n" + exe.stderr.decode("utf-8")
+      with open(self.temp_dir+"/dg-performance-result-codi.json") as f:
+        self.results_codi.append(json.load(f))
 
   def runNoAD(self, nrep):
     """Build without AD and run repeatedly."""
@@ -596,7 +619,7 @@ class PerformanceTestCase(TestCase):
     if comp.returncode!=0:
       self.errmsg += "COMPILATION WITHOUT AD FAILED:\n" + comp.stdout.decode('utf-8') + comp.stderr.decode('utf-8')
     self.results_noad = []
-    for irep in range(nrep):
+    for irep in range(nrep+2): # measurements for the first two iterations are not taken into account
       exe = subprocess.run(["/usr/bin/time", "-f", "time_output %e %M", f"{self.temp_dir}/main_noad", f"{self.temp_dir}/dg-performance-result-noad.json"]+self.benchmarkargs.split(), capture_output=True)
       if exe.returncode!=0:
         self.errmsg += "EXECUTION WITHOUT AD FAILED:\n" + "STDOUT:\n" + exe.stdout.decode('utf-8') + "\nSTDERR:\n" + exe.stderr.decode('utf-8')
@@ -618,7 +641,7 @@ class PerformanceTestCase(TestCase):
     if comp.returncode!=0:
       self.errmsg += "COMPILATION FOR DERIVGRIND FAILED:\n" + comp.stderr.decode('utf-8')
     self.results_dg = []
-    for irep in range(nrep):
+    for irep in range(nrep+2): # measurements for the first two iterations are not taken into account
       maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
       maybetapeinram = ["--tape-in-ram=yes"] if self.tape_in_ram else []
       exe = subprocess.run(["/usr/bin/time", "-f", "time_output %e %M", self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+maybetapeinram+[f"{self.temp_dir}/main_dg", f"{self.temp_dir}/dg-performance-result-dg.json"]+self.benchmarkargs.split(), capture_output=True)
@@ -640,16 +663,27 @@ class PerformanceTestCase(TestCase):
             number_of_outputs = len(f.readlines())
           with open(self.temp_dir+"/dg-output-adjoints", "w") as f:
             f.writelines(["1.0\n"]*number_of_outputs)
+          try: # remove file with reverse evaluation run-time
+            os.remove(self.temp_dir+"/dg-perf-tapeeval-time")
+          except OSError:
+            pass
           eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir], capture_output=True)
           if eva.returncode!=0:
             self.errmsg += "EVALUATION OF DERIVGRIND TAPE FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
           result["input_bar"] = [float(adj) for adj in np.loadtxt(self.temp_dir+"/dg-input-adjoints")]
+          try:
+            result["reverse_time_in_s"] = np.loadtxt(self.temp_dir+"/dg-perf-tapeeval-time")
+          except OSError:
+            # need to set measure_evaluation_time to true, or
+            # increase bufsize, in tape-evaluation.cpp, and recompile
+            result["reverse_time_in_s"] = 0
           # run tape-evaluation another time for statistics
           eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir, "--stats"], capture_output=True)
           if eva.returncode!=0:
             self.errmsg += "EVALUATION OF DERIVGRIND TAPE STATS FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
           nZero,nOne,nTwo = [int(n) for n in eva.stdout.decode('utf-8').strip().split()]
           result["number_of_jacobians"] = nOne + 2*nTwo
+          result["tape_size_in_b"] = (nZero+nOne+nTwo)*32
         else:
           result["number_of_jacobians"] = 0
       self.results_dg.append(result)
@@ -660,41 +694,51 @@ class PerformanceTestCase(TestCase):
     for result_dg in self.results_dg:
       if self.mode=='b':
         input_bar_dg = np.array(result_dg["input_bar"])
-        input_bar_codi = np.array(self.result_codi["input_bar"])
+        input_bar_codi = np.array(self.results_codi[0]["input_bar"])
         err = np.linalg.norm( input_bar_dg - input_bar_codi ) / ( np.linalg.norm(input_bar_codi) * np.sqrt(len(input_bar_codi)) )
       else:
         output_dot_dg = np.array(result_dg["output_dot"])
-        output_dot_codi = np.array(self.result_codi["output_dot"])
+        output_dot_codi = np.array(self.results_codi[0]["output_dot"])
         err = np.linalg.norm( output_dot_dg - output_dot_codi) / ( np.linalg.norm(output_dot_codi) * np.sqrt(len(output_dot_codi)) )
       correct = correct and err < self.type["tol"]
     return correct  
 
   def averagePerformance(self):
     """Average no-AD and Derivgrind runtime and memory performances."""
-    noad_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_noad])
-    noad_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_noad])
-    noad_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_noad])
-    noad_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_noad])
-    dg_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_dg])
-    dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg])
-    dg_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_dg])
-    dg_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_dg])
+    noad_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_noad[2:]])
+    noad_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_noad[2:]])
+    noad_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_noad[2:]])
+    noad_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_noad[2:]])
+    dg_forward_time_in_s = np.mean([res["forward_time_in_s"] for res in self.results_dg[2:]])
+    dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg[2:]])
+    dg_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_dg[2:]])
+    dg_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_dg[2:]])
+    if self.mode=='b':
+      dg_reverse_time_in_s = np.mean([res["reverse_time_in_s"] for res in self.results_dg[2:]]) 
+      # The tape evaluator does not measure the run-time by default, in which case dg_reverse_time_in_s is 0.
+      # To enable the time measurement, edit tape-evaluator.cpp.
     if not self.disable_codi and self.mode=='b':
-      codi_number_of_jacobians = self.result_codi["number_of_jacobians"]
-      dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg])
+      codi_reverse_time_in_s = np.mean([res["reverse_time_in_s"] for res in self.results_codi[2:]])
+      codi_tape_size_in_b = np.mean([res["tape_size_in_b"] for res in self.results_codi[2:]])
+      codi_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_codi[2:]])
+      dg_tape_size_in_b = np.mean([res["tape_size_in_b"] for res in self.results_dg[2:]])
+      dg_number_of_jacobians = np.mean([res["number_of_jacobians"] for res in self.results_dg[2:]])
     else:
+      codi_reverse_time_in_s = 0
+      codi_tape_size_in_b = 0
       codi_number_of_jacobians = 0
+      dg_tape_size_in_b = 0
       dg_number_of_jacobians = 0
     # Choose which output you prefer
     #return f"{noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb}"
     #return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)}x"
-    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb} {codi_number_of_jacobians} {dg_number_of_jacobians} {noad_forward_outer_time_in_s} {noad_forward_outer_maxrss_in_kb} {dg_forward_outer_time_in_s} {dg_forward_outer_maxrss_in_kb}"
+    return f"{int(dg_forward_time_in_s / noad_forward_time_in_s)} {noad_forward_time_in_s} {noad_forward_vmhwm_in_kb} {dg_forward_time_in_s} {dg_forward_vmhwm_in_kb} {codi_number_of_jacobians} {dg_number_of_jacobians} {noad_forward_outer_time_in_s} {noad_forward_outer_maxrss_in_kb} {dg_forward_outer_time_in_s} {dg_forward_outer_maxrss_in_kb} {codi_reverse_time_in_s} {dg_reverse_time_in_s} {codi_tape_size_in_b} {dg_tape_size_in_b}"
 
   def run(self):
     print("##### Running performance test '"+self.name+"'... #####", flush=True)
     self.errmsg = ""
     if self.errmsg=="" and not self.disable_codi:
-      self.runCoDi()
+      self.runCoDi(self.benchmarkreps)
     if self.errmsg=="":
       self.runNoAD(self.benchmarkreps)
     if self.errmsg=="":

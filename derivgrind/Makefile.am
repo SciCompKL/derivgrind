@@ -123,6 +123,7 @@ bin_PROGRAMS = \
   tape-evaluation
 
 tape_evaluation_SOURCES = bar/tape-evaluation.cpp
+tape_evaluation_CPPFLAGS = -O3
 
 #----------------------------------------------------------------------------
 # derivgrind-library-caller, 

@@ -1,4 +1,13 @@
-template<int bufsize, typename loadfun_t>
+/*! \enum TapefileEvents
+ * Event types passed to an optional event handler template argument
+ * of Tapefile, to enable performance measurements.
+ */
+enum TapefileEvent { 
+  EvaluateChunkBegin,
+  EvaluateChunkEnd
+};
+
+template<unsigned long long bufsize, typename loadfun_t, void(*eventhandler)(TapefileEvent)=nullptr>
 class Tapefile {
   using ull = unsigned long long;
   ull number_of_blocks; //!< Number of blocks on the tape.
@@ -20,7 +29,8 @@ private:
       ull chunk_count = (chunk==number_of_chunks_in_subtape-1) ? (number_of_blocks_in_subtape - (number_of_chunks_in_subtape-1)*bufsize) : bufsize;
       ull chunk_begin = forward ? (begin+chunk*bufsize) : (begin-chunk*bufsize-chunk_count+1);
       loadfun(chunk_begin, chunk_count, tape_buf);
-      for(int block_in_chunk= (forward ? 0 : chunk_count-1);
+      if(eventhandler) eventhandler(EvaluateChunkBegin);
+      for(long long block_in_chunk= (forward ? 0 : chunk_count-1);
           forward ? (block_in_chunk<chunk_count) : (block_in_chunk>=0); 
           block_in_chunk += (forward ? 1 : -1)) {
         ull index1 = tape_buf[4*block_in_chunk];
@@ -30,6 +40,7 @@ private:
         ull index = forward ? (begin+chunk*bufsize+block_in_chunk) : (begin-chunk*bufsize-chunk_count+block_in_chunk+1);
         fun(index, index1, index2, diff1, diff2);
       }
+      if(eventhandler) eventhandler(EvaluateChunkEnd);
     }
   }
 
@@ -51,16 +62,32 @@ public:
       iterate_impl<fun_t,false>(begin,end,fun);
   }
 
-  /*! Evaluate the tape.
+  /*! Reverse evaluation of the tape.
    *
    * \param adjointvec Adjoint vector with the signature of a double[number_of_blocks]. Must be a initialized with zeros and output adjoints before calling this function.
    */
   template<typename adjointvec_t>
-  void evaluate(adjointvec_t& adjointvec){
+  void evaluateBackward(adjointvec_t& adjointvec){
     iterate(number_of_blocks-1, 0, [&adjointvec](ull index, ull index1, ull index2, double diff1, double diff2){
       if(adjointvec[index]!=0) {
         if(index1!=0 && index1 < 0x8000000000000000) adjointvec[index1] += adjointvec[index] * diff1;
         if(index2!=0 && index2 < 0x8000000000000000) adjointvec[index2] += adjointvec[index] * diff2;
+      }
+    });
+  }
+
+  /*! Forward evaluation of the tape.
+   *
+   * \param adjointvec Adjoint vector with the signature of a double[number_of_blocks]. Must be a initialized with zeros and input dot values before calling this function.
+   */
+  template<typename adjointvec_t>
+  void evaluateForward(adjointvec_t& adjointvec){
+    iterate(0, number_of_blocks-1, [&adjointvec](ull index, ull index1, ull index2, double diff1, double diff2){
+      if(index1!=0 && index1 < 0x8000000000000000 && adjointvec[index1]!=0){
+        adjointvec[index] += adjointvec[index1] * diff1;
+      }
+      if(index2!=0 && index2 < 0x8000000000000000 && adjointvec[index2]!=0){
+        adjointvec[index] += adjointvec[index2] * diff2;
       }
     });
   }
