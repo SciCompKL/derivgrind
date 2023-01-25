@@ -139,8 +139,8 @@ def derivgrind(library,functionname,arch='amd64'):
 #       os.mkfifo(tempdir.name+"/dg-tape")
 #       os.mkfifo(tempdir.name+"/dg-input-indices")
 #       os.mkfifo(tempdir.name+"/dg-output-indices")
-#       os.mkfifo(tempdir.name+"/dg-input-adjoints")
-#       os.mkfifo(tempdir.name+"/dg-output-adjoints")
+#       os.mkfifo(tempdir.name+"/dg-input-bars")
+#       os.mkfifo(tempdir.name+"/dg-output-bars")
         with open(tempdir.name+"/dg-tape","wb") as tape_buf:
           tape_buf.write(ctx_tape)
         with open(tempdir.name+"/dg-input-indices","wb") as inputindices_buf:
@@ -148,15 +148,15 @@ def derivgrind(library,functionname,arch='amd64'):
         with open(tempdir.name+"/dg-output-indices","wb") as outputindices_buf:
           outputindices_buf.write(ctx_outputindices)
         
-        with open(tempdir.name+"/dg-output-adjoints","w") as outputadjoints_buf:
-          outputadjoints_buf.writelines([str(float(adj))+"\n" for adj in grad_output])
+        with open(tempdir.name+"/dg-output-bars","w") as outputbars_buf:
+          outputbars_buf.writelines([str(float(bar))+"\n" for bar in grad_output])
 
         backward_process = subprocess.run([bin_path+"/tape-evaluation", tempdir.name])
 
         grad_input_np = np.empty(ctx_ninput,dtype=grad_output.numpy().dtype)
-        with open(tempdir.name+"/dg-input-adjoints","r") as inputadjoints_buf:
+        with open(tempdir.name+"/dg-input-bars","r") as inputbars_buf:
           for i in range(ctx_ninput):
-            grad_input_np[i] = float( inputadjoints_buf.readline().strip() )
+            grad_input_np[i] = float( inputbars_buf.readline().strip() )
         grad_input = tf.Variable(grad_input_np)
           
         return (None,grad_input,None)
