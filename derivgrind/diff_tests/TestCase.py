@@ -712,6 +712,7 @@ class PerformanceTestCase(TestCase):
     dg_forward_vmhwm_in_kb = np.mean([res["forward_vmhwm_in_kb"] for res in self.results_dg[2:]])
     dg_forward_outer_time_in_s = np.mean([res["forward_outer_time_in_s"] for res in self.results_dg[2:]])
     dg_forward_outer_maxrss_in_kb = np.mean([res["forward_outer_maxrss_in_kb"] for res in self.results_dg[2:]])
+    dg_reverse_time_in_s = 0
     if self.mode=='b':
       dg_reverse_time_in_s = np.mean([res["reverse_time_in_s"] for res in self.results_dg[2:]]) 
       # The tape evaluator does not measure the run-time by default, in which case dg_reverse_time_in_s is 0.
