@@ -1,3 +1,49 @@
+/*
+   ----------------------------------------------------------------
+   Notice that the following MIT license applies to this one file
+   (tape-evaluation.cpp) only.  The rest of Valgrind is licensed under the
+   terms of the GNU General Public License, version 2, unless
+   otherwise indicated.  See the COPYING file in the source
+   distribution for details.
+   ----------------------------------------------------------------
+
+   This file is part of Derivgrind, an automatic differentiation
+   tool applicable to compiled programs.
+
+   Copyright (C) 2022, Chair for Scientific Computing, TU Kaiserslautern
+   Copyright (C) since 2023, Chair for Scientific Computing, University of Kaiserslautern-Landau
+   Homepage: https://www.scicomp.uni-kl.de
+   Contact: Prof. Nicolas R. Gauger
+
+   Lead developer: Max Aehle
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+   
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+   
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+   ----------------------------------------------------------------
+   Notice that the above MIT license applies to this one file
+   (tape-evaluation.cpp) only.  The rest of Valgrind is licensed under the
+   terms of the GNU General Public License, version 2, unless
+   otherwise indicated.  See the COPYING file in the source
+   distribution for details.
+   ----------------------------------------------------------------
+*/
+
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -79,28 +125,29 @@ int main(int argc, char* argv[]){
     forward = true;
   }
 
-  // initialize adjoint vector
-  double* adjointvec = new double[number_of_blocks];
+  // Initialize the derivative vector ("adjoint vector") storing the bar values, 
+  // or dot values if the user specified --forward.
+  double* derivativevec = new double[number_of_blocks];
   for(ull index=0; index<number_of_blocks; index++){
-    adjointvec[index] = 0.;
+    derivativevec[index] = 0.;
   }
 
   if(!forward) { // set bar values of output variables
     std::ifstream outputindices(path+"/dg-output-indices");
     WARNING(!outputindices.good(), "Error: while opening dg-output-indices.")
-    std::ifstream outputadjoints(path+"/dg-output-adjoints");
-    WARNING(!outputadjoints.good(), "Error: while opening dg-output-adjoints.")
+    std::ifstream outputbars(path+"/dg-output-bars");
+    WARNING(!outputbars.good(), "Error: while opening dg-output-bars.")
     while(true){
       ull index;
       outputindices >> index;
-      double adjoint;
-      outputadjoints >> adjoint;
-      if(outputindices.eof() ^ outputadjoints.eof()){
-        WARNING(true, "Error: Sizes of dg-output-indices and dg-output-adjoints mismatch.")
-      } else if(outputindices.eof() && outputadjoints.eof()){
+      double bar;
+      outputbars >> bar;
+      if(outputindices.eof() ^ outputbars.eof()){
+        WARNING(true, "Error: Sizes of dg-output-indices and dg-output-bars mismatch.")
+      } else if(outputindices.eof() && outputbars.eof()){
         break;
       }
-      adjointvec[index] += adjoint;
+      derivativevec[index] += bar;
     }
   } else { // set dot values of input variables
     std::ifstream inputindices(path+"/dg-input-indices");
@@ -117,28 +164,28 @@ int main(int argc, char* argv[]){
       } else if(inputindices.eof() && inputdots.eof()){
         break;
       }
-      adjointvec[index] += dot;
+      derivativevec[index] += dot;
     }
   }
 
   // evaluate tape
   if(!forward){
-    tape->evaluateBackward(adjointvec);
+    tape->evaluateBackward(derivativevec);
   } else {
-    tape->evaluateForward(adjointvec);
+    tape->evaluateForward(derivativevec);
   }
 
-  if(!forward){ // read indices of input variables and write corresponding adjoints
+  if(!forward){ // read indices of input variables and write corresponding bar values 
     std::ifstream inputindices(path+"/dg-input-indices");
     WARNING(!inputindices.good(), "Error: while opening dg-input-indices.")
-    std::ofstream inputadjoints(path+"/dg-input-adjoints");
+    std::ofstream inputbars(path+"/dg-input-bars");
     while(true){
       ull index;
       inputindices >> index;
       if(inputindices.eof()) break;
-      inputadjoints << std::setprecision(16) << adjointvec[index] << std::endl;
+      inputbars << std::setprecision(16) << derivativevec[index] << std::endl;
     }
-  } else { // read indices of output variables and write corresponding dots
+  } else { // read indices of output variables and write corresponding dot values
     std::ifstream outputindices(path+"/dg-output-indices");
     WARNING(!outputindices.good(), "Error: while opening dg-output-indices.")
     std::ofstream outputdots(path+"/dg-output-dots");
@@ -146,7 +193,7 @@ int main(int argc, char* argv[]){
       ull index;
       outputindices >> index;
       if(outputindices.eof()) break;
-      outputdots << std::setprecision(16) << adjointvec[index] << std::endl;
+      outputdots << std::setprecision(16) << derivativevec[index] << std::endl;
     }
   }
 
@@ -156,6 +203,6 @@ int main(int argc, char* argv[]){
     timefile << time/1e6 << std::endl;
   }
 
-  delete[] adjointvec;
+  delete[] derivativevec;
 }
 

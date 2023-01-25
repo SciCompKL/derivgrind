@@ -3,15 +3,15 @@
 /*--------------------------------------------------------------------*/
 
 /*
-   This file is part of Derivgrind, a tool performing forward-mode
-   algorithmic differentiation of compiled programs implemented
-   in the Valgrind framework.
+   This file is part of Derivgrind, an automatic differentiation
+   tool applicable to compiled programs.
 
-   Copyright (C) 2022 Chair for Scientific Computing (SciComp), TU Kaiserslautern
+   Copyright (C) 2022, Chair for Scientific Computing, TU Kaiserslautern
+   Copyright (C) since 2023, Chair for Scientific Computing, University of Kaiserslautern-Landau
    Homepage: https://www.scicomp.uni-kl.de
-   Contact: Prof. Nicolas R. Gauger (derivgrind@scicomp.uni-kl.de)
+   Contact: Prof. Nicolas R. Gauger
 
-   Lead developer: Max Aehle (SciComp, TU Kaiserslautern)
+   Lead developer: Max Aehle
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as

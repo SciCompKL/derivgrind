@@ -6,4 +6,4 @@
 	url = https://github.com/SciCompKL/CoDiPack.git
 [submodule "derivgrind/externals/flexible-shadow"]
 	path = derivgrind/externals/flexible-shadow
-	url = https://github.com/maxaehle/flexible-shadow.git
+	url = https://github.com/SciCompKL/flexible-shadow.git
