@@ -4,6 +4,7 @@
 #include <vector>
 #include <iomanip>
 #include <chrono>
+#include <set>
 
 /*! \file tape-evaluation.cpp
  * Simple program to perform the "backpropagation" / tape evaluation 
@@ -68,6 +69,38 @@ int main(int argc, char* argv[]){
     std::cout << nZero << " " << nOne << " " << nTwo << std::endl;
     exit(0);
   }
+
+  if(argc>=3 && std::string(argv[2])=="--print"){
+    std::vector<ull> inputindices_vec = readFromTextFile<ull>(path+"/dg-input-indices");
+    std::set<ull> inputindices_set(inputindices_vec.begin(), inputindices_vec.end());
+    std::vector<ull> outputindices_vec = readFromTextFile<ull>(path+"/dg-output-indices");
+    std::set<ull> outputindices_set(outputindices_vec.begin(), outputindices_vec.end());
+
+    tape->iterate(0,number_of_blocks-1, [&inputindices_set,&outputindices_set](ull index, ull index1, ull index2, double diff1, double diff2){
+      std::cout << "|------------------|------------------|------------------|\n";
+      std::cout << "| " << std::setfill(' ') << std::setw(16) << std::hex << index;
+      std::cout << " | " << std::setfill(' ') << std::setw(16) << std::hex << index1;
+      std::cout << " | " << std::setfill(' ') << std::setw(16) << std::hex << index2 << " |\n";
+      bool is_input = inputindices_set.count(index);
+      bool is_output = outputindices_set.count(index);
+      if(index==0){
+        std::cout << "|            dummy | ";
+      } else if(is_input && is_output){
+        std::cout << "|     input/output | ";
+      } else if (is_input) {
+        std::cout << "|            input | ";
+      } else if (is_output) {
+        std::cout << "|           output | ";
+      } else {
+        std::cout << "|                  | ";
+      }
+      std::cout << std::setfill(' ') << std::setw(16) << std::scientific << diff1;
+      std::cout << " | " << std::setfill(' ') << std::setw(16) << std::scientific << diff2 << " |\n";
+    });
+    std::cout << "|------------------|------------------|------------------|" << std::endl;
+    exit(0);
+  }
+
   bool forward = false; // if true, perform forward evaluation of tape instead of reverse evaluation
   if(argc>=3 && std::string(argv[2])=="--forward"){
     forward = true;
