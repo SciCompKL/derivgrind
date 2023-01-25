@@ -28,7 +28,7 @@ In `derivgrind/diff_tests`, run something like
 
     python3 run_tests.py dot_amd64_gcc_double_addition
 
-The testcase names are composed of an AD mode, architecture, language/compiler, floating-point type and 
+The names of the unit tests are composed of an AD mode, architecture, language/compiler, floating-point type and 
 arithmetic formula. You may use `*` as a wildcard to run several tests at once. You may specify the 
 Derivgrind installation directory with `--prefix=path`, and a temporary directory with `--tempdir=path`.
 
@@ -100,6 +100,9 @@ This stores the reverse-mode automatic derivative in a text file `dg-input-bars`
 - Valgrind might not know all the instructions used in your program, and makes 
   some floating-point operations behave slightly differently than they do outside
   of Valgrind.
+- Running a program under Derivgrind will significantly slow it down. For our 
+  Burgers' PDE benchmark compiled in release mode, we have measured a factor of 
+  around 30 in forward mode and 180 for the tape recording, respectively.
 
 More details on limitations can be found in our [forward-mode paper](https://arxiv.org/abs/2209.01895).
   
