@@ -1,4 +1,4 @@
-*This README is about Derivgrind; see [`README_ORIGINAL`](README_ORIGINAL)
+*This README is about Derivgrind; see [README_ORIGINAL](README_ORIGINAL)
 for information about Valgrind.*
 
 # Derivgrind
@@ -19,9 +19,11 @@ this file to reproducibly obtain an environment that contains all dependencies.
 Clone this repository with `git clone --recursive`, and run the following commands in the root directory: 
 ```bash
 ./autogen.sh
-./configure --prefix=$PWD/install
+./configure --prefix=$PWD/install --enable-python --enable-fortran
 make install
 ```
+The flags `--enable-python` and `--enable-fortran` enable wrappers for client request (see below), which
+are necessary to run all unit tests successfully. For many applications, you may however leave them out.
 
 ## Running Testcases
 
@@ -31,7 +33,8 @@ python3 run_tests.py dot_amd64_gcc_double_addition
 ```
 The names of the unit tests are composed of an AD mode, architecture, language/compiler, floating-point type and 
 arithmetic formula. You may use `*` as a wildcard to run several tests at once. You may specify the 
-Derivgrind installation directory with `--prefix=path`, and a temporary directory with `--tempdir=path`.
+Derivgrind installation directory with `--prefix=path`. Specify a directory with `--tempdir=path` if
+you want to inspect the temporary files created by Derivgrind and the test system.
 
 ## Differentiating a Simple C++ Program in Forward Mode
 Compile a simple C++ "client" program from 
@@ -104,6 +107,36 @@ store the dot values of the outputs in `dg-output-dots`. This alternative way
 of computing forward-mode derivatives can be more efficient than the way presented above,
 if you have many input variables.
 
+Instead of `$PWD`, you can choose any other directory with sufficient read/write permissions.
+Placing the directory on a ramdisk like `/dev/shm/` might speed the recording up.
+
+## Additional Features
+- Specifying `SHADOW_LAYERS_64=16,16,16,16` behind the `./configure` command during build
+  will reduce the upfront memory allocation on a 64-bit system from 4 GB to under 100 MB,
+  at the price of a slightly slower execution.
+- If the client program has been compiled with debugging symbols and optimizations turned off,
+  interactive *monitor commands* provide an alternative to inserting client requests into the
+  code. Start Valgrind with `--vgdb-error=0` and follow the instructions to connect a GDB
+  session, in which you set breakpoints and query for addresses of variables, which you can then
+  pass to Valgrind via monitor commands. 
+
+## Limitations
+- While Valgrind supports many more platforms, only X86/Linux and AMD64/Linux 
+  are supported by Derivgrind at the moment.
+- Machine code can "hide" real arithmetic behind integer or logical instructions 
+  in manifold ways. For example, a bitwise logical "and" can be used to set the
+  sign bit to zero, and thereby compute the absolute value. Derivgrind recognizes only
+  the most important of these constructs. More details can be found in our 
+  [forward-mode paper](https://arxiv.org/abs/2209.01895). Generally, avoid direct manipulation 
+  of a floating-point number's binary representation in your program, and avoid the 
+  differentiation of highly optimized numerical libraries.
+- Valgrind might not know all the instructions used in your program, and makes 
+  some floating-point operations behave slightly differently than they do outside
+  of Valgrind.
+- Running a program under Derivgrind will significantly slow it down. For our 
+  Burgers' PDE benchmark compiled in release mode, we have measured a factor of 
+  around 30 in forward mode and 180 for the tape recording, respectively.
+
 ## License
 Derivgrind is licensed under the GNU General Public License, version 2. 
 Read the file [COPYING](COPYING) in the source distribution for details.
@@ -113,22 +146,5 @@ the client program, like the `valgrind/derivgrind.h` header providing the client
 request macros. Generally, we have put such files under the more permissive
 MIT license.
 
-## Limitations
-- While Valgrind supports many more platforms, only X86/Linux and AMD64/Linux 
-  are supported by Derivgrind at the moment.
-- Machine code can "hide" real arithmetic behind integer or logical instructions 
-  in manifold ways. For example, a bitwise logical "and" can be used to set the
-  sign bit to zero, and thereby compute the absolute value. Derivgrind recognizes only
-  the most important of these constructs. Thus, avoid direct manipulation 
-  of a floating-point number's binary representation in your program, and avoid 
-  differentiation of highly optimized numerical libraries.
-- Valgrind might not know all the instructions used in your program, and makes 
-  some floating-point operations behave slightly differently than they do outside
-  of Valgrind.
-- Running a program under Derivgrind will significantly slow it down. For our 
-  Burgers' PDE benchmark compiled in release mode, we have measured a factor of 
-  around 30 in forward mode and 180 for the tape recording, respectively.
-
-More details on limitations can be found in our [forward-mode paper](https://arxiv.org/abs/2209.01895).
   
 
