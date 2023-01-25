@@ -175,7 +175,7 @@ class InteractiveTestCase(TestCase):
       self.errmsg += "COMPILATION FAILED:\n"+compile_process.stdout.decode("utf-8")
 
   def run_code_in_vgdb(self):
-    # in reverse mode, clear index and adjoints files
+    # in reverse mode, clear index and bar/dot value files
     if self.mode=='b':
       def save_remove(filename):
         try:
@@ -184,8 +184,8 @@ class InteractiveTestCase(TestCase):
           pass
       save_remove("dg-input-indices")
       save_remove("dg-output-indices")
-      save_remove("dg-input-adjoints")
-      save_remove("dg-output-adjoints")
+      save_remove("dg-input-bars")
+      save_remove("dg-output-bars")
       save_remove("dg-input-dots")
       save_remove("dg-output-dots")
     # logs are shown in case of failure
@@ -305,13 +305,13 @@ class InteractiveTestCase(TestCase):
     # for recording mode, evaluate tape
     if self.mode=='b':
       # reverse evaluation of tape
-      with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
+      with open(self.temp_dir+"/dg-output-bars","w") as outputbars:
         for var in self.bars:
-          outputadjoints.writelines([str(self.bars[var])+"\n"])
+          outputbars.writelines([str(self.bars[var])+"\n"])
       tape_evaluation = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir])
-      with open(self.temp_dir+"/dg-input-adjoints","r") as inputadjoints:
+      with open(self.temp_dir+"/dg-input-bars","r") as inputbars:
         for var in self.test_bars:
-          bar = float(inputadjoints.readline())
+          bar = float(inputbars.readline())
           if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
             self.errmsg += f"RECORDING-MODE BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
       # forward evaluation of tape
@@ -541,17 +541,17 @@ class ClientRequestTestCase(TestCase):
     # for recording mode, evaluate tape
     if self.mode=='b':
       # reverse evaluation of tape
-      with open(self.temp_dir+"/dg-output-adjoints","w") as outputadjoints:
+      with open(self.temp_dir+"/dg-output-bars","w") as outputbars:
         # NumPy testcases are repeated 16 times
         repetitions = 16 if self.compiler=='python' and self.type["pytype"] in ["np.float32","np.float64"] else 1
         for var in self.bars: # same order as in the client code
           for i in range(repetitions):
-            print(str(self.bars[var]), file=outputadjoints)
+            print(str(self.bars[var]), file=outputbars)
       tape_evaluation = subprocess.run([self.install_dir+"/bin/tape-evaluation",self.temp_dir],env=environ)
-      with open(self.temp_dir+"/dg-input-adjoints","r") as inputadjoints:
+      with open(self.temp_dir+"/dg-input-bars","r") as inputbars:
         for var in self.test_bars: # same order as in the client code
           for i in range(repetitions):
-            bar = float(inputadjoints.readline())
+            bar = float(inputbars.readline())
             if bar < self.test_bars[var]-self.type["tol"] or bar > self.test_bars[var]+self.type["tol"]:
               self.errmsg += f"RECORDING-MODE BAR VALUES DISAGREE: {var} stored={self.test_bars[var]} computed={bar}\n"
       # forward evaluation of tape
@@ -660,7 +660,7 @@ class PerformanceTestCase(TestCase):
         if not self.tape_in_ram:
           with open(self.temp_dir+"/dg-output-indices", "r") as f:
             number_of_outputs = len(f.readlines())
-          with open(self.temp_dir+"/dg-output-adjoints", "w") as f:
+          with open(self.temp_dir+"/dg-output-bars", "w") as f:
             f.writelines(["1.0\n"]*number_of_outputs)
           try: # remove file with reverse evaluation run-time
             os.remove(self.temp_dir+"/dg-perf-tapeeval-time")
@@ -669,7 +669,7 @@ class PerformanceTestCase(TestCase):
           eva = subprocess.run([self.install_dir+"/bin/tape-evaluation", self.temp_dir], capture_output=True)
           if eva.returncode!=0:
             self.errmsg += "EVALUATION OF DERIVGRIND TAPE FAILED:\n" + "STDOUT:\n" + eva.stdout.decode('utf-8') + "\nSTDERR:\n" + eva.stderr.decode('utf-8')
-          result["input_bar"] = [float(adj) for adj in np.loadtxt(self.temp_dir+"/dg-input-adjoints")]
+          result["input_bar"] = [float(bar) for bar in np.loadtxt(self.temp_dir+"/dg-input-bars")]
           try:
             result["reverse_time_in_s"] = np.loadtxt(self.temp_dir+"/dg-perf-tapeeval-time")
           except OSError:

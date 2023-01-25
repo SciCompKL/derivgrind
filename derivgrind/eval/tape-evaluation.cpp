@@ -134,19 +134,19 @@ int main(int argc, char* argv[]){
   if(!forward) { // set bar values of output variables
     std::ifstream outputindices(path+"/dg-output-indices");
     WARNING(!outputindices.good(), "Error: while opening dg-output-indices.")
-    std::ifstream outputadjoints(path+"/dg-output-adjoints");
-    WARNING(!outputadjoints.good(), "Error: while opening dg-output-adjoints.")
+    std::ifstream outputbars(path+"/dg-output-bars");
+    WARNING(!outputbars.good(), "Error: while opening dg-output-bars.")
     while(true){
       ull index;
       outputindices >> index;
-      double adjoint;
-      outputadjoints >> adjoint;
-      if(outputindices.eof() ^ outputadjoints.eof()){
-        WARNING(true, "Error: Sizes of dg-output-indices and dg-output-adjoints mismatch.")
-      } else if(outputindices.eof() && outputadjoints.eof()){
+      double bar;
+      outputbars >> bar;
+      if(outputindices.eof() ^ outputbars.eof()){
+        WARNING(true, "Error: Sizes of dg-output-indices and dg-output-bars mismatch.")
+      } else if(outputindices.eof() && outputbars.eof()){
         break;
       }
-      adjointvec[index] += adjoint;
+      adjointvec[index] += bar;
     }
   } else { // set dot values of input variables
     std::ifstream inputindices(path+"/dg-input-indices");
@@ -174,17 +174,17 @@ int main(int argc, char* argv[]){
     tape->evaluateForward(adjointvec);
   }
 
-  if(!forward){ // read indices of input variables and write corresponding adjoints
+  if(!forward){ // read indices of input variables and write corresponding bar values 
     std::ifstream inputindices(path+"/dg-input-indices");
     WARNING(!inputindices.good(), "Error: while opening dg-input-indices.")
-    std::ofstream inputadjoints(path+"/dg-input-adjoints");
+    std::ofstream inputbars(path+"/dg-input-bars");
     while(true){
       ull index;
       inputindices >> index;
       if(inputindices.eof()) break;
-      inputadjoints << std::setprecision(16) << adjointvec[index] << std::endl;
+      inputbars << std::setprecision(16) << adjointvec[index] << std::endl;
     }
-  } else { // read indices of output variables and write corresponding dots
+  } else { // read indices of output variables and write corresponding dot values
     std::ifstream outputindices(path+"/dg-output-indices");
     WARNING(!outputindices.good(), "Error: while opening dg-output-indices.")
     std::ofstream outputdots(path+"/dg-output-dots");

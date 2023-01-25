@@ -83,12 +83,12 @@ via `g++ reverse.cpp -o reverse -Iinstall/include` and run it via
 Enter an input value `x` on the command line (e.g. `4.0`). Once the program
 finishes, you should find a binary file `dg-tape` storing the recorded tape,
 and text files `dg-input-indices`, `dg-output-indices` storing identifiers for
-`x` and `y`, respectively. Create a text file `dg-output-adjoints` containing 
+`x` and `y`, respectively. Create a text file `dg-output-bars` containing 
 `1.0` and run 
 
     install/bin/tape-evaluation $PWD
     
-This stores the reverse-mode automatic derivative in a text file `dg-input-adjoints`. 
+This stores the reverse-mode automatic derivative in a text file `dg-input-bars`. 
 
 ## <a name="limitations"></a>Limitations
 - Machine code can "hide" real arithmetic behind integer or logical instructions 
