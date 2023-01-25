@@ -1,3 +1,49 @@
+/*
+   ----------------------------------------------------------------
+   Notice that the following MIT license applies to this one file
+   (dg_bar_tape_eval.h) only.  The rest of Valgrind is licensed under the
+   terms of the GNU General Public License, version 2, unless
+   otherwise indicated.  See the COPYING file in the source
+   distribution for details.
+   ----------------------------------------------------------------
+
+   This file is part of Derivgrind, an automatic differentiation
+   tool applicable to compiled programs.
+
+   Copyright (C) 2022, Chair for Scientific Computing, TU Kaiserslautern
+   Copyright (C) since 2023, Chair for Scientific Computing, University of Kaiserslautern-Landau
+   Homepage: https://www.scicomp.uni-kl.de
+   Contact: Prof. Nicolas R. Gauger
+
+   Lead developer: Max Aehle
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+   
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+   
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+   ----------------------------------------------------------------
+   Notice that the above MIT license applies to this one file
+   (dg_bar_tape_eval.h) only.  The rest of Valgrind is licensed under the
+   terms of the GNU General Public License, version 2, unless
+   otherwise indicated.  See the COPYING file in the source
+   distribution for details.
+   ----------------------------------------------------------------
+*/
+
 /*! \enum TapefileEvents
  * Event types passed to an optional event handler template argument
  * of Tapefile, to enable performance measurements.
@@ -64,30 +110,30 @@ public:
 
   /*! Reverse evaluation of the tape.
    *
-   * \param adjointvec Adjoint vector with the signature of a double[number_of_blocks]. Must be a initialized with zeros and output adjoints before calling this function.
+   * \param derivativevec Vector of bar values ("adjoint vector") with the signature of a double[number_of_blocks]. Must be a initialized with zeros and output bar values before calling this function.
    */
-  template<typename adjointvec_t>
-  void evaluateBackward(adjointvec_t& adjointvec){
-    iterate(number_of_blocks-1, 0, [&adjointvec](ull index, ull index1, ull index2, double diff1, double diff2){
-      if(adjointvec[index]!=0) {
-        if(index1!=0 && index1 < 0x8000000000000000) adjointvec[index1] += adjointvec[index] * diff1;
-        if(index2!=0 && index2 < 0x8000000000000000) adjointvec[index2] += adjointvec[index] * diff2;
+  template<typename derivativevec_t>
+  void evaluateBackward(derivativevec_t& derivativevec){
+    iterate(number_of_blocks-1, 0, [&derivativevec](ull index, ull index1, ull index2, double diff1, double diff2){
+      if(derivativevec[index]!=0) {
+        if(index1!=0 && index1 < 0x8000000000000000) derivativevec[index1] += derivativevec[index] * diff1;
+        if(index2!=0 && index2 < 0x8000000000000000) derivativevec[index2] += derivativevec[index] * diff2;
       }
     });
   }
 
   /*! Forward evaluation of the tape.
    *
-   * \param adjointvec Adjoint vector with the signature of a double[number_of_blocks]. Must be a initialized with zeros and input dot values before calling this function.
+   * \param derivativevec Vector of dot values (compare to "adjoint vector") with the signature of a double[number_of_blocks]. Must be a initialized with zeros and input dot values before calling this function.
    */
-  template<typename adjointvec_t>
-  void evaluateForward(adjointvec_t& adjointvec){
-    iterate(0, number_of_blocks-1, [&adjointvec](ull index, ull index1, ull index2, double diff1, double diff2){
-      if(index1!=0 && index1 < 0x8000000000000000 && adjointvec[index1]!=0){
-        adjointvec[index] += adjointvec[index1] * diff1;
+  template<typename derivativevec_t>
+  void evaluateForward(derivativevec_t& derivativevec){
+    iterate(0, number_of_blocks-1, [&derivativevec](ull index, ull index1, ull index2, double diff1, double diff2){
+      if(index1!=0 && index1 < 0x8000000000000000 && derivativevec[index1]!=0){
+        derivativevec[index] += derivativevec[index1] * diff1;
       }
-      if(index2!=0 && index2 < 0x8000000000000000 && adjointvec[index2]!=0){
-        adjointvec[index] += adjointvec[index2] * diff2;
+      if(index2!=0 && index2 < 0x8000000000000000 && derivativevec[index2]!=0){
+        derivativevec[index] += derivativevec[index2] * diff2;
       }
     });
   }

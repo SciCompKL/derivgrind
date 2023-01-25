@@ -122,7 +122,7 @@ CLEANFILES += dg_replace_math.c
 bin_PROGRAMS = \
   tape-evaluation
 
-tape_evaluation_SOURCES = bar/tape-evaluation.cpp
+tape_evaluation_SOURCES = eval/tape-evaluation.cpp
 tape_evaluation_CPPFLAGS = -O3
 
 #----------------------------------------------------------------------------
