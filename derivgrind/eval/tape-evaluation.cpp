@@ -125,10 +125,11 @@ int main(int argc, char* argv[]){
     forward = true;
   }
 
-  // initialize adjoint vector
-  double* adjointvec = new double[number_of_blocks];
+  // Initialize the derivative vector ("adjoint vector") storing the bar values, 
+  // or dot values if the user specified --forward.
+  double* derivativevec = new double[number_of_blocks];
   for(ull index=0; index<number_of_blocks; index++){
-    adjointvec[index] = 0.;
+    derivativevec[index] = 0.;
   }
 
   if(!forward) { // set bar values of output variables
@@ -146,7 +147,7 @@ int main(int argc, char* argv[]){
       } else if(outputindices.eof() && outputbars.eof()){
         break;
       }
-      adjointvec[index] += bar;
+      derivativevec[index] += bar;
     }
   } else { // set dot values of input variables
     std::ifstream inputindices(path+"/dg-input-indices");
@@ -163,15 +164,15 @@ int main(int argc, char* argv[]){
       } else if(inputindices.eof() && inputdots.eof()){
         break;
       }
-      adjointvec[index] += dot;
+      derivativevec[index] += dot;
     }
   }
 
   // evaluate tape
   if(!forward){
-    tape->evaluateBackward(adjointvec);
+    tape->evaluateBackward(derivativevec);
   } else {
-    tape->evaluateForward(adjointvec);
+    tape->evaluateForward(derivativevec);
   }
 
   if(!forward){ // read indices of input variables and write corresponding bar values 
@@ -182,7 +183,7 @@ int main(int argc, char* argv[]){
       ull index;
       inputindices >> index;
       if(inputindices.eof()) break;
-      inputbars << std::setprecision(16) << adjointvec[index] << std::endl;
+      inputbars << std::setprecision(16) << derivativevec[index] << std::endl;
     }
   } else { // read indices of output variables and write corresponding dot values
     std::ifstream outputindices(path+"/dg-output-indices");
@@ -192,7 +193,7 @@ int main(int argc, char* argv[]){
       ull index;
       outputindices >> index;
       if(outputindices.eof()) break;
-      outputdots << std::setprecision(16) << adjointvec[index] << std::endl;
+      outputdots << std::setprecision(16) << derivativevec[index] << std::endl;
     }
   }
 
@@ -202,6 +203,6 @@ int main(int argc, char* argv[]){
     timefile << time/1e6 << std::endl;
   }
 
-  delete[] adjointvec;
+  delete[] derivativevec;
 }
 
