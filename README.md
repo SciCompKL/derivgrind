@@ -7,7 +7,7 @@ Derivgrind is an automatic differentiation tool applicable to compiled programs.
 It has been implemented in the [Valgrind](https://valgrind.org/)
 framework for building dynamic analysis tools. 
 
-For more information, you may have a look at our papers:
+For more information beyond this [README.md](README.md), you may have a look at our papers:
 - M. Aehle, J. Blühdorn, M. Sagebaum, N. R. Gauger: *Forward-Mode Automatic Differentiation of Compiled Programs*. [arXiv:2209.01895](https://arxiv.org/abs/2209.01895), 2022.
 - M. Aehle, J. Blühdorn, M. Sagebaum, N. R. Gauger: *Reverse-Mode Automatic Differentiation of Compiled Programs*. [arXiv:2212.13760](https://arxiv.org/abs/2212.13760), 2022.
 
@@ -33,8 +33,10 @@ arithmetic formula. You may use `*` as a wildcard to run several tests at once. 
 Derivgrind installation directory with `--prefix=path`, and a temporary directory with `--tempdir=path`.
 
 ## Differentiating a Simple C++ Program in Forward Mode
-Compile a simple C++ program `forward.cpp`,
-      
+Compile a simple C++ "client" program from 
+
+    // forward.cpp:
+    
     #include <iostream>
     #include <valgrind/derivgrind.h>
 
@@ -63,8 +65,10 @@ in this way. In between, the client program may,  e. g., make calls to closed-so
 libraries.
 
 ## Differentiating a Simple C++ Program in Reverse Mode
-Compile a simple C++ program `reverse.cpp`,
-      
+Compile another simple C++ "client" program from
+
+    // reverse.cpp:
+    
     #include <iostream>
     #include <valgrind/derivgrind.h>
 
@@ -89,8 +93,28 @@ and text files `dg-input-indices`, `dg-output-indices` storing identifiers for
     install/bin/tape-evaluation $PWD
     
 This stores the reverse-mode automatic derivative in a text file `dg-input-bars`. 
+If you have multiple input or output variables, their bar values should appear 
+in the respective text files as separate lines, in the same order in which they
+are declared.
 
-## <a name="limitations"></a>Limitations
+To evaluate the tape in forward direction, create a text file `dg-input-dots` containing
+the dot values of the inputs, and call `tape-evaluation $PWD --forward`. This will
+store the dot values of the outputs in `dg-output-dots`. This alternative way
+of computing forward-mode derivatives can be more efficient than the way presented above,
+if you have many input variables.
+
+## License
+Derivgrind is licensed under the GNU General Public License, version 2. 
+Read the file [COPYING](COPYING) in the source distribution for details.
+
+Some parts of Derivgrind might end up being permanently inserted into 
+the client program, like the `valgrind/derivgrind.h` header providing the client
+request macros. Generally, we have put such files under the more permissive
+MIT license.
+
+## Limitations
+- While Valgrind supports many more platforms, only X86/Linux and AMD64/Linux 
+  are supported by Derivgrind at the moment.
 - Machine code can "hide" real arithmetic behind integer or logical instructions 
   in manifold ways. For example, a bitwise logical "and" can be used to set the
   sign bit to zero, and thereby compute the absolute value. Derivgrind recognizes only
