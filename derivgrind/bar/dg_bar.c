@@ -1,3 +1,7 @@
+/*--------------------------------------------------------------------*/
+/*--- Definition of recording-mode expression handling.   dg_bar.c ---*/
+/*--------------------------------------------------------------------*/
+
 /*
    This file is part of Derivgrind, an automatic differentiation
    tool applicable to compiled programs.

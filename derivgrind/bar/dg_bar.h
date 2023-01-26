@@ -1,3 +1,7 @@
+/*--------------------------------------------------------------------*/
+/*--- Recording-mode expression handling.                 dg_bar.h ---*/
+/*--------------------------------------------------------------------*/
+
 /*
    This file is part of Derivgrind, an automatic differentiation
    tool applicable to compiled programs.

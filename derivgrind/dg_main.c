@@ -1,6 +1,6 @@
 ﻿/*--------------------------------------------------------------------*/
-/*--- Derivgrind: Forward-mode algorithmic               dg_main.c ---*/
-/*--- differentiation using Valgrind.                              ---*/
+/*--- Derivgrind: Automatic differentiation              dg_main.c ---*/
+/*--- of compiled programs using Valgrind.                         ---*/
 /*--------------------------------------------------------------------*/
 
 /*

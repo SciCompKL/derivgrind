@@ -1,3 +1,7 @@
+/*--------------------------------------------------------------------*/
+/*--- Recording-mode tape interface.                 dg_bar_tape.c ---*/
+/*--------------------------------------------------------------------*/
+
 /*
    This file is part of Derivgrind, an automatic differentiation
    tool applicable to compiled programs.

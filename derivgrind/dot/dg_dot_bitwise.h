@@ -1,5 +1,6 @@
 /*--------------------------------------------------------------------*/
-/*--- Handling of bitwise logical operations.     dg_dot_bitwise.h ---*/
+/*--- Forward-mode handling of                    dg_dot_bitwise.h ---*/
+/*--- bitwise logical operations.                                  ---*/
 /*--------------------------------------------------------------------*/
 
 /*

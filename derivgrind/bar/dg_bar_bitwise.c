@@ -1,5 +1,6 @@
 /*--------------------------------------------------------------------*/
-/*--- Handling of bitwise logical operations.     dg_bar_bitwise.c ---*/
+/*--- Recording-mode handling of                  dg_bar_bitwise.c ---*/
+/*--- bitwise logical operations.                                  ---*/
 /*--------------------------------------------------------------------*/
 
 /*

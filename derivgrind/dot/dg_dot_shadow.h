@@ -1,3 +1,7 @@
+/*--------------------------------------------------------------------*/
+/*--- Forward-mode shadow memory interface.        dg_dot_shadow.h ---*/
+/*--------------------------------------------------------------------*/
+
 /*
    This file is part of Derivgrind, an automatic differentiation
    tool applicable to compiled programs.
