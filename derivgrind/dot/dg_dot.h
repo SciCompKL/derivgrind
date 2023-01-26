@@ -1,3 +1,7 @@
+/*--------------------------------------------------------------------*/
+/*--- Forward-mode expression handling.                   dg_dot.h ---*/
+/*--------------------------------------------------------------------*/
+
 /*
    This file is part of Derivgrind, an automatic differentiation
    tool applicable to compiled programs.

@@ -1,3 +1,7 @@
+/*--------------------------------------------------------------------*/
+/*--- Definition of forward-mode expression handling.     dg_dot.c ---*/
+/*--------------------------------------------------------------------*/
+
 /*
    This file is part of Derivgrind, an automatic differentiation
    tool applicable to compiled programs.

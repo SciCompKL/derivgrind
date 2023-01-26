@@ -1,3 +1,8 @@
+/*--------------------------------------------------------------------*/
+/*--- Derivgrind expression handling       dg_expressionhandling.c ---*/
+/*--- mechanism used in forward and recording mode.                ---*/
+/*--------------------------------------------------------------------*/
+
 /*
    This file is part of Derivgrind, an automatic differentiation
    tool applicable to compiled programs.

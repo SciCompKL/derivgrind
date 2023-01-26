@@ -1,3 +1,7 @@
+/*--------------------------------------------------------------------*/
+/*--- Recording-mode shadow memory interface.    dg_bar_shadow.cpp ---*/
+/*--------------------------------------------------------------------*/
+
 /*
    This file is part of Derivgrind, an automatic differentiation
    tool applicable to compiled programs.
