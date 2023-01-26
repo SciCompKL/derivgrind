@@ -143,8 +143,9 @@ Read the file [COPYING](COPYING) in the source distribution for details.
 
 Some parts of Derivgrind might end up being permanently inserted into 
 the client program, like the `valgrind/derivgrind.h` header providing the client
-request macros. Generally, we have put such files under the more permissive
-MIT license.
+request macros. Generally, we have put these parts under the permissive
+MIT license, and we try to avoid third-party dependencies inducing a strong copyleft 
+in these parts. 
 
   
 
