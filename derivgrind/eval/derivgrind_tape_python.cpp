@@ -1,7 +1,7 @@
 /*
    ----------------------------------------------------------------
    Notice that the following MIT license applies to this one file
-   (tape-evaluation.cpp) only.  The rest of Valgrind is licensed under the
+   (derivgrind_type_python.cpp) only.  The rest of Valgrind is licensed under the
    terms of the GNU General Public License, version 2, unless
    otherwise indicated.  See the COPYING file in the source
    distribution for details.
@@ -37,56 +37,70 @@
 
    ----------------------------------------------------------------
    Notice that the above MIT license applies to this one file
-   (tape-evaluation.cpp) only.  The rest of Valgrind is licensed under the
+   (derivgrind_tape_python.cpp) only.  The rest of Valgrind is licensed under the
    terms of the GNU General Public License, version 2, unless
    otherwise indicated.  See the COPYING file in the source
    distribution for details.
    ----------------------------------------------------------------
 */
 
-#ifndef DERIVGRIND_RECORDING_H
-#define DERIVGRIND_RECORDING_H
+#include <pybind11/pybind11.h>
+#include <pybind11/eigen.h>
+#include "dg_bar_tape_eval.hpp"
+#include <iostream>
+#include <fstream>
 
-/*! \file derivgrind-recording.h
- * Helper macros for simple marking of 
- * input and output variables in the client code.
- */
+namespace py = pybind11;
+using ull = unsigned long long;
 
-static unsigned long long dg_indextmp, dg_indextmp2;
-static double dg_valtmp;
-static unsigned long long const dg_zero = 0;
-static double const dg_one = 1.;
-
-/*! Mark variable as AD input and assign new 8-byte index to it.
- * 
- * You may e.g. write
- *
- *     printf("a index = %llu\n", DG_INPUT(a));
- *
- * to print the index from your client code. Or use the DG_INPUTF macro to
- * write it directly into a file.
- */
-#define DG_INPUT(var) (dg_valtmp=(double)(var),DG_NEW_INDEX_NOACTIVITYANALYSIS(&dg_zero,&dg_zero,&dg_zero,&dg_zero,&dg_indextmp,&dg_valtmp), DG_SET_INDEX(&var,&dg_indextmp), dg_indextmp)
-
-/*! Mark variable as AD input, assign new 8-byte index, and dump the index into a file.
- */
-#define DG_INPUTF(var) { dg_indextmp2 = DG_INPUT(var); DG_INDEX_TO_FILE(DG_INDEXFILE_INPUT, &dg_indextmp2); }
-
-/*! Mark variable as AD output and retrieve its 8-byte index.
- * 
- * You may e.g. write
- *
- *     printf("a index = %llu\n", DG_OUTPUT(a));
- *
- * to print the index from your client code. Or use the DG_OUTPUTF macro to
- * write it directly into a file.
- */
-#define DG_OUTPUT(var) (dg_valtmp=(double)(var),DG_GET_INDEX(&var,&dg_indextmp2), DG_NEW_INDEX_NOACTIVITYANALYSIS(&dg_indextmp2,&dg_zero,&dg_one,&dg_zero,&dg_indextmp,&dg_valtmp), dg_indextmp)
-
-/*! Mark variable as AD output, retrieve its 8-byte index, and dump the index into a file.
- */
-#define DG_OUTPUTF(var) { dg_indextmp2 = DG_OUTPUT(var); DG_INDEX_TO_FILE(DG_INDEXFILE_OUTPUT, &dg_indextmp2); }
+// Chunks with bufsize-many blocks are loaded from the tape file into the heap.
+static constexpr ull bufsize = 100;
 
 
+struct LoadedFile {
+  std::ifstream file;
 
-#endif
+  LoadedFile(std::string filename){
+    file.open(filename,std::ios::binary);
+    if(!file.good()){
+      std::cerr << "Cannot open tape file '" << filename << "/dg-tape'." << std::endl;
+    }
+  }
+
+  std::function<void(ull,ull,void*)> make_loadfun(){
+    return [this](ull i, ull count, void* tape_buf) -> void {
+      file.seekg(i*4*sizeof(double), std::ios::beg);
+      file.read(reinterpret_cast<char*>(tape_buf), count*4*sizeof(double));
+    };
+  }
+
+  ull number_of_blocks(){
+    file.seekg(0,std::ios::end);
+    return file.tellg() / 32;
+  }
+
+};
+
+
+PYBIND11_MODULE(derivgrind_tape, m){
+  m.doc() = "Python bindings for the Derivgrind tape evaluator.";
+
+  py::class_<LoadedFile>(m, "LoadedFile")
+    .def(py::init<std::string>())
+    .def("number_of_blocks", &LoadedFile::number_of_blocks) ;
+
+  using TF = Tapefile<bufsize,std::function<void(ull,ull,void*)>,nullptr>;
+  py::class_<TF>(m, "TapeFile")
+    .def(py::init<>( [](LoadedFile& file){
+        auto loadfun = file.make_loadfun();
+        TF* tape = new TF(loadfun,file.number_of_blocks());
+        return tape;
+      } ) )
+    .def("evaluateBackward", &TF::evaluateBackward<Eigen::Ref<Eigen::VectorXd> >)
+    .def("evaluateForward", &TF::evaluateForward<Eigen::Ref<Eigen::VectorXd> >)
+    .def("stats", [](TF* tape){
+        unsigned long long nZero, nOne, nTwo; 
+        tape->stats(nZero,nOne,nTwo);
+        return std::make_tuple(nZero,nOne,nTwo);
+      }) ;
+}

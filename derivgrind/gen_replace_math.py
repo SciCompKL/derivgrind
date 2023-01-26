@@ -100,6 +100,7 @@ __attribute__((optimize("O0")))
   DG_DISABLE(1,0);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}(ret, fn, x);
+  double ret_d = ret;
   if(!called_from_within_wrapper) {{
     if(DG_GET_MODE=='d'){{ /* forward mode */
       {self.type} x_d;
@@ -118,7 +119,7 @@ __attribute__((optimize("O0")))
       called_from_within_wrapper = false;
       unsigned long long ret_i;
       DG_DISABLE(0,1);
-      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i);
+      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
       DG_SET_INDEX(&ret,&ret_i);
     }}
   }} else {{
@@ -145,6 +146,7 @@ __attribute__((optimize("O0")))
   DG_DISABLE(1,0);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}{self.T}(ret, fn, x, y);
+  double ret_d = ret;
   if(!called_from_within_wrapper) {{
     if(DG_GET_MODE=='d'){{ /* forward mode */
       {self.type} x_d, y_d;
@@ -166,7 +168,7 @@ __attribute__((optimize("O0")))
       called_from_within_wrapper = false;
       unsigned long long ret_i;
       DG_DISABLE(0,1);
-      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i);
+      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
       DG_SET_INDEX(&ret,&ret_i);
     }}
   }} else {{
@@ -194,6 +196,7 @@ __attribute__((optimize("O0")))
   DG_DISABLE(1,0);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}{self.extratypeletter}(ret, fn, x, e);
+  double ret_d = ret;
   if(!called_from_within_wrapper) {{
     if(DG_GET_MODE=='d'){{ /* forward mode */
       {self.type} x_d;
@@ -212,7 +215,7 @@ __attribute__((optimize("O0")))
       called_from_within_wrapper = false;
       unsigned long long ret_i;
       DG_DISABLE(0,1);
-      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i);
+      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
       DG_SET_INDEX(&ret,&ret_i);
     }}
   }} else {{

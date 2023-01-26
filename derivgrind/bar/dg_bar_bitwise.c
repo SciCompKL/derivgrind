@@ -106,6 +106,7 @@ static ULong assemble64x2to64(ULong iLo, ULong iHi){
     else { \
       ULong yi = assemble64x2to64(y##iLo, y##iHi); \
       ULong minus_yi = tapeAddStatement(yi,0,-1.,0.); \
+      if(bar_record_values && minus_yi!=0) valuesAddStatement(-y_f); \
       out->w32[0] = *(UInt*)&minus_yi; \
       out->w32[2] = *((UInt*)&minus_yi+1); \
     } \
@@ -154,6 +155,7 @@ VG_REGPARM(0) void dg_bar_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong y
     else { \
       ULong yi = assemble64x2to64(y##iLo,y##iHi); \
       ULong minus_yi = tapeAddStatement(yi,0,-1.,0); \
+      if(bar_record_values && minus_yi!=0) valuesAddStatement(-y_f); \
       out->w32[0] = *(UInt*)&minus_yi; \
       out->w32[2] = *((UInt*)&minus_yi+1); \
     } \
@@ -179,8 +181,10 @@ VG_REGPARM(0) void dg_bar_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y,
 
 #define DG_HANDLE_XOR(out, fptype, inttype, x, y) \
   if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) && *(UInt*)&x##iLo == 0 && *(UInt*)&x##iHi == 0 ){ \
+    fptype y_f = *(fptype*)&y; \
     ULong yi = assemble64x2to64(y##iLo,y##iHi); \
     ULong minus_yi = tapeAddStatement(yi,0,-1.,0); \
+    if(bar_record_values && minus_yi!=0) valuesAddStatement(-y_f); \
     out->w32[0] = *(UInt*)&minus_yi; \
     out->w32[2] = *((UInt*)&minus_yi+1); \
   }

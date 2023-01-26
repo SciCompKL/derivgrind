@@ -202,7 +202,7 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
     s += f"IRExpr* {outvar} = assembleSIMDVector({outputs[outvar]}_arr, {fpsize}, {simdsize}, diffenv);\n"
   return s
 
-def createBarCode(op, inputs, floatinputs, partials,fpsize,simdsize,llo):
+def createBarCode(op, inputs, floatinputs, partials, value, fpsize,simdsize,llo):
   """
     Create C code that records an operation on the tape for every component of a SIMD vector,
     given the partial derivatives.
@@ -219,6 +219,7 @@ def createBarCode(op, inputs, floatinputs, partials,fpsize,simdsize,llo):
     @param inputs - List of argument indices (1...4) on which the result depends in a differentiable way.
     @param floatinputs - List of argument indices (1...4) for which the component is needed as F64 arg<i>_part_f.
     @param partials - List of partial derivatives w.r.t. the arguments in inputs. 
+    @param value - Value of the result.
     @param fpsize - Size of component, either 4 or 8 (bytes)
     @param simdsize - Number of components, 1, 2, 4 or 8.
     @param llo - Whether it is a lowest-lane-only operation, boolean.
@@ -241,12 +242,12 @@ def createBarCode(op, inputs, floatinputs, partials,fpsize,simdsize,llo):
       bodyLowest += f'IRExpr* arg{i}_part_f = IRExpr_Unop(Iop_ReinterpI64asF64,arg{i}_part);'
   # add statement to push to tape
   if len(inputs)==1: # use index 0 to indicate missing input
-    bodyLowest += f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,IRExpr_Const(IRConst_U64(0)),IRExpr_Const(IRConst_U64(0)), {partials[0]}, IRExpr_Const(IRConst_F64(0.)));\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
+    bodyLowest += f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,IRExpr_Const(IRConst_U64(0)),IRExpr_Const(IRConst_U64(0)), {partials[0]}, IRExpr_Const(IRConst_F64(0.)), {value});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
   elif len(inputs)==2:
-    bodyLowest += f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
+    bodyLowest += f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]}, {value});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
   elif len(inputs)==3: # add two tape entries to combine three inputs
-    bodyLowest += f'  IRExpr** indexIntermediateIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]});\n  IRExpr* indexIntermediateIntLo_part = indexIntermediateIntHiLo_part[0];\n  IRExpr* indexIntermediateIntHi_part = indexIntermediateIntHiLo_part[1];\n'
-    bodyLowest += f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,indexIntermediateIntLo_part,indexIntermediateIntHi_part,i{inputs[2]}Lo_part,i{inputs[2]}Hi_part, IRExpr_Const(IRConst_F64(1.)), {partials[2]});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
+    bodyLowest += f'  IRExpr** indexIntermediateIntHiLo_part = dg_bar_writeToTape(diffenv,i{inputs[0]}Lo_part,i{inputs[0]}Hi_part,i{inputs[1]}Lo_part,i{inputs[1]}Hi_part, {partials[0]}, {partials[1]}, IRExpr_Const(IRConst_F64(0.)));\n  IRExpr* indexIntermediateIntLo_part = indexIntermediateIntHiLo_part[0];\n  IRExpr* indexIntermediateIntHi_part = indexIntermediateIntHiLo_part[1];\n'
+    bodyLowest += f'  IRExpr** indexIntHiLo_part = dg_bar_writeToTape(diffenv,indexIntermediateIntLo_part,indexIntermediateIntHi_part,i{inputs[2]}Lo_part,i{inputs[2]}Hi_part, IRExpr_Const(IRConst_F64(1.)), {partials[2]}, {value});\n  IRExpr* indexIntLo_part = indexIntHiLo_part[0];\n  IRExpr* indexIntHi_part = indexIntHiLo_part[1];\n'
   if llo:
     bodyNonLowest = f'  IRExpr* indexIntLo_part = i{inputs[0]}Lo_part;\n  IRExpr* indexIntHi_part = i{inputs[0]}Hi_part;\n'
   else:
@@ -293,11 +294,11 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
   div.dotcode = dv(div.apply(arg1,sub.apply(arg1,mul.apply(arg1,d2,arg3),mul.apply(arg1,arg2,d3)),mul.apply(arg1,arg3,arg3)))
   sqrt.dotcode = dv(div.apply(rounding_mode,sqrt_d2,mul.apply(rounding_mode,f"mkIRConst_fptwo({fpsize},{simdsize})",sqrt.apply(sqrt_arg1,sqrt_arg2))))
 
-  add.barcode = createBarCode(add, [2-llo,3-llo], [], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(1.))"], fpsize, simdsize, llo)
-  sub.barcode = createBarCode(sub, [2-llo,3-llo], [], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(-1.))"], fpsize, simdsize, llo)
-  mul.barcode = createBarCode(mul, [2-llo,3-llo], [2-llo, 3-llo], [f"{arg3}_part_f", f"{arg2}_part_f"], fpsize, simdsize, llo)
-  div.barcode = createBarCode(div, [2-llo,3-llo], [2-llo, 3-llo], [f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(1.)),{arg3}_part_f)", f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Triop(Iop_MulF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(-1.)), {arg2}_part_f),IRExpr_Triop(Iop_MulF64,dg_rounding_mode,{arg3}_part_f,{arg3}_part_f))"], fpsize, simdsize, llo)
-  sqrt.barcode = createBarCode(sqrt, [2-sqrt_noroundingmode], [2-sqrt_noroundingmode], [f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(0.5)), IRExpr_Binop(Iop_SqrtF64,dg_rounding_mode,{sqrt_arg2}_part_f))"], fpsize, simdsize, llo)
+  add.barcode = createBarCode(add, [2-llo,3-llo], [2-llo,3-llo], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(1.))"], f"IRExpr_Triop(Iop_AddF64,dg_rounding_mode,{arg2}_part_f,{arg3}_part_f)", fpsize, simdsize, llo)
+  sub.barcode = createBarCode(sub, [2-llo,3-llo], [2-llo,3-llo], ["IRExpr_Const(IRConst_F64(1.))", "IRExpr_Const(IRConst_F64(-1.))"], f"IRExpr_Triop(Iop_SubF64,dg_rounding_mode,{arg2}_part_f,{arg3}_part_f)", fpsize, simdsize, llo)
+  mul.barcode = createBarCode(mul, [2-llo,3-llo], [2-llo, 3-llo], [f"{arg3}_part_f", f"{arg2}_part_f"], f"IRExpr_Triop(Iop_MulF64,dg_rounding_mode,{arg2}_part_f,{arg3}_part_f)", fpsize, simdsize, llo)
+  div.barcode = createBarCode(div, [2-llo,3-llo], [2-llo, 3-llo], [f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(1.)),{arg3}_part_f)", f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Triop(Iop_MulF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(-1.)), {arg2}_part_f),IRExpr_Triop(Iop_MulF64,dg_rounding_mode,{arg3}_part_f,{arg3}_part_f))"],f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,{arg2}_part_f,{arg3}_part_f)", fpsize, simdsize, llo)
+  sqrt.barcode = createBarCode(sqrt, [2-sqrt_noroundingmode], [2-sqrt_noroundingmode], [f"IRExpr_Triop(Iop_DivF64,dg_rounding_mode,IRExpr_Const(IRConst_F64(0.5)), IRExpr_Binop(Iop_SqrtF64,dg_rounding_mode,{sqrt_arg2}_part_f))"], f"IRExpr_Binop(Iop_SqrtF64,dg_rounding_mode,{sqrt_arg2}_part_f)", fpsize, simdsize, llo)
 
   IROp_Infos += [add,sub,mul,div,sqrt]
 
@@ -305,20 +306,20 @@ for suffix,fpsize,simdsize,llo in [pF64, pF32, p64Fx2, p64Fx4, p32Fx4, p32Fx8, p
 for suffix,fpsize,simdsize in [("F64",8,1),("F32",4,1),("64Fx2",8,2),("32Fx2",4,2),("32Fx4",4,4)]:
   neg = IROp_Info(f"Iop_Neg{suffix}", 1,[1])
   neg.dotcode = dv(neg.apply("d1"))
-  neg.barcode = createBarCode(neg, [1], [], ["IRExpr_Const(IRConst_F64(-1.))"], fpsize, simdsize, False)
+  neg.barcode = createBarCode(neg, [1], [1], ["IRExpr_Const(IRConst_F64(-1.))"], neg.apply("arg1_part_f"), fpsize, simdsize, False)
   IROp_Infos += [ neg ]
 # Abs 
 for suffix,fpsize,simdsize,llo in [pF64,pF32]: # p64Fx2, p32Fx2, p32Fx4 exist, but AD logic is different
   abs_ = IROp_Info(f"Iop_Abs{suffix}", 1, [1])
   abs_.dotcode = dv(f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_Cmp{suffix}, arg1, IRExpr_Const(IRConst_{suffix}i(0)))), IRExpr_Unop(Iop_Neg{suffix},d1), d1)")
-  abs_.barcode = createBarCode(abs_, [1], [1], [f"IRExpr_ITE( IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64, arg1_part_f, IRExpr_Const(IRConst_{suffix}i(0)))) , IRExpr_Const(IRConst_F64(-1.)), IRExpr_Const(IRConst_F64(1.)))"], fpsize, simdsize, llo)
+  abs_.barcode = createBarCode(abs_, [1], [1], [f"IRExpr_ITE( IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64, arg1_part_f, IRExpr_Const(IRConst_{suffix}i(0)))) , IRExpr_Const(IRConst_F64(-1.)), IRExpr_Const(IRConst_F64(1.)))"], abs_.apply("arg1_part_f"), fpsize, simdsize, llo)
   IROp_Infos += [ abs_ ]
 # Min, Max
 for Op, op in [("Min", "min"), ("Max", "max")]:
   for suffix,fpsize,simdsize,llo in [p32Fx2,p32Fx4,p32F0x4,p64Fx2,p64F0x2,p32Fx8,p64Fx4]:
     the_op = IROp_Info(f"Iop_{Op}{suffix}", 2, [1,2])
     the_op.dotcode = applyComponentwisely({"arg1":"arg1_part","d1":"d1_part","arg2":"arg2_part","d2":"d2_part"}, {"dotvalue":"dotvalue_part"}, fpsize, simdsize, f'IRExpr* dotvalue_part = mkIRExprCCall(Ity_I64,0,"dg_dot_arithmetic_{op}{fpsize*8}", &dg_dot_arithmetic_{op}{fpsize*8}, mkIRExprVec_4(arg1_part, d1_part, arg2_part, d2_part));') 
-    the_op.barcode = createBarCode(the_op, [1,2], [1,2], [f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64,arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})) )",     f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64,arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})) )"], fpsize, simdsize,llo)
+    the_op.barcode = createBarCode(the_op, [1,2], [1,2], [f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64,arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})) )",     f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64,arg1_part_f,arg2_part_f)),  IRExpr_Const(IRConst_F64({'0.' if op=='min' else '1.'})),  IRExpr_Const(IRConst_F64({'1.' if op=='min' else '0.'})) )"], f"IRExpr_ITE(IRExpr_Unop(Iop_32to1,IRExpr_Binop(Iop_CmpF64, arg1_part_f, arg2_part_f)), {'arg1_part_f' if Op=='Min' else 'arg2_part_f'}, {'arg2_part_f' if Op=='Min' else 'arg1_part_f'})", fpsize, simdsize,llo)
     IROp_Infos += [ the_op ]
 # fused multiply-add
 for Op in ["Add", "Sub"]:
@@ -341,19 +342,19 @@ for Op in ["Add", "Sub"]:
     if fpsize==4:
       res = f"IRExpr_Binop(Iop_F64toF32,arg1,{res})"
     the_op.dotcode = dv(res)
-    the_op.barcode = createBarCode(the_op, [2,3,4], [2,3], ["arg3_part_f", "arg2_part_f", f"IRExpr_Const(IRConst_F64({'1.' if Op=='Add' else '-1.'}))"], fpsize, simdsize,llo)
+    the_op.barcode = createBarCode(the_op, [2,3,4], [2,3,4], ["arg3_part_f", "arg2_part_f", f"IRExpr_Const(IRConst_F64({'1.' if Op=='Add' else '-1.'}))"], the_op.apply("arg1", "arg2_part_f", "arg3_part_f", "arg4_part_f"), fpsize, simdsize,llo)
     IROp_Infos += [ the_op ]
 
 # Miscellaneous
 scalef64 = IROp_Info("Iop_ScaleF64",  3, [2])
 scalef64.dotcode = dv(scalef64.apply("arg1","d2","arg3"))
-scalef64.barcode = createBarCode(scalef64, [2], [], ["IRExpr_Triop(Iop_ScaleF64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)"], 8, 1, False)
+scalef64.barcode = createBarCode(scalef64, [2], [], ["IRExpr_Triop(Iop_ScaleF64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)"], scalef64.apply(), 8, 1, False)
 yl2xf64 = IROp_Info("Iop_Yl2xF64", 3, [2,3])
 yl2xf64.dotcode = dv("IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xF64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),arg3)))")
-yl2xf64.barcode = createBarCode(yl2xf64, [2,3], [], ["IRExpr_Triop(Iop_Yl2xF64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)",  "IRExpr_Triop(Iop_DivF64,arg1,arg2,IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)), arg3))"], 8, 1, False)
+yl2xf64.barcode = createBarCode(yl2xf64, [2,3], [], ["IRExpr_Triop(Iop_Yl2xF64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)",  "IRExpr_Triop(Iop_DivF64,arg1,arg2,IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)), arg3))"], yl2xf64.apply(), 8, 1, False)
 yl2xp1f64 = IROp_Info("Iop_Yl2xp1F64", 3, [2,3])
 yl2xp1f64.dotcode = dv("IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xp1F64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.))))))")
-yl2xp1f64.barcode = createBarCode(yl2xp1f64, [2,3], [], ["IRExpr_Triop(Iop_Yl2xp1F64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)",  "IRExpr_Triop(Iop_DivF64,arg1,arg2,IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.)))))"], 8, 1, False)
+yl2xp1f64.barcode = createBarCode(yl2xp1f64, [2,3], [], ["IRExpr_Triop(Iop_Yl2xp1F64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)",  "IRExpr_Triop(Iop_DivF64,arg1,arg2,IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.)))))"], yl2xp1f64.apply(), 8, 1, False)
 IROp_Infos += [ scalef64, yl2xf64, yl2xp1f64 ]
 
 ### Bitwise logical instructions. ###
@@ -456,6 +457,40 @@ import sys
 mode = 'dot'
 if(len(sys.argv)>=2):
   mode = sys.argv[1]
+
+print("""
+/*
+   This file is part of Derivgrind, an automatic differentiation
+   tool applicable to compiled programs.
+
+   Copyright (C) 2022, Chair for Scientific Computing, TU Kaiserslautern
+   Copyright (C) since 2023, Chair for Scientific Computing, University of Kaiserslautern-Landau
+   Homepage: https://www.scicomp.uni-kl.de
+   Contact: Prof. Nicolas R. Gauger
+
+   Lead developer: Max Aehle
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, see <http://www.gnu.org/licenses/>.
+
+   The GNU General Public License is contained in the file COPYING.
+*/
+
+// ----------------------------------------------------
+// WARNING: This file has been generated by 
+// gen_operationhandling_code.py. Do not manually edit it.
+// ----------------------------------------------------
+""")
 
 for irop_info in IROp_Infos:
   if mode=='dot':

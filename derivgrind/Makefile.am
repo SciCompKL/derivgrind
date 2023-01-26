@@ -177,6 +177,16 @@ CLEANFILES += wrappers/python3/derivgrind.so
 endif
 
 #----------------------------------------------------------------------------
+# Python wrapper for tape handling.
+#----------------------------------------------------------------------------
+if ENABLE_PYTHON
+libpython_DATA += eval/derivgrind_tape.so
+eval/derivgrind_tape.so: eval/derivgrind_tape_python.cpp
+	$(CXX) -fvisibility=hidden -shared -fPIC -std=c++17 -Iexternals/pybind11/include -Iexternals/eigen -I$$(@PYTHON@  -c "import sysconfig; print(sysconfig.get_path('include'))") eval/derivgrind_tape_python.cpp -o eval/derivgrind_tape.so -I. -I../include $$(@PYTHON@ -c "import sys; print('' if sys.maxsize>2**32 else '-m32')")
+CLEANFILES += eval/derivgrind_tape.so
+endif
+
+#----------------------------------------------------------------------------
 # PyTorch external function wrapper.
 #----------------------------------------------------------------------------
 libpython_SCRIPTS = wrappers/torch/derivgrind_torch.py

@@ -50,6 +50,7 @@
 #include <vector>
 #include <iomanip>
 #include <chrono>
+#include <set>
 
 /*! \file tape-evaluation.cpp
  * Simple program to perform the "backpropagation" / tape evaluation 
@@ -60,15 +61,8 @@
  * --record=path).
  */
 
-using ull = unsigned long long;
-
 #include "dg_bar_tape_eval.hpp"
-
-#define WARNING(condition, message) \
-  if(condition) {\
-    std::cerr << message << std::endl; \
-    return 1; \
-  }
+#include "tape-evaluation-utils.hpp"
 
 // Chunks with bufsize-many blocks are loaded from the tape file into the heap.
 static constexpr ull bufsize = 100;
@@ -94,11 +88,12 @@ void eventhandler(TapefileEvent event){
   }
 }
 
+
 int main(int argc, char* argv[]){
 
   // open tape file
-  if(argc<2){ // to few arguments
-    std::cerr << "Usage: " << argv[0] << " path [--stats]" << std::endl;
+  if(argc<2){ // too few arguments
+    std::cerr << "Usage: " << argv[0] << " path [--stats|--forward]" << std::endl;
     return 1;
   }
   std::string path = argv[1];
@@ -120,6 +115,38 @@ int main(int argc, char* argv[]){
     std::cout << nZero << " " << nOne << " " << nTwo << std::endl;
     exit(0);
   }
+
+  if(argc>=3 && std::string(argv[2])=="--print"){
+    std::vector<ull> inputindices_vec = readFromTextFile<ull>(path+"/dg-input-indices");
+    std::set<ull> inputindices_set(inputindices_vec.begin(), inputindices_vec.end());
+    std::vector<ull> outputindices_vec = readFromTextFile<ull>(path+"/dg-output-indices");
+    std::set<ull> outputindices_set(outputindices_vec.begin(), outputindices_vec.end());
+
+    tape->iterate(0,number_of_blocks-1, [&inputindices_set,&outputindices_set](ull index, ull index1, ull index2, double diff1, double diff2){
+      std::cout << "|------------------|------------------|------------------|\n";
+      std::cout << "| " << std::setfill(' ') << std::setw(16) << std::hex << index;
+      std::cout << " | " << std::setfill(' ') << std::setw(16) << std::hex << index1;
+      std::cout << " | " << std::setfill(' ') << std::setw(16) << std::hex << index2 << " |\n";
+      bool is_input = inputindices_set.count(index);
+      bool is_output = outputindices_set.count(index);
+      if(index==0){
+        std::cout << "|            dummy | ";
+      } else if(is_input && is_output){
+        std::cout << "|     input/output | ";
+      } else if (is_input) {
+        std::cout << "|            input | ";
+      } else if (is_output) {
+        std::cout << "|           output | ";
+      } else {
+        std::cout << "|                  | ";
+      }
+      std::cout << std::setfill(' ') << std::setw(16) << std::scientific << diff1;
+      std::cout << " | " << std::setfill(' ') << std::setw(16) << std::scientific << diff2 << " |\n";
+    });
+    std::cout << "|------------------|------------------|------------------|" << std::endl;
+    exit(0);
+  }
+
   bool forward = false; // if true, perform forward evaluation of tape instead of reverse evaluation
   if(argc>=3 && std::string(argv[2])=="--forward"){
     forward = true;
@@ -132,69 +159,14 @@ int main(int argc, char* argv[]){
     derivativevec[index] = 0.;
   }
 
-  if(!forward) { // set bar values of output variables
-    std::ifstream outputindices(path+"/dg-output-indices");
-    WARNING(!outputindices.good(), "Error: while opening dg-output-indices.")
-    std::ifstream outputbars(path+"/dg-output-bars");
-    WARNING(!outputbars.good(), "Error: while opening dg-output-bars.")
-    while(true){
-      ull index;
-      outputindices >> index;
-      double bar;
-      outputbars >> bar;
-      if(outputindices.eof() ^ outputbars.eof()){
-        WARNING(true, "Error: Sizes of dg-output-indices and dg-output-bars mismatch.")
-      } else if(outputindices.eof() && outputbars.eof()){
-        break;
-      }
-      derivativevec[index] += bar;
-    }
-  } else { // set dot values of input variables
-    std::ifstream inputindices(path+"/dg-input-indices");
-    WARNING(!inputindices.good(), "Error: while opening dg-input-indices.")
-    std::ifstream inputdots(path+"/dg-input-dots");
-    WARNING(!inputdots.good(), "Error: while opening dg-input-dots.")
-    while(true){
-      ull index;
-      inputindices >> index;
-      double dot;
-      inputdots >> dot;
-      if(inputindices.eof() ^ inputdots.eof()){
-        WARNING(true, "Error: Sizes of dg-input-indices and dg-input-dots mismatch.")
-      } else if(inputindices.eof() && inputdots.eof()){
-        break;
-      }
-      derivativevec[index] += dot;
-    }
-  }
-
-  // evaluate tape
-  if(!forward){
-    tape->evaluateBackward(derivativevec);
-  } else {
+  if(forward){
+    seedGradientVectorFromTextFile(path+"/dg-input-indices", path+"/dg-input-dots", derivativevec);
     tape->evaluateForward(derivativevec);
-  }
-
-  if(!forward){ // read indices of input variables and write corresponding bar values 
-    std::ifstream inputindices(path+"/dg-input-indices");
-    WARNING(!inputindices.good(), "Error: while opening dg-input-indices.")
-    std::ofstream inputbars(path+"/dg-input-bars");
-    while(true){
-      ull index;
-      inputindices >> index;
-      if(inputindices.eof()) break;
-      inputbars << std::setprecision(16) << derivativevec[index] << std::endl;
-    }
-  } else { // read indices of output variables and write corresponding dot values
-    std::ifstream outputindices(path+"/dg-output-indices");
-    WARNING(!outputindices.good(), "Error: while opening dg-output-indices.")
-    std::ofstream outputdots(path+"/dg-output-dots");
-    while(true){
-      ull index;
-      outputindices >> index;
-      if(outputindices.eof()) break;
-      outputdots << std::setprecision(16) << derivativevec[index] << std::endl;
-    }
+    readGradientVectorToTextFile(path+"/dg-output-indices", path+"/dg-output-dots", derivativevec);
+  } else {
+    seedGradientVectorFromTextFile(path+"/dg-output-indices", path+"/dg-output-bars", derivativevec);
+    tape->evaluateBackward(derivativevec);
+    readGradientVectorToTextFile(path+"/dg-input-indices", path+"/dg-input-bars", derivativevec);
   }
 
   if(measure_evaluation_time){

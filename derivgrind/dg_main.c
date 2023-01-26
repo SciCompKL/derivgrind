@@ -78,6 +78,7 @@ Bool warn_about_unwrapped_expressions = False;
 /*! Print intermediate values and dot values for difference quotient debugging.
  */
 Bool diffquotdebug = False;
+
 /*! If nonzero, do not print difference quotient debugging information.
  */
 Long dg_disable = 0;
@@ -89,6 +90,13 @@ HChar mode = 'd';
  */
 const HChar* recording_directory = NULL;
 
+/*! Comma-separated list of indices where the recording should be stopped.
+ */
+const HChar* recording_stop_indices_str = NULL;
+/*! List indices where the recording should be stopped, 0-terminated.
+ */
+const ULong* recording_stop_indices = NULL;
+
 /*! If true, write tape to RAM instead of file.
  *  Only for benchmarking purposes!
  */
@@ -99,6 +107,34 @@ static void dg_post_clo_init(void)
   if(typegrind && mode!='b'){
     VG_(printf)("Option --typegrind=yes can only be used in recording mode (--record=path).\n");
     tl_assert(False);
+  }
+
+  if(bar_record_values && mode!='b'){
+    VG_(printf)("Option --record-values=yes can only be used in recording mode (--record=path).\n");
+    tl_assert(False);
+  }
+
+  if(recording_stop_indices_str && mode!='b'){
+    VG_(printf)("Option --record-stop can only be used in recording mode (--record=path).\n");
+    tl_assert(False);
+  }
+
+  if(recording_stop_indices_str){ // parse the comma-separated list of indices
+    HChar* recording_stop_indices_str_copy = VG_(malloc)("Stopping indices",VG_(strlen)(recording_stop_indices_str)+1);
+    VG_(strcpy)(recording_stop_indices_str_copy, recording_stop_indices_str);
+    Int maxsize = VG_(strlen)(recording_stop_indices_str_copy)/2+2; // sloppy upper bound for the maximal number of indices plus one
+    ULong* indices = VG_(malloc)("Stopping indices",maxsize*sizeof(ULong));
+    HChar* ssaveptr;
+    HChar* indexstr = VG_(strtok_r)(recording_stop_indices_str_copy, ",", &ssaveptr);
+    Int i=0;
+    while(indexstr){
+      indices[i] = VG_(strtoull10)(indexstr, NULL);
+      i++;
+      indexstr = VG_(strtok_r)(NULL, ",", &ssaveptr);
+    }
+    indices[i] = 0;
+    recording_stop_indices = indices;
+    VG_(free)(recording_stop_indices_str_copy);
   }
 
   if(mode=='d'){
@@ -115,6 +151,8 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
    else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
    else if VG_STR_CLO(arg, "--record", recording_directory) { mode = 'b'; }
    else if VG_BOOL_CLO(arg, "--typegrind", typegrind) { }
+   else if VG_BOOL_CLO(arg, "--record-values", bar_record_values) { }
+   else if VG_STR_CLO(arg, "--record-stop", recording_stop_indices_str) { }
    else if VG_BOOL_CLO(arg, "--tape-in-ram", tape_in_ram) { }
    else return False;
    return True;
@@ -123,10 +161,12 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
 static void dg_print_usage(void)
 {
    VG_(printf)(
-"    --warn-unwrapped=no|yes   warn about unwrapped expressions\n"
-"    --diffquotdebug=no|yes    print values and dot values of intermediate results\n"
-"    --record=<directory>      switch to recording mode and store tape and indices in specified dir\n"
-"    --typegrind=no|yes        record index ff...f for results of unwrapped operations\n"
+"    --warn-unwrapped=no|yes    warn about unwrapped expressions\n"
+"    --diffquotdebug=no|yes     print values and dot values of intermediate results\n"
+"    --record=<directory>       switch to recording mode and store tape and indices in specified dir\n"
+"    --typegrind=no|yes         record index ff...f for results of unwrapped operations\n"
+"    --record-values=no|yes     record values of elementary operations for debugging purposes\n"
+"    --record-stop=<i1>,..,<ik> stop recording in debugger when the given indices are assigned\n"
    );
 }
 
@@ -146,7 +186,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
   VG_(strcpy)(s, req);
   HChar* ssaveptr; //!< internal state of strtok_r
 
-  const HChar commands[] = "help get set fget fset lget lset index mark"; //!< list of possible commands
+  const HChar commands[] = "help get set fget fset lget lset index mark fmark lmark"; //!< list of possible commands
   HChar* wcmd = VG_(strtok_r)(s, " ", &ssaveptr); //!< User command
   int key = VG_(keyword_id)(commands, wcmd, kwd_report_duplicated_matches);
   switch(key){
@@ -168,6 +208,8 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         "monitor commands in recording mode:\n"
         "  index <addr>      - Prints index of variable\n"
         "  mark  <addr>      - Marks variable as input and prints its new index\n"
+        "  fmark <addr>      \n"
+        "  lmark <addr>      \n"
       );
       return True;
     case 1: case 3: case 5: { // get, fget, lget
@@ -238,7 +280,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       dg_dot_shadowSet((void*)address,(void*)&shadow,size);
       return True;
     }
-    case 7: case 8: { // index, mark
+    case 7: case 8: case 9: case 10: { // index, mark, fmark, lmark
       if(mode!='b'){ VG_(printf)("Only available in recording mode.\n"); return False; }
       HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
       HChar const* address_str_const = address_str;
@@ -252,11 +294,18 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       if(key==7){ // index
         VG_(gdb_printf)("index: %llu\n",index);
         return True;
-      } else if(key==8){ // mark
+      } else if(key==8||key==9||key==10){ // mark, fmark, lmark
+        double value;
+        switch(key){
+          case 8: value = *(double*)address; break;
+          case 9: value = (double)*(float*)address; break;
+          case 10: convert_f80le_to_f64le((unsigned char*)address,(unsigned char*)&value); break;
+        }
         if(index!=0){
           VG_(gdb_printf)("Warning: Variable depends on other inputs, previous index was %llu.\n",index);
         }
         ULong setIndex = tapeAddStatement_noActivityAnalysis(0,0,0.,0.);
+        if(bar_record_values && setIndex!=0) valuesAddStatement(value);
         dg_bar_shadowSet((void*)address,(void*)&setIndex,(void*)&setIndex+4,4);
         VG_(gdb_printf)("index: %llu\n",setIndex);
         return True;
@@ -312,15 +361,19 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__NEW_INDEX || arg[0]==VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS) {
     if(mode!='b') return True;
-    ULong* index1addr = (ULong*) arg[1];
-    ULong* index2addr = (ULong*) arg[2];
-    double* diff1addr = (double*) arg[3];
-    double* diff2addr = (double*) arg[4];
-    ULong* newindexaddr = (ULong*) arg[5];
-    if(arg[0]==VG_USERREQ__NEW_INDEX)
+    TapeBlockInfo* tbi = (TapeBlockInfo*)(arg[1]);
+    ULong* index1addr = (ULong*) tbi->index1addr;
+    ULong* index2addr = (ULong*) tbi->index2addr;
+    double* diff1addr = (double*) tbi->diff1addr;
+    double* diff2addr = (double*) tbi->diff2addr;
+    ULong* newindexaddr = (ULong*) tbi->newindexaddr;
+    double* valueaddr = (double*) tbi->valueaddr;
+    if(arg[0]==VG_USERREQ__NEW_INDEX){
       *newindexaddr = tapeAddStatement(*index1addr,*index2addr,*diff1addr,*diff2addr);
-    else
+    } else {
       *newindexaddr = tapeAddStatement_noActivityAnalysis(*index1addr,*index2addr,*diff1addr,*diff2addr);
+    }
+    if(bar_record_values && *newindexaddr!=0) valuesAddStatement(*valueaddr);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__INDEX_TO_FILE){
     if(arg[1]==DG_INDEXFILE_INPUT){

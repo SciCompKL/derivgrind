@@ -33,6 +33,8 @@
 
 extern Bool typegrind;
 
+extern Bool bar_record_values;
+
 /*! Add reverse-mode instrumentation to output IRSB.
  *  \param[in,out] diffenv - General data.
  *  \param[in] st_orig - Original statement.

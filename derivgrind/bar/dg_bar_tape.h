@@ -56,6 +56,20 @@ void dg_bar_tape_write_input_index(ULong index);
  */
 void dg_bar_tape_write_output_index(ULong index);
 
+/*! Add one recorded value to the list of operation results.
+ *
+ *  Call this function after the corresponding tapeAddStatement that returned a non-zero index,
+ *  and only if bar_record_values==True.
+ *
+ *  \param value - Value to be recorded.
+ */
+void valuesAddStatement(double value);
+// Note: We did not merge valuesAddStatement into tapeAddStatement because the dirty call would
+// need seven parameters (both halves of two indices, two partial derivatives, plus the value),
+// which is currently not possible in Valgrind/VEX. So one must have two dirty calls, and
+// correspondingly two separate functions that they call. Actually, we need to emit the
+// dirty call for valuesAddStatement only if bar_record_values==True.
+
 /*! Initialize tape.
  */
 void dg_bar_tape_initialize(const HChar* filename);
