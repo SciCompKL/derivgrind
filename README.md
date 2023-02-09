@@ -121,8 +121,8 @@ Placing the directory on a ramdisk like `/dev/shm/` might speed the recording up
   pass to Valgrind via monitor commands. 
 
 ## Limitations
-- While Valgrind supports many more platforms, only X86/Linux and AMD64/Linux 
-  are supported by Derivgrind at the moment.
+- Derivgrind differentiates programs in a "black-box fashion", and does not provide
+  more sophisticated techniques like checkpointing, preaccumulation, or reverse accumulation.
 - Machine code can "hide" real arithmetic behind integer or logical instructions 
   in manifold ways. For example, a bitwise logical "and" can be used to set the
   sign bit to zero, and thereby compute the absolute value. Derivgrind recognizes only
@@ -130,9 +130,11 @@ Placing the directory on a ramdisk like `/dev/shm/` might speed the recording up
   [forward-mode paper](https://arxiv.org/abs/2209.01895). Generally, avoid direct manipulation 
   of a floating-point number's binary representation in your program, and avoid the 
   differentiation of highly optimized numerical libraries.
-- Valgrind might not know all the instructions used in your program, and makes 
-  some floating-point operations behave slightly differently than they do outside
-  of Valgrind.
+- While Valgrind supports many more platforms, only X86/Linux and AMD64/Linux 
+  are supported by Derivgrind at the moment.
+- Valgrind and Derivgrind might not know all the instructions used in your program.
+  For example, Valgrind stops when it reads an AVX-512 instruction. Furthermore, Valgrind 
+  makes some floating-point operations behave slightly differently than they do outside of Valgrind.
 - Running a program under Derivgrind will significantly slow it down. For our 
   Burgers' PDE benchmark compiled in release mode, we have measured a factor of 
   around 30 in forward mode and 180 for the tape recording, respectively.
@@ -144,7 +146,7 @@ Read the file [COPYING](COPYING) in the source distribution for details.
 Some parts of Derivgrind might end up being permanently inserted into 
 the client program, like the `valgrind/derivgrind.h` header providing the client
 request macros. Generally, we have put these parts under the permissive
-MIT license, and we try to avoid third-party dependencies inducing a strong copyleft 
+MIT license, and we try to avoid third-party dependencies that would induce a strong copyleft 
 in these parts. 
 
   
