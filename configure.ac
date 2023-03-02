@@ -17,8 +17,8 @@
 m4_define([v_major_ver], [3])
 m4_define([v_minor_ver], [20])
 m4_define([v_micro_ver], [0])
-m4_define([v_suffix_ver], [GIT])
-m4_define([v_rel_date], ["?? Oct 2022"])
+m4_define([v_suffix_ver], [])
+m4_define([v_rel_date], ["24 Oct 2022"])
 m4_define([v_version],
 	  m4_if(v_suffix_ver, [],
 		[v_major_ver.v_minor_ver.v_micro_ver],
@@ -4790,6 +4790,11 @@ AC_CHECK_FUNCS([     \
         swapcontext  \
         syscall      \
         utimensat    \
+        mempcpy      \
+        stpncpy      \
+        strchrnul    \
+        memrchr      \
+        strndup      \
         ])
 
 # AC_CHECK_LIB adds any library found to the variable LIBS, and links these
