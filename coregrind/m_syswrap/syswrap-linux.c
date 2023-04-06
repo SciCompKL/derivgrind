@@ -70,11 +70,12 @@ static VgSchedReturnCode thread_wrapper(Word /*ThreadId*/ tidW)
 {
    VgSchedReturnCode ret;
    ThreadId     tid = (ThreadId)tidW;
+   Int          lwpid = VG_(gettid)();
    ThreadState* tst = VG_(get_ThreadState)(tid);
 
-   VG_(debugLog)(1, "syswrap-linux", 
-                    "thread_wrapper(tid=%u): entry\n", 
-                    tid);
+   VG_(debugLog)(1, "syswrap-linux",
+                    "thread_wrapper(tid=%u,lwpid=%d): entry\n",
+                    tid, lwpid);
 
    vg_assert(tst->status == VgTs_Init);
 
@@ -90,7 +91,7 @@ static VgSchedReturnCode thread_wrapper(Word /*ThreadId*/ tidW)
 
    VG_TRACK(pre_thread_first_insn, tid);
 
-   tst->os_state.lwpid = VG_(gettid)();
+   tst->os_state.lwpid = lwpid;
    /* Set the threadgroup for real.  This overwrites the provisional value set
       in do_clone().  See comments in do_clone for background, also #226116. */
    tst->os_state.threadgroup = VG_(getpid)();
@@ -101,13 +102,13 @@ static VgSchedReturnCode thread_wrapper(Word /*ThreadId*/ tidW)
    ret = VG_(scheduler)(tid);
 
    vg_assert(VG_(is_exiting)(tid));
-   
+
    vg_assert(tst->status == VgTs_Runnable);
    vg_assert(VG_(is_running_thread)(tid));
 
-   VG_(debugLog)(1, "syswrap-linux", 
-                    "thread_wrapper(tid=%u): exit, schedreturncode %s\n", 
-                    tid, VG_(name_of_VgSchedReturnCode)(ret));
+   VG_(debugLog)(1, "syswrap-linux",
+                    "thread_wrapper(tid=%u,lwpid=%d): exit, schedreturncode %s\n",
+                    tid, lwpid, VG_(name_of_VgSchedReturnCode)(ret));
 
    /* Return to caller, still holding the lock. */
    return ret;
@@ -12938,7 +12939,7 @@ PRE(sys_bpf)
                break;
             }
             /* Name is limited to 128 characters in kernel/bpf/syscall.c. */
-            if (attr->raw_tracepoint.name != NULL)
+            if (attr->raw_tracepoint.name != 0)
                pre_asciiz_str(tid, attr->raw_tracepoint.name, 128,
                               "bpf(attr->raw_tracepoint.name)");
          }
@@ -13302,7 +13303,7 @@ PRE(sys_execveat)
    return;
 #endif
 
-   char *path = (char*) ARG2;
+   const HChar *path = (const HChar*) ARG2;
    Addr arg_2    = ARG3;
    Addr arg_3    = ARG4;
    const HChar   *buf;

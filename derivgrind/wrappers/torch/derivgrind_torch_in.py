@@ -14,7 +14,7 @@
 #  Copyright (C) 2022, Chair for Scientific Computing, TU Kaiserslautern
 #  Copyright (C) since 2023, Chair for Scientific Computing, University of Kaiserslautern-Landau
 #  Homepage: https://www.scicomp.uni-kl.de
-#  Contact: Prof. Nicolas R. Gauger
+#  Contact: Prof. Nicolas R. Gauger (derivgrind@projects.rptu.de)
 #
 #  Lead developer: Max Aehle
 #
@@ -67,17 +67,20 @@ import subprocess
 # that is either contained in the LD_LIBRARY_PATH or the default 
 # library path, e.g. specified by the full path.
 # 
-# The bytestring (here b"") can be used to pass any non-differentiable 
-# parameters to the function, x contains the differentiable inputs,
-# and the third argument (here 1) specifies the number of expected
-# outputs. 
+# The bytestring (here b"") can be used to pass any non-differentiable
+# parameters to the function. The second argument x contains the 
+# differentiable inputs. The third argument (here 1) specifies the number 
+# of expected outputs. 
 #
 # The signature of myfun must be
 #
-#     void functionname(int, char*, int, fptype const*, int, fptype*)
+#     void myfun(int, char*, int, fptype const*, int, fptype*)
 #
-# The three pairs of an integer and a pointer specify the size/count of
-# bytes/scalars in the parameter, input and output buffer, respectively.
+# The argument list consists of three pairs of an integer and a pointer.
+# They refer to the three buffers of non-differentiable parameters, 
+# AD inputs and AD outputs, respectively. The pointer stores the start
+# address of the buffer while the integer specifies its length, in bytes
+# (non-differentiable parameters) or scalars (AD inputs and outputs).
 #
 # Basically, we create a class derived from autograd.Function and
 # providing functions 

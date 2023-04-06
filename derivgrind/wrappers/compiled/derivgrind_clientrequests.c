@@ -17,7 +17,7 @@
    Copyright (C) 2022, Chair for Scientific Computing, TU Kaiserslautern
    Copyright (C) since 2023, Chair for Scientific Computing, University of Kaiserslautern-Landau
    Homepage: https://www.scicomp.uni-kl.de
-   Contact: Prof. Nicolas R. Gauger
+   Contact: Prof. Nicolas R. Gauger (derivgrind@projects.rptu.de)
 
    Lead developer: Max Aehle
 

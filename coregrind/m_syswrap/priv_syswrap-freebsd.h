@@ -372,7 +372,7 @@ DECL_TEMPLATE(freebsd, sys_getcontext) // 421
 DECL_TEMPLATE(freebsd, sys_setcontext) // 422
 DECL_TEMPLATE(freebsd, sys_swapcontext) // 423
 
-#if (FREEBSD_VERS >= FREEBSD_14)
+#if (FREEBSD_VERS >= FREEBSD_13_1)
 DECL_TEMPLATE(freebsd, sys_freebsd13_swapoff) // 424
 #else
 DECL_TEMPLATE(freebsd, sys_swapoff) // 424
@@ -526,16 +526,16 @@ DECL_TEMPLATE(freebsd, sys_fhreadlink) // 567
 
 #if (FREEBSD_VERS >= FREEBSD_12_2)
 
-// unimpl __NR_funlinkat           568
-// unimpl __NR_copy_file_range     569
+DECL_TEMPLATE(freebsd, sys_funlinkat) // 568
+DECL_TEMPLATE(freebsd, sys_copy_file_range) // 569
 DECL_TEMPLATE(freebsd, sys___sysctlbyname) // 570
 
 #if (FREEBSD_VERS >= FREEBSD_13_0)
 // looks like close_range got backported
 // to 12.2 leaving these 4 marked as UNIMPL in 12.2
-// unimpl __NR_shm_open2           571
+DECL_TEMPLATE(freebsd, sys_shm_open2) // 571
 // unimpl __NR_shm_rename          572
-// unimpl __NR_sigfastblock        573
+DECL_TEMPLATE(freebsd, sys_sigfastblock) // 573
 DECL_TEMPLATE(freebsd, sys___realpathat) // 574
 #endif
 
@@ -552,7 +552,7 @@ DECL_TEMPLATE(freebsd, sys___specialfd) // 577
 
 #endif
 
-#if (FREEBSD_VERS >= FREEBSD_14)
+#if (FREEBSD_VERS >= FREEBSD_13_1)
 
 // unimpl __NR_fspacectl   580
 // unimpl __NR_sched_getcpu        581

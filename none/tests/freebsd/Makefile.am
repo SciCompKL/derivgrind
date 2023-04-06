@@ -7,6 +7,10 @@ EXTRA_DIST = \
 	auxv.stderr.exp \
 	auxv.stderr.exp-32on64 \
 	auxv.stderr.exp-freebsd13 \
+	auxv.stderr.exp-freebsd131 \
+	auxv.stderr.exp-freebsd14 \
+	cp.vgtest \
+	cp.stderr.exp \
 	osrel.vgtest \
 	osrel.stderr.exp \
 	osrel.stdout.exp \
@@ -27,10 +31,13 @@ EXTRA_DIST = \
 	fexecve_txt.vgtest \
 	fexecve_txt.stderr.exp \
 	452275.vgtest \
-	452275.stderr.exp
+	452275.stderr.exp \
+	usrstack.vgtest \
+	usrstack.stderr.exp \
+	usrstack.stdout.exp
 
 check_PROGRAMS = \
-	auxv osrel swapcontext hello_world fexecve 452275
+	auxv osrel swapcontext hello_world fexecve 452275 usrstack
 
 AM_CFLAGS   += $(AM_FLAG_M3264_PRI)
 AM_CXXFLAGS += $(AM_FLAG_M3264_PRI)

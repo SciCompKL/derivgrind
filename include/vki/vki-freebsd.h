@@ -40,21 +40,6 @@
      is used.
 
    The files the code is taken from is indicated.
-
-   Note especially that the types are not the glibc versions, many of which
-   are different to those in here.
-
-   Also note that this file contains all the generic header info, ie. that
-   from linux/include/linux/ *.h.  The arch-specific header info, eg. that
-   from linux/include/asm-i386/ *.h, is in vki-$PLATFORM.h and
-   vki_posixtypes-$PLATFORM.h.  (Two files are required to avoid
-   circular dependencies between the generic VKI header and the
-   arch-specific VKI header.  It's possible in the future, as more stuff
-   gets pulled in, that we might have to split files up some more to avoid
-   further circular dependencies.)
-
-   Finally, note that it is assumed that __KERNEL__ is set for all these
-   definitions, which affects some of them.
 */
 
 #ifndef VKI_FREEBSD_H
@@ -215,7 +200,7 @@ typedef __vki_fd_set    vki_fd_set;
 #endif
 
 //----------------------------------------------------------------------
-// linux and freebsd version hacks
+// freebsd version hacks
 //----------------------------------------------------------------------
 #ifndef ELFMAG
 #define ELFMAG "\177ELF"   /* magic string */
@@ -229,10 +214,6 @@ typedef __vki_fd_set    vki_fd_set;
 #define ELF_NOTE_GNU "GNU"
 #endif
 
-// This is not defined on FreeBSD 10.4
-#if !defined(NT_FREEBSD_ABI_TAG)
-#define NT_FREEBSD_ABI_TAG 1
-#endif
 
 #define VKI_ELF_NOTE_ROUNDSIZE 4
 
@@ -1448,22 +1429,22 @@ union vki_semun {
 #define VKI_WNOHANG  0x00000001
 
 typedef enum vki_idtype {
-   P_PID,
-   P_PPID,
-   P_PGID,
-   P_SID,
-   P_CID,
-   P_UID,
-   P_GID,
-   P_ALL,
-   P_LWPID,
-   P_TASKID,
-   P_PROJID,
-   P_POOLID,
-   P_JAILID,
-   P_CTID,
-   P_CPUID,
-   P_PSETID
+   VKI_P_PID,
+   VKI_P_PPID,
+   VKI_P_PGID,
+   VKI_P_SID,
+   VKI_P_CID,
+   VKI_P_UID,
+   VKI_P_GID,
+   VKI_P_ALL,
+   VKI_P_LWPID,
+   VKI_P_TASKID,
+   VKI_P_PROJID,
+   VLI_P_POOLID,
+   VKI_P_JAILID,
+   VKI_P_CTID,
+   VKI_P_CPUID,
+   VKI_P_PSETID
 } vki_idtype_t;
 
 //----------------------------------------------------------------------
@@ -1535,7 +1516,7 @@ struct vki_dirent {
    vki_uint16_t   d_reclen;
    vki_uint8_t d_type;
    vki_uint8_t d_namelen;
-   char     d_name[256]; /* We must not include limits.h! */
+   char     vki_d_name[256]; /* We must not include limits.h! */
 };
 
 //----------------------------------------------------------------------
@@ -1569,7 +1550,7 @@ struct vki_dirent {
 #define VKI_F_GETOWN    6  /*  for sockets. */
 #define VKI_F_OGETLK    7  /* get record locking information */
 #define VKI_F_OSETLK    8  /* set record locking information */
-#define VKI_F_OSETLKW      9  /* F_SETLK; wait if blocked */
+#define VKI_F_OSETLKW   9  /* F_SETLK; wait if blocked */
 #define VKI_F_DUP2FD    10 /* duplicate file descriptor to arg */
 #define VKI_F_GETLK     11 /* get record locking information */
 #define VKI_F_SETLK     12 /* set record locking information */
@@ -1577,11 +1558,13 @@ struct vki_dirent {
 #define VKI_F_SETLK_REMOTE 14 /* debugging support for remote locks */
 #define VKI_F_READAHEAD    15 /* read ahead */
 #define VKI_F_RDAHEAD      16 /* Darwin compatible read ahead */
-#define VKI_F_DUPFD_CLOEXEC   17 /* dup close_on_exec */
-#define VKI_F_DUP2FD_CLOEXEC  18 /* Like F_DUP2FD, but FD_CLOEXEC is set */
+#define VKI_F_DUPFD_CLOEXEC  17 /* dup close_on_exec */
+#define VKI_F_DUP2FD_CLOEXEC 18 /* Like F_DUP2FD, but FD_CLOEXEC is set */
 #define VKI_F_ADD_SEALS    19 /* apply seals to underlying file */
 #define VKI_F_GET_SEALS    20 /* get seals to underlying file */
 #define VKI_F_ISUNIONSTACK 21 /* kludge for libc (part of a union stack?) */
+/* FreeBSD 13.1 and later */
+#define VKI_F_KINFO        22 /* Return kinfo_file for this fd */
 
 /* for F_[GET|SET]FL */
 #define VKI_FD_CLOEXEC  1  /* actually anything with low bit set goes */
@@ -2102,6 +2085,39 @@ struct vki_uuid {
 };
 
 //----------------------------------------------------------------------
+// sys/_sockaddr_storage.h
+//----------------------------------------------------------------------
+
+#define VKI__SS_MAXSIZE     128U
+#define VKI__SS_ALIGNSIZE   (sizeof(__int64_t))
+#define VKI__SS_PAD1SIZE    (VKI__SS_ALIGNSIZE - sizeof(unsigned char) - \
+                            sizeof(vki_sa_family_t))
+#define VKI__SS_PAD2SIZE    (VKI__SS_MAXSIZE - sizeof(unsigned char) - \
+                            sizeof(sa_family_t) - VKI__SS_PAD1SIZE - VKI__SS_ALIGNSIZE)
+
+struct vki_sockaddr_storage {
+        unsigned char   vki_ss_len;         /* address length */
+        vki_sa_family_t     vki_ss_family;      /* address family */
+        char            vki___ss_pad1[VKI__SS_PAD1SIZE];
+        __int64_t       vki___ss_align;     /* force desired struct alignment */
+        char            vki___ss_pad2VKI_[_SS_PAD2SIZE];
+};
+
+//----------------------------------------------------------------------
+// From sys/captrights.h
+//----------------------------------------------------------------------
+
+#define VKI_CAP_RIGHTS_VERSION_00   0
+#define VKI_CAP_RIGHTS_VERSION      VKI_CAP_RIGHTS_VERSION_00
+
+struct vki_cap_rights {
+        vki_uint64_t        cki_cr_rights[VKI_CAP_RIGHTS_VERSION + 2];
+};
+
+typedef struct vki_cap_rights       vki_cap_rights_t;
+
+
+//----------------------------------------------------------------------
 // From sys/user.h
 //----------------------------------------------------------------------
 
@@ -2126,37 +2142,139 @@ struct vki_kinfo_vmentry {
    int   kve_type;
    ULong kve_start;
    ULong kve_end;
-   Off64T   kve_offset;
+   ULong   kve_offset;
    ULong   kve_fileid;
-   UInt    kve_fsid;
+   UInt    kve_fsid_freebsd11;
    int   kve_flags;
    int   kve_resident;
    int   kve_private_resident;
    int   kve_protection;
    int   kve_ref_count;
    int   kve_shadow_count;
-   int   _kve_pad0;
-   int   kve_ispare[16];
+   int      kve_vn_type;
+   ULong kve_vn_size;
+   UInt kve_vn_rdev_freebsd11;
+   UShort kve_vn_mode;
+   UShort kve_status;
+   ULong kve_vn_fsid;
+   ULong kve_vn_rdev;
+   int      _kve_ispare[8];
    char  kve_path[VKI_PATH_MAX];
 };
 
+#define	VKI_KINFO_FILE_SIZE	1392
+
 struct vki_kinfo_file {
-   int     kf_structsize;                  /* Variable size of record. */
-   int     kf_type;                        /* Descriptor type. */
-   int     kf_fd;                          /* Array index. */
-   int     kf_ref_count;                   /* Reference count. */
-   int     kf_flags;                       /* Flags. */
-   int     _kf_pad0;                       /* Round to 64 bit alignment */
-   Off64T  kf_offset;                      /* Seek location. */
-   int     kf_vnode_type;                  /* Vnode type. */
-   int     kf_sock_domain;                 /* Socket domain. */
-   int     kf_sock_type;                   /* Socket type. */
-   int     kf_sock_protocol;               /* Socket protocol. */
-   char    kf_sa_local[128];               /* Socket address. */
-   char    kf_sa_peer[128];                /* Peer address. */
-   int     _kf_ispare[16];                 /* Space for more stuff. */
+   int		vki_kf_structsize;		/* Variable size of record. */
+   int		vki_kf_type;		/* Descriptor type. */
+   int		vki_kf_fd;			/* Array index. */
+   int		vki_kf_ref_count;		/* Reference count. */
+   int		vki_kf_flags;		/* Flags. */
+   int		vki_kf_pad0;		/* Round to 64 bit alignment. */
+   Off64T   vki_kf_offset;		/* Seek location. */
+   union {
+      struct {
+         /* API compatiblity with FreeBSD < 12. */
+         int		vki_kf_vnode_type;
+         int		vki_kf_sock_domain;
+         int		vki_kf_sock_type;
+         int		kf_sock_protocol;
+         struct vki_sockaddr_storage vki_kf_sa_local;
+         struct vki_sockaddr_storage	vki_kf_sa_peer;
+      };
+      union {
+         struct {
+            /* Sendq size */
+            vki_uint32_t	vki_kf_sock_sendq;
+            /* Socket domain. */
+            int		vki_kf_sock_domain0;
+            /* Socket type. */
+            int		vki_kf_sock_type0;
+            /* Socket protocol. */
+            int		vki_kf_sock_protocol0;
+            /* Socket address. */
+            struct vki_sockaddr_storage vki_kf_sa_local;
+            /* Peer address. */
+            struct vki_sockaddr_storage	vki_kf_sa_peer;
+            /* Address of so_pcb. */
+            vki_uint64_t	vki_kf_sock_pcb;
+            /* Address of inp_ppcb. */
+            vki_uint64_t	vki_kf_sock_inpcb;
+            /* Address of unp_conn. */
+            vki_uint64_t	vki_kf_sock_unpconn;
+            /* Send buffer state. */
+            vki_uint16_t	vki_kf_sock_snd_sb_state;
+            /* Receive buffer state. */
+            vki_uint16_t	vki_kf_sock_rcv_sb_state;
+            /* Recvq size. */
+            vki_uint32_t	vki_kf_sock_recvq;
+         } vki_kf_sock;
+         struct {
+            /* Vnode type. */
+            int		vki_kf_file_type;
+            /* Space for future use */
+            int		vki_kf_spareint[3];
+            vki_uint64_t	vki_kf_spareint64[30];
+            /* Vnode filesystem id. */
+            vki_uint64_t	vki_kf_file_fsid;
+            /* File device. */
+            vki_uint64_t	vki_kf_file_rdev;
+            /* Global file id. */
+            vki_uint64_t	vki_kf_file_fileid;
+            /* File size. */
+            vki_uint64_t	vki_kf_file_size;
+            /* Vnode filesystem id, FreeBSD 11 compat. */
+            vki_uint32_t	vki_kf_file_fsid_freebsd11;
+            /* File device, FreeBSD 11 compat. */
+            vki_uint32_t	kf_file_rdev_freebsd11;
+            /* File mode. */
+            vki_uint16_t	vki_kf_file_mode;
+            /* Round to 64 bit alignment. */
+            vki_uint16_t	vki_kf_file_pad0;
+            vki_uint32_t	kf_file_pad1;
+         } kf_file;
+         struct {
+            vki_uint32_t	vki_kf_spareint[4];
+            vki_uint64_t	vki_kf_spareint64[32];
+            vki_uint32_t	vki_kf_sem_value;
+            vki_uint16_t	vki_kf_sem_mode;
+         } kf_sem;
+         struct {
+            vki_uint32_t	vki_kf_spareint[4];
+            vki_uint64_t	vki_kf_spareint64[32];
+            vki_uint64_t	vki_kf_pipe_addr;
+            vki_uint64_t	vki_kf_pipe_peer;
+            vki_uint32_t	vki_kf_pipe_buffer_cnt;
+            /* Round to 64 bit alignment. */
+            vki_uint32_t	vki_kf_pipe_pad0[3];
+         } kf_pipe;
+         struct {
+            vki_uint32_t	vki_kf_spareint[4];
+            vki_uint64_t	vki_kf_spareint64[32];
+            vki_uint32_t	vki_kf_pts_dev_freebsd11;
+            vki_uint32_t	vki_kf_pts_pad0;
+            vki_uint64_t	vki_kf_pts_dev;
+            /* Round to 64 bit alignment. */
+            vki_uint32_t	vki_kf_pts_pad1[4];
+         } kf_pts;
+         struct {
+            vki_uint32_t	vki_kf_spareint[4];
+            vki_uint64_t	vki_kf_spareint64[32];
+            vki_pid_t		vki_kf_pid;
+         } vki_kf_proc;
+         struct {
+            vki_uint64_t	vki_kf_eventfd_value;
+            vki_uint32_t	vki_kf_eventfd_flags;
+         } vki_kf_eventfd;
+      } vki_kf_un;
+   };
+   vki_uint16_t	vki_kf_status;		/* Status flags. */
+   vki_uint16_t	vki_kf_pad1;		/* Round to 32 bit alignment. */
+   int		vki__kf_ispare0;		/* Space for more stuff. */
+   vki_cap_rights_t	vki_kf_cap_rights;		/* Capability rights. */
+   vki_uint64_t	vki__kf_cap_spare;		/* Space for future cap_rights_t. */
    /* Truncated before copyout in sysctl */
-   char    kf_path[VKI_PATH_MAX];          /* Path to file, if any. */
+   char		vki_kf_path[VKI_PATH_MAX];	/* Path to file, if any. */
 };
 
 //----------------------------------------------------------------------
@@ -2233,19 +2351,6 @@ struct vki_arch_elf_state {
 #  define VKI_INIT_ARCH_ELF_STATE { }
 
 #endif
-
-//----------------------------------------------------------------------
-// From sys/caprights.h
-//----------------------------------------------------------------------
-
-#define VKI_CAP_RIGHTS_VERSION_00   0
-#define VKI_CAP_RIGHTS_VERSION      VKI_CAP_RIGHTS_VERSION_00
-
-struct vki_cap_rights {
-   vki_uint64_t        cr_rights[VKI_CAP_RIGHTS_VERSION + 2];
-};
-
-typedef struct vki_cap_rights       vki_cap_rights_t;
 
 //----------------------------------------------------------------------
 // From ufs/ufs/quota.h
@@ -2357,7 +2462,28 @@ struct vki_jail {
    struct in6_addr *ip6;
 };
 
+//----------------------------------------------------------------------
+// From sys/exec.h
+//----------------------------------------------------------------------
 
+struct vki_ps_strings {
+   char** ps_argvstr;
+   unsigned int ps_nargvstr;
+
+   char** ps_envstr;
+   unsigned int ps_nenvstr;
+};
+
+//----------------------------------------------------------------------
+// From sys/elf_common.h
+//----------------------------------------------------------------------
+
+#define VKI_AT_NULL 0
+#define VKI_AT_PS_STRINGS 32
+
+#define VKI_NT_FREEBSD_ABI_TAG 1
+#define VKI_NT_FREEBSD_FEATURE_CTL	4
+#define VKI_NT_FREEBSD_FCTL_WXNEEDED	0x00000008
 
 // See syswrap-freebsd.c PRE/POST(sys_ioctl)
 #if 0
