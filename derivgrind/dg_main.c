@@ -529,11 +529,11 @@ static void dg_pre_clo_init(void)
 
    VG_(details_name)            ("Derivgrind");
    VG_(details_version)         (NULL);
-   VG_(details_description)     ("a tool for forward-mode AD of compiled programs.");
+   VG_(details_description)     ("an automatic differentiation tool.");
    VG_(details_copyright_author)(
-      "Copyright (C) 2022, and GNU GPL'd, by the \n"
-      "Chair for Scientific Computing at TU Kaiserslautern.");
-   VG_(details_bug_reports_to)  ("derivgrind@scicomp.uni-kl.de");
+      "Copyright (C) since 2022, and GNU GPL'd, by the \n"
+      "Chair for Scientific Computing, University of Kaiserslautern-Landau.");
+   VG_(details_bug_reports_to)  ("derivgrind@projects.rptu.de");
 
    VG_(details_avg_translation_sizeB) ( 275 );
 
