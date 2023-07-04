@@ -93,7 +93,7 @@ int main(int argc, char* argv[]){
 
   // open tape file
   if(argc<2){ // too few arguments
-    std::cerr << "Usage: " << argv[0] << " path [--stats|--forward]" << std::endl;
+    std::cerr << "Usage: " << argv[0] << " path [--stats|--forward|--print]" << std::endl;
     return 1;
   }
   std::string path = argv[1];
