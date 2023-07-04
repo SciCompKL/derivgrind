@@ -45,11 +45,11 @@ extern Bool bar_record_values;
  */
 void dg_bar_handle_statement(DiffEnv* diffenv, IRStmt* st_orig);
 
-/*! Initialize forward-mode data structures.
+/*! Initialize recording-pass data structures.
  */
 void dg_bar_initialize(void);
 
-/*! Destroy forward-mode data structures.
+/*! Destroy recording-pass data structures.
  */
 void dg_bar_finalize(void);
 
