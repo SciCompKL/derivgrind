@@ -1,0 +1,177 @@
+/*--------------------------------------------------------------------*/
+/*--- Definition of bit-trick-finding                   dg_trick.c ---*/
+/*--- expression handling.                                         ---*/
+/*--------------------------------------------------------------------*/
+
+/*
+   This file is part of Derivgrind, an automatic differentiation
+   tool applicable to compiled programs.
+
+   Copyright (C) 2022, Chair for Scientific Computing, TU Kaiserslautern
+   Copyright (C) since 2023, Chair for Scientific Computing, University of Kaiserslautern-Landau
+   Homepage: https://www.scicomp.uni-kl.de
+   Contact: Prof. Nicolas R. Gauger (derivgrind@projects.rptu.de)
+
+   Lead developer: Max Aehle
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, see <http://www.gnu.org/licenses/>.
+
+   The GNU General Public License is contained in the file COPYING.
+*/
+
+/*! \file dg_trick.c
+ *  Define statement handling for the bit-trick finding mode of Derivgrind.
+ *
+ *  Most of the instrumentation is similar to the recording pass instrumentation
+ *  in the sense that two layers of shadow memory are used. Therefore, the 
+ *  implementation of the "trick" tool reuses a lot of the "bar" tool functionality.
+ */
+
+#include "../dg_expressionhandling.h"
+
+#include "pub_tool_basics.h"
+#include "pub_tool_libcassert.h"
+#include "pub_tool_tooliface.h"
+
+#include "../dg_shadow.h"
+#include "../bar/dg_bar_shadow.h"
+
+#include "../bar/dg_bar.h"
+#include "dg_trick.h"
+#include "dg_utils.h"
+
+//! Data is copied to/from shadow memory via this buffer of 2x V256.
+V256* dg_trick_shadow_mem_buffer;
+
+#define dg_rounding_mode IRExpr_Const(IRConst_U32(0))
+
+/* --- Define ExpressionHandling. --- */
+
+
+
+#include <VEX/priv/guest_generic_x87.h>
+/*! Dirtyhelper for the extra AD logic to dirty calls to
+ *  x86g_dirtyhelper_storeF80le / amd64g_dirtyhelper_storeF80le.
+ *
+ *  It just writes the lower 4 bytes of the index to the beginning
+ *  of the 80-bit blocks in the lower layer of shadow memory.
+ */
+void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo ( Addr addrU, ULong i64 )
+{
+  dg_bar_shadowSet((void*)addrU,(void*)&i64,NULL,4);
+}
+void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong i64 )
+{
+  dg_bar_shadowSet((void*)addrU,NULL,(void*)&i64,4);
+}
+/*! Dirtyhelper for the extra AD logic to dirty calls to
+ *  x86g_dirtyhelper_loadF80le / amd64g_dirtyhelper_loadF80le.
+ *
+ * When a single activity/discreteness bit is set, it will infect
+ * all bits of the entire datum.
+ */
+ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Lo ( Addr addrU )
+{
+  ULong i64_Lo[2], i64_Hi[2];
+  dg_bar_shadowGet((void*)addrU, (void*)&i64_Lo, (void*)&i64_Hi, 10);
+  if(i64_Lo[0]!=0 || i64_Lo[1]%4!=0) return 0xffffffffffffff;
+  else return 0;
+}
+ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
+{
+  ULong i64_Lo[2], i64_Hi[2];
+  dg_bar_shadowGet((void*)addrU, (void*)&i64_Lo, (void*)&i64_Hi, 10);
+  if(i64_Hi[0]!=0 || i64_Hi[1]%4!=0) return 0xffffffffffffff;
+  else return 0;
+}
+
+static void dg_trick_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
+  IRDirty* ddLo = unsafeIRDirty_0_N(
+        0, "dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Lo",
+        &dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Lo,
+        mkIRExprVec_2(addr, ((IRExpr**)expr)[0]) );
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddLo));
+  IRDirty* ddHi = unsafeIRDirty_0_N(
+        0, "dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Hi",
+        &dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Hi,
+        mkIRExprVec_2(addr, ((IRExpr**)expr)[1]) );
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddHi));
+}
+
+static void dg_trick_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp){
+  IRDirty* ddLo = unsafeIRDirty_1_N(
+        temp+diffenv->tmp_offset,
+        0, "dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Lo",
+        &dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Lo,
+        mkIRExprVec_1(addr) );
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddLo));
+  IRDirty* ddHi = unsafeIRDirty_1_N(
+        temp+2*diffenv->tmp_offset,
+        0, "dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Hi",
+        &dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Hi,
+        mkIRExprVec_1(addr) );
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddHi));
+}
+
+void* dg_bar_operation(DiffEnv* diffenv, IROp op,
+                         IRExpr* arg1, IRExpr* arg2, IRExpr* arg3, IRExpr* arg4,
+                         void* i1, void* i2, void* i3, void* i4){
+  IRExpr *i1Lo=NULL, *i1Hi=NULL, *i2Lo=NULL, *i2Hi=NULL, *i3Lo=NULL, *i3Hi=NULL, *i4Lo=NULL, *i4Hi=NULL;
+  if(i1) { i1Lo = ((IRExpr**)i1)[0]; i1Hi = ((IRExpr**)i1)[1]; }
+  if(i2) { i2Lo = ((IRExpr**)i2)[0]; i2Hi = ((IRExpr**)i2)[1]; }
+  if(i3) { i3Lo = ((IRExpr**)i3)[0]; i3Hi = ((IRExpr**)i3)[1]; }
+  if(i4) { i4Lo = ((IRExpr**)i4)[0]; i4Hi = ((IRExpr**)i4)[1]; }
+  switch(op){
+    #include "dg_bar_operations.c"
+    default: {
+      IRType t_dst=Ity_INVALID, t_arg1=Ity_INVALID, t_arg2=Ity_INVALID, t_arg3=Ity_INVALID, t_arg4=Ity_INVALID;
+      typeOfPrimop(op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
+      // activity is infectious
+      IRExpr* notActive = IRExpr_Const(IRConst_U1(True));
+      if(i1Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(i1Lo, t_arg1));
+      if(i2Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(i2Lo, t_arg2));
+      if(i3Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(i3Lo, t_arg3));
+      if(i4Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(i4Lo, t_arg4));
+      IRExpr* indexLo = IRExpr_ITE(notActive, mkIRConst_zero(t_dst), mkIRConst_ones(t_dst));
+      // unhandled instruction means discrete data
+      IRExpr* indexHi = mkIRConst_ones(t_dst); 
+      return mkIRExprVec_2(indexLo, indexHi);
+    }
+  }
+}
+
+const ExpressionHandling dg_trick_expressionhandling = {
+  &dg_bar_wrtmp,&dg_bar_rdtmp,
+  &dg_bar_puti,&dg_bar_geti,
+  &dg_bar_store,&dg_bar_load,
+  &dg_trick_dirty_storeF80le,&dg_trick_dirty_loadF80le,
+  &dg_bar_constant,&dg_bar_default_,
+  &dg_bar_compare,&dg_bar_ite,
+  &dg_bar_operation
+};
+
+void dg_trick_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){
+  add_statement_modified(diffenv,dg_trick_expressionhandling,st_orig);
+}
+
+void dg_trick_initialize(void){
+  dg_bar_shadow_mem_buffer = VG_(malloc)("dg_bar_shadow_mem_buffer",2*sizeof(V256));
+  dg_bar_shadowInit();
+}
+
+void dg_trick_finalize(void){
+  VG_(free)(dg_bar_shadow_mem_buffer);
+  dg_bar_shadowFini();
+}
+
