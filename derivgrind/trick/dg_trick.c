@@ -47,6 +47,7 @@
 #include "../dg_shadow.h"
 #include "../bar/dg_bar_shadow.h"
 
+#define DG_BAR_H_INCLUDE_TOOL_FUNCTIONS
 #include "../bar/dg_bar.h"
 #include "dg_trick.h"
 #include "dg_utils.h"
