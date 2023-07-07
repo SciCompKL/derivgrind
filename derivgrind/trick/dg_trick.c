@@ -59,34 +59,31 @@ V256* dg_trick_shadow_mem_buffer;
 
 /* --- Define ExpressionHandling. --- */
 
-
+ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size );
 
 #include <VEX/priv/guest_generic_x87.h>
 /*! Dirtyhelper for the extra bit-trick-finding logic to dirty calls to
  *  x86g_dirtyhelper_storeF80le / amd64g_dirtyhelper_storeF80le.
  *
- *  Any activity/discreteness bit in the 64-bit shadow data infects all
+ *  If at least one of the 64 activity bits is on, it infect all the
  *  80 shadow bits stored in shadow memory.
+ *
+ *  If at least one of the 64 discreteness bits is on in addition, issue
+ *  a warning message. But the result is non-discrete again.
  */
-void dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Lo ( Addr addrU, ULong a64 )
+void dg_trick_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong a64Lo, ULong a64Hi )
 {
-  ULong a128[2];
-  if(a64==0){
-    a128[0] = a128[1] = 0;
+  ULong zero[2], ones[2];
+  zero[0] = zero[1] = 0;
+  ones[0] = ones[1] = 0xfffffffffffffffful;
+  if(a64Lo==0){
+    dg_bar_shadowSet((void*)addrU,(void*)zero,(void*)zero,10);
   } else {
-    a128[0] = a128[1] = 0xfffffffffffffffful;
+    if(a64Hi){
+      dg_trick_warn_dirtyhelper(a64Lo,a64Hi,8);
+    }
+    dg_bar_shadowSet((void*)addrU,(void*)ones,(void*)zero,10);
   }
-  dg_bar_shadowSet((void*)addrU,(void*)a128,NULL,10);
-}
-void dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong a64 )
-{
-  ULong a128[2];
-  if(a64==0){
-    a128[0] = a128[1] = 0;
-  } else {
-    a128[0] = a128[1] = 0xfffffffffffffffful;
-  }
-  dg_bar_shadowSet((void*)addrU,NULL,(void*)a128,10);
 }
 /*! Dirtyhelper for the bit-trick-finding logic to dirty calls to
  *  x86g_dirtyhelper_loadF80le / amd64g_dirtyhelper_loadF80le.
@@ -110,16 +107,11 @@ ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
 }
 
 static void dg_trick_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
-  IRDirty* ddLo = unsafeIRDirty_0_N(
-        0, "dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Lo",
-        &dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Lo,
-        mkIRExprVec_2(addr, ((IRExpr**)expr)[0]) );
-  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddLo));
-  IRDirty* ddHi = unsafeIRDirty_0_N(
-        0, "dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Hi",
-        &dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Hi,
-        mkIRExprVec_2(addr, ((IRExpr**)expr)[1]) );
-  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddHi));
+  IRDirty* dd = unsafeIRDirty_0_N(
+        0, "dg_trick_x86g_amd64g_dirtyhelper_storeF80le",
+        &dg_trick_x86g_amd64g_dirtyhelper_storeF80le,
+        mkIRExprVec_3(addr, ((IRExpr**)expr)[0], ((IRExpr**)expr)[1]) );
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
 }
 
 static void dg_trick_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp){
