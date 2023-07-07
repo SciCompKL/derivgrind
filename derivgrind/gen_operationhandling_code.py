@@ -297,8 +297,9 @@ def createTrickCode(op, inputs, fpsize,simdsize,llo):
     input_names[f"f{i}Lo"] = f"f{i}Lo_part"
     input_names[f"f{i}Hi"] = f"f{i}Hi_part"
   output_names = {"flagsIntLo":"flagsIntLo_part", "flagsIntHi":"flagsIntHi_part"}
+  bodyLowest = ""
   for HiLo in ["Lo", "Hi"]:
-    bodyLowest = f"IRExpr* flagsInt{HiLo}_allzero = IRExpr_Const(IRConst_U1(True));\n" 
+    bodyLowest += f"IRExpr* flagsInt{HiLo}_allzero = IRExpr_Const(IRConst_U1(True));\n" 
     for i in inputs:
       bodyLowest += f"flagsInt{HiLo}_allzero = IRExpr_Binop(Iop_And1, flagsInt{HiLo}_allzero, isZero(f{i}{HiLo},Ity_I64));\n"
     bodyLowest += f"IRExpr* flagsInt{HiLo}_part = IRExpr_ITE(flagsInt{HiLo}_allzero, mkIRConst_zero(Ity_I64), mkIRConst_ones(Ity_I64));\n"
@@ -462,7 +463,7 @@ for op in ops:
 the_op = IROp_Info("Iop_F32toF64",1,[1])
 the_op.dotcode = dv("IRExpr_Unop(Iop_F32toF64,d1)")
 the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),IRExpr_Unop(Iop_ReinterpF32asI32,i1{HiLo})));" for HiLo in ["Lo","Hi"]])
-the_op.trickcode = "\n".join(["IRExpr* flags{HiLo} = isZero(f1{HiLo}, Ity_F32);" for HiLo in ["Lo", "Hi"]])
+the_op.trickcode = "\n".join([f"IRExpr* flags{HiLo} = isZero(f1{HiLo}, Ity_F32);" for HiLo in ["Lo", "Hi"]])
 IROp_Infos += [the_op]
 
 
@@ -493,14 +494,14 @@ for direction in ["Shr","Shl"]:
     the_op = IROp_Info(f"Iop_{direction}{size}", 2, [1]);
     the_op.dotcode = dv(f"IRExpr_Binop(Iop_{direction}{size},d1,arg2)")
     the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Binop(Iop_{direction}{size},i1{HiLo},arg2);" for HiLo in ["Lo","Hi"]])
-    the_op.trickcode = "IRExpr* flagsLo = IRExpr_Binop(Iop_{direction}{size}, f1Lo, arg2);\n IRExpr* flagsHi = IRExpr_ITE(isZero(arg2,Ity_I64), IRExpr_Binop(Iop_{direction}{size}, f1Hi, arg2), mkIRConst_ones(typeOfIRExpr(diffenv->sb_out->tyenv,{the_op.apply()}))); " # set discreteness flag for non-trivial shift
+    the_op.trickcode = f"IRExpr* flagsLo = IRExpr_Binop(Iop_{direction}{size}, f1Lo, arg2);\n IRExpr* flagsHi = IRExpr_ITE(isZero(arg2,Ity_I64), IRExpr_Binop(Iop_{direction}{size}, f1Hi, arg2), mkIRConst_ones(typeOfIRExpr(diffenv->sb_out->tyenv,{the_op.apply()}))); " # set discreteness flag for non-trivial shift
     IROp_Infos += [the_op]
 
 # Conversion F64 -> F32: Apply analogously to dot value, and cut bytes from index.
 f64tof32 = IROp_Info("Iop_F64toF32",2,[2])
 f64tof32.dotcode = dv(f64tof32.apply("arg1","d2"))
 f64tof32.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,IRExpr_Unop(Iop_ReinterpF64asI64,i2{HiLo})));" for HiLo in ["Lo","Hi"]])
-f64tof32.trickcode = "\n".join(["IRExpr* flagsLo = IRExpr_ITE(isZero(f2{HiLo}), mkIRConst_zero(Ity_F32), mkIRConst_ones(Ity_F64)); " for HiLo in ["Lo","Hi"]])
+f64tof32.trickcode = f"IRExpr* flagsLo = IRExpr_ITE(isZero(f2Lo, Ity_F64), mkIRConst_zero(Ity_F32), mkIRConst_ones(Ity_F32));\n IRExpr* flagsHi = mkIRConst_zero(Ity_F32); "
 IROp_Infos += [f64tof32]
 
 # Zero-derivative binary operations

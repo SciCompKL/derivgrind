@@ -48,6 +48,7 @@
 #include "dot/dg_dot.h"
 #include "bar/dg_bar.h"
 #include "bar/dg_bar_tape.h"
+#include "trick/dg_trick.h"
 
 /*! \page storage_convention Storage convention for shadow memory
  *
@@ -102,6 +103,10 @@ const ULong* recording_stop_indices = NULL;
  */
 Bool tape_in_ram = False;
 
+/*! Warnlevel for bit-trick finder.
+ */
+const HChar* bittrick_warnlevel = NULL;
+
 static void dg_post_clo_init(void)
 {
   if(typegrind && mode!='b'){
@@ -139,9 +144,11 @@ static void dg_post_clo_init(void)
 
   if(mode=='d'){
     dg_dot_initialize();
-  } else {
+  } else if (mode=='b') {
     dg_bar_initialize();
     dg_bar_tape_initialize(recording_directory);
+  } else if (mode=='t') {
+    dg_trick_initialize();
   }
 }
 
@@ -150,6 +157,7 @@ static Bool dg_process_cmd_line_option(const HChar* arg)
    if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
    else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
    else if VG_STR_CLO(arg, "--record", recording_directory) { mode = 'b'; }
+   else if VG_STR_CLO(arg, "--trick", bittrick_warnlevel) {mode = 't'; }
    else if VG_BOOL_CLO(arg, "--typegrind", typegrind) { }
    else if VG_BOOL_CLO(arg, "--record-values", bar_record_values) { }
    else if VG_STR_CLO(arg, "--record-stop", recording_stop_indices_str) { }
@@ -478,8 +486,8 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
   for(IRTemp t=0; t<nTmp; t++){
     newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
   }
-  // another layer in recording mode
-  if(mode=='b'){
+  // another layer in recording mode and bit-trick finding mode
+  if(mode=='b' || mode=='t'){
     for(IRTemp t=0; t<nTmp; t++){
       newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
     }
@@ -505,6 +513,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
 
     if(mode=='d') dg_dot_handle_statement(&diffenv,st_orig);
     else if(mode=='b') dg_bar_handle_statement(&diffenv,st_orig);
+    else if(mode=='t') dg_trick_handle_statement(&diffenv,st_orig);
     dg_original_statement(&diffenv,st_orig);
 
   }
@@ -520,6 +529,8 @@ static void dg_fini(Int exitcode)
   } else if(mode=='b') {
     dg_bar_finalize();
     dg_bar_tape_finalize();
+  } else if(mode=='t'){
+    dg_trick_finalize();
   }
 }
 

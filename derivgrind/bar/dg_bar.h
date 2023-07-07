@@ -56,7 +56,7 @@ void dg_bar_finalize(void);
 // Declarations of the tool functions are required by the bit-trick-finding instrumentation.
 #ifdef DG_BAR_H_INCLUDE_TOOL_FUNCTIONS
   static void dg_bar_wrtmp(DiffEnv* diffenv, IRTemp temp, void* expr);
-  static void* dg_bar_rdtmp(DiffEnv* diffenv, IRTemp temp)
+  static void* dg_bar_rdtmp(DiffEnv* diffenv, IRTemp temp);
   static void dg_bar_puti(DiffEnv* diffenv, Int offset, void* expr, IRRegArray* descr, IRExpr* ix);
   static void* dg_bar_geti(DiffEnv* diffenv, Int offset, IRType type, IRRegArray* descr, IRExpr* ix);
   static void dg_bar_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* guard);

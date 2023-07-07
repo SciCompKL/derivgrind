@@ -59,20 +59,21 @@ V256* dg_bar_shadow_mem_buffer;
 #define dg_rounding_mode IRExpr_Const(IRConst_U32(0))
 
 /* --- Define ExpressionHandling. --- */
+// some functions are not static because the trick-instrumention also needs them
 
-static void dg_bar_wrtmp(DiffEnv* diffenv, IRTemp temp, void* expr){
+void dg_bar_wrtmp(DiffEnv* diffenv, IRTemp temp, void* expr){
   IRStmt* spLo = IRStmt_WrTmp(temp+diffenv->tmp_offset, ((IRExpr**)expr)[0]);
   addStmtToIRSB(diffenv->sb_out,spLo);
   IRStmt* spHi = IRStmt_WrTmp(temp+2*diffenv->tmp_offset, ((IRExpr**)expr)[1]);
   addStmtToIRSB(diffenv->sb_out,spHi);
 }
-static void* dg_bar_rdtmp(DiffEnv* diffenv, IRTemp temp){
+void* dg_bar_rdtmp(DiffEnv* diffenv, IRTemp temp){
   IRExpr* exLo = IRExpr_RdTmp(temp+diffenv->tmp_offset);
   IRExpr* exHi = IRExpr_RdTmp(temp+2*diffenv->tmp_offset);
   return (void*)mkIRExprVec_2(exLo,exHi);
 }
 
-static void dg_bar_puti(DiffEnv* diffenv, Int offset, void* expr, IRRegArray* descr, IRExpr* ix){
+void dg_bar_puti(DiffEnv* diffenv, Int offset, void* expr, IRRegArray* descr, IRExpr* ix){
   if(descr){ // PutI
     IRRegArray* shadow_descrLo = mkIRRegArray(descr->base+diffenv->gs_offset, descr->elemTy, descr->nElems);
     IRStmt* spLo = IRStmt_PutI(mkIRPutI(shadow_descrLo,ix,offset+diffenv->gs_offset,((IRExpr**)expr)[0]));
@@ -87,7 +88,7 @@ static void dg_bar_puti(DiffEnv* diffenv, Int offset, void* expr, IRRegArray* de
     addStmtToIRSB(diffenv->sb_out, spHi);
   }
 }
-static void* dg_bar_geti(DiffEnv* diffenv, Int offset, IRType type, IRRegArray* descr, IRExpr* ix){
+void* dg_bar_geti(DiffEnv* diffenv, Int offset, IRType type, IRRegArray* descr, IRExpr* ix){
   if(descr){ // GetI
     IRRegArray* shadow_descrLo = mkIRRegArray(descr->base+diffenv->gs_offset,descr->elemTy,descr->nElems);
     IRExpr* exLo = IRExpr_GetI(shadow_descrLo,ix,offset+diffenv->gs_offset);
@@ -117,7 +118,7 @@ void dg_bar_x86g_amd64g_dirtyhelper_load(Addr addr, ULong size){
   dg_bar_shadowGet((void*)addr,dg_bar_shadow_mem_buffer,dg_bar_shadow_mem_buffer+1,size);
 }
 
-static void dg_bar_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* guard){
+void dg_bar_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* guard){
   #ifdef BUILD_32BIT
   IRExpr* buffer_addr_Lo = IRExpr_Const(IRConst_U32((Addr)dg_bar_shadow_mem_buffer));
   IRExpr* buffer_addr_Hi = IRExpr_Const(IRConst_U32((Addr)(dg_bar_shadow_mem_buffer+1)));
@@ -137,7 +138,7 @@ static void dg_bar_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* gua
   if(guard) dd->guard=guard;
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
 }
-static void* dg_bar_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
+void* dg_bar_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
   #ifdef BUILD_32BIT
   IRExpr* buffer_addr_Lo = IRExpr_Const(IRConst_U32((Addr)dg_bar_shadow_mem_buffer));
   IRExpr* buffer_addr_Hi = IRExpr_Const(IRConst_U32((Addr)(dg_bar_shadow_mem_buffer+1)));
@@ -192,7 +193,7 @@ ULong dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
   return i64_Hi;
 }
 
-static void dg_bar_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
+void dg_bar_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
   IRDirty* ddLo = unsafeIRDirty_0_N(
         0, "dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo",
         &dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo,
@@ -205,7 +206,7 @@ static void dg_bar_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddHi));
 }
 
-static void dg_bar_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp){
+void dg_bar_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp){
   IRDirty* ddLo = unsafeIRDirty_1_N(
         temp+diffenv->tmp_offset,
         0, "dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Lo",
@@ -220,7 +221,7 @@ static void dg_bar_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp){
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddHi));
 }
 
-static void* dg_bar_constant(DiffEnv* diffenv, IRConstTag type){
+void* dg_bar_constant(DiffEnv* diffenv, IRConstTag type){
   IRExpr* zero;
   switch(type){
     case Ico_F64: zero = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Const(IRConst_U64(0))); break;
@@ -240,7 +241,7 @@ static void* dg_bar_constant(DiffEnv* diffenv, IRConstTag type){
   return mkIRExprVec_2(zero,zero);
 }
 
-static void* dg_bar_default_(DiffEnv* diffenv, IRType type){
+void* dg_bar_default_(DiffEnv* diffenv, IRType type){
   IRExpr* zeroU = IRExpr_Const(IRConst_U64(0));
   IRExpr* zero;
   switch(type){
@@ -262,7 +263,7 @@ static void* dg_bar_default_(DiffEnv* diffenv, IRType type){
   return mkIRExprVec_2(zero,zero);
 }
 
-static IRExpr* dg_bar_compare(DiffEnv* diffenv, void* arg1, void* arg2){
+IRExpr* dg_bar_compare(DiffEnv* diffenv, void* arg1, void* arg2){
   IROp cmp;
   IRType type = typeOfIRExpr(diffenv->sb_out->tyenv,((IRExpr**)arg1)[0]);
   tl_assert(type == typeOfIRExpr(diffenv->sb_out->tyenv,((IRExpr**)arg2)[0]));
@@ -278,7 +279,7 @@ static IRExpr* dg_bar_compare(DiffEnv* diffenv, void* arg1, void* arg2){
   return IRExpr_Binop(Iop_And1,cmpLo,cmpHi);
 }
 
-static void* dg_bar_ite(DiffEnv* diffenv, IRExpr* cond, void* dtrue, void* dfalse){
+void* dg_bar_ite(DiffEnv* diffenv, IRExpr* cond, void* dtrue, void* dfalse){
   IRExpr* exLo = IRExpr_ITE(cond,((IRExpr**)dtrue)[0],((IRExpr**)dfalse)[0]);
   IRExpr* exHi = IRExpr_ITE(cond,((IRExpr**)dtrue)[1],((IRExpr**)dfalse)[1]);
   return (void*)mkIRExprVec_2(exLo,exHi);
