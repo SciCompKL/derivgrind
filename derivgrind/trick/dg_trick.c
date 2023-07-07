@@ -88,22 +88,29 @@ void dg_trick_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong a64Lo, ULon
 /*! Dirtyhelper for the bit-trick-finding logic to dirty calls to
  *  x86g_dirtyhelper_loadF80le / amd64g_dirtyhelper_loadF80le.
  *
- *  Any activity/discreteness bit in the 80-bit shadow datum infects
- *  all 64 shadow bits when the datum is loaded from shadow memory.
+ *  If at least one of the 80 activity bits is on, it infects all the
+ *  64 shadow bits of the datum read from memory.
+ *
+ *  If at least one of the 80 discreteness bits is on in addition, issue
+ *  a warning message. But the result is non-discrete again.
  */
 ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Lo ( Addr addrU )
 {
-  ULong i64_Lo[2], i64_Hi[2];
-  dg_bar_shadowGet((void*)addrU, (void*)&i64_Lo, (void*)&i64_Hi, 10);
-  if(i64_Lo[0]!=0 || i64_Lo[1]%4!=0) return 0xffffffffffffff;
+  ULong a64Lo[2], a64Hi[2];
+  dg_bar_shadowGet((void*)addrU, (void*)&a64Lo, (void*)&a64Hi, 10);
+  if(a64Lo[0]!=0 || a64Lo[1]%0x10000!=0) return 0xfffffffffffffful;
   else return 0;
 }
 ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
 {
-  ULong i64_Lo[2], i64_Hi[2];
-  dg_bar_shadowGet((void*)addrU, (void*)&i64_Lo, (void*)&i64_Hi, 10);
-  if(i64_Hi[0]!=0 || i64_Hi[1]%4!=0) return 0xffffffffffffff;
-  else return 0;
+  ULong a64Lo[2], a64Hi[2];
+  dg_bar_shadowGet((void*)addrU, (void*)&a64Lo, (void*)&a64Hi, 10);
+  if(a64Lo[0]!=0 || a64Lo[1]%0x10000!=0){
+    if(a64Hi[0]!=0 || a64Hi[1]%0x10000!=0){
+      dg_trick_warn_dirtyhelper(a64Lo[0], a64Hi[0], 8); // TODO not quite, two bytes are not reported to user
+    }
+  }
+  return 0;
 }
 
 static void dg_trick_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
