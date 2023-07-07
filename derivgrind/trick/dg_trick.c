@@ -137,6 +137,34 @@ static void dg_trick_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddHi));
 }
 
+ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size ){
+  ULong mask = (size==4) ? 0x00000000fffffffful : 0xfffffffffffffffful;
+  if(fLo & fHi & mask){
+    VG_(message)(Vg_UserMsg, "Active discrete data used as floating-point operand.\n");
+    VG_(message)(Vg_UserMsg, "Activity bits: %llu. Discreteness bits: %llu.\n", fLo, fHi);
+    VG_(message)(Vg_UserMsg, "At\n");
+    VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 16);
+    VG_(message)(Vg_UserMsg, "\n");
+    VG_(gdbserver)(VG_(get_running_tid)());
+  }
+}
+
+static void dg_trick_warn4(DiffEnv* diffenv, IRExpr* flagsLo, IRExpr* flagsHi){
+  IRDirty* dd = unsafeIRDirty_0_N(
+        0, "dg_trick_warn_dirtyhelper",
+        &dg_trick_warn_dirtyhelper,
+        mkIRExprVec_3(flagsLo,flagsHi,IRExpr_Const(IRConst_U64(4))) );
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
+}
+
+static void dg_trick_warn8(DiffEnv* diffenv, IRExpr* flagsLo, IRExpr* flagsHi){
+  IRDirty* dd = unsafeIRDirty_0_N(
+        0, "dg_trick_warn_dirtyhelper",
+        &dg_trick_warn_dirtyhelper,
+        mkIRExprVec_3(flagsLo,flagsHi,IRExpr_Const(IRConst_U64(8))) );
+  addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
+}
+
 void* dg_trick_operation(DiffEnv* diffenv, IROp op,
                          IRExpr* arg1, IRExpr* arg2, IRExpr* arg3, IRExpr* arg4,
                          void* f1, void* f2, void* f3, void* f4){

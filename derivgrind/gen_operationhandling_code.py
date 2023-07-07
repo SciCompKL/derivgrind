@@ -287,10 +287,12 @@ def createTrickCode(op, inputs, fpsize,simdsize,llo):
     
     @param op - IROp whose trickcode we currently define (necessary to infer the output type).
     @param inputs - List of argument indices (1...4) that affect the bit-trick-finder flags of the result.
+    @param inputs - List of argument indices (1...4) for which warnings are printed if they are active and discrete.
     @param fpsize - Size of component, either 4 or 8 (bytes)
     @param simdsize - Number of components, 1, 2, 4 or 8.
     @param llo - Whether it is a lowest-lane-only operation, boolean.
   """
+  floatinputs = inputs
   input_names = {}
   for i in inputs:
     input_names[f"arg{i}"] = f"arg{i}_part"
@@ -298,6 +300,8 @@ def createTrickCode(op, inputs, fpsize,simdsize,llo):
     input_names[f"f{i}Hi"] = f"f{i}Hi_part"
   output_names = {"flagsIntLo":"flagsIntLo_part", "flagsIntHi":"flagsIntHi_part"}
   bodyLowest = ""
+  for i in floatinputs:
+    bodyLowest += f'dg_trick_warn{fpsize}(diffenv, f{i}Lo_part, f{i}Hi_part);\n'
   for HiLo in ["Lo", "Hi"]:
     bodyLowest += f"IRExpr* flagsInt{HiLo}_allzero = IRExpr_Const(IRConst_U1(True));\n" 
     for i in inputs:
