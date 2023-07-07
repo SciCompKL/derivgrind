@@ -494,7 +494,7 @@ for direction in ["Shr","Shl"]:
     the_op = IROp_Info(f"Iop_{direction}{size}", 2, [1]);
     the_op.dotcode = dv(f"IRExpr_Binop(Iop_{direction}{size},d1,arg2)")
     the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Binop(Iop_{direction}{size},i1{HiLo},arg2);" for HiLo in ["Lo","Hi"]])
-    the_op.trickcode = f"IRExpr* flagsLo = IRExpr_Binop(Iop_{direction}{size}, f1Lo, arg2);\n IRExpr* flagsHi = IRExpr_ITE(isZero(arg2,Ity_I64), IRExpr_Binop(Iop_{direction}{size}, f1Hi, arg2), mkIRConst_ones(typeOfIRExpr(diffenv->sb_out->tyenv,{the_op.apply()}))); " # set discreteness flag for non-trivial shift
+    the_op.trickcode = f"IRExpr* flagsLo = IRExpr_Binop(Iop_{direction}{size}, f1Lo, arg2);\n IRExpr* flagsHi = IRExpr_ITE(isZero(arg2,Ity_I8), IRExpr_Binop(Iop_{direction}{size}, f1Hi, arg2), mkIRConst_ones(typeOfIRExpr(diffenv->sb_out->tyenv,{the_op.apply()}))); " # set discreteness flag for non-trivial shift
     IROp_Infos += [the_op]
 
 # Conversion F64 -> F32: Apply analogously to dot value, and cut bytes from index.
