@@ -137,25 +137,25 @@ static void dg_trick_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddHi));
 }
 
-void* dg_bar_operation(DiffEnv* diffenv, IROp op,
+void* dg_trick_operation(DiffEnv* diffenv, IROp op,
                          IRExpr* arg1, IRExpr* arg2, IRExpr* arg3, IRExpr* arg4,
-                         void* i1, void* i2, void* i3, void* i4){
-  IRExpr *i1Lo=NULL, *i1Hi=NULL, *i2Lo=NULL, *i2Hi=NULL, *i3Lo=NULL, *i3Hi=NULL, *i4Lo=NULL, *i4Hi=NULL;
-  if(i1) { i1Lo = ((IRExpr**)i1)[0]; i1Hi = ((IRExpr**)i1)[1]; }
-  if(i2) { i2Lo = ((IRExpr**)i2)[0]; i2Hi = ((IRExpr**)i2)[1]; }
-  if(i3) { i3Lo = ((IRExpr**)i3)[0]; i3Hi = ((IRExpr**)i3)[1]; }
-  if(i4) { i4Lo = ((IRExpr**)i4)[0]; i4Hi = ((IRExpr**)i4)[1]; }
+                         void* f1, void* f2, void* f3, void* f4){
+  IRExpr *f1Lo=NULL, *f1Hi=NULL, *f2Lo=NULL, *f2Hi=NULL, *f3Lo=NULL, *f3Hi=NULL, *f4Lo=NULL, *f4Hi=NULL;
+  if(f1) { f1Lo = ((IRExpr**)f1)[0]; f1Hi = ((IRExpr**)f1)[1]; }
+  if(f2) { f2Lo = ((IRExpr**)f2)[0]; f2Hi = ((IRExpr**)f2)[1]; }
+  if(f3) { f3Lo = ((IRExpr**)f3)[0]; f3Hi = ((IRExpr**)f3)[1]; }
+  if(f4) { f4Lo = ((IRExpr**)f4)[0]; f4Hi = ((IRExpr**)f4)[1]; }
   switch(op){
-    #include "dg_bar_operations.c"
+    #include "dg_trick_operations.c"
     default: {
       IRType t_dst=Ity_INVALID, t_arg1=Ity_INVALID, t_arg2=Ity_INVALID, t_arg3=Ity_INVALID, t_arg4=Ity_INVALID;
       typeOfPrimop(op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
       // activity is infectious
       IRExpr* notActive = IRExpr_Const(IRConst_U1(True));
-      if(i1Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(i1Lo, t_arg1));
-      if(i2Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(i2Lo, t_arg2));
-      if(i3Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(i3Lo, t_arg3));
-      if(i4Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(i4Lo, t_arg4));
+      if(f1Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(f1Lo, t_arg1));
+      if(f2Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(f2Lo, t_arg2));
+      if(f3Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(f3Lo, t_arg3));
+      if(f4Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(f4Lo, t_arg4));
       IRExpr* indexLo = IRExpr_ITE(notActive, mkIRConst_zero(t_dst), mkIRConst_ones(t_dst));
       // unhandled instruction means discrete data
       IRExpr* indexHi = mkIRConst_ones(t_dst); 
@@ -171,7 +171,7 @@ const ExpressionHandling dg_trick_expressionhandling = {
   &dg_trick_dirty_storeF80le,&dg_trick_dirty_loadF80le,
   &dg_bar_constant,&dg_bar_default_,
   &dg_bar_compare,&dg_bar_ite,
-  &dg_bar_operation
+  &dg_trick_operation
 };
 
 void dg_trick_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){

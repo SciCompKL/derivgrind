@@ -35,8 +35,9 @@
 
 
 IRExpr* mkIRConst_zero(IRType type){
-  IRExpr* zeroF = IRExpr_Const(IRConst_F64(0.));
   IRExpr* zeroU = IRExpr_Const(IRConst_U64(0));
+  //IRExpr* zeroF = IRExpr_Const(IRConst_F64(0.));
+  IRExpr* zeroF = IRExpr_Unop(Iop_ReinterpI64asF64, zeroU);
   switch(type){
     case Ity_INVALID: tl_assert(False); return NULL;
     case Ity_I1: return IRExpr_Const(IRConst_U1(0));

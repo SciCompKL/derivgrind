@@ -462,7 +462,7 @@ for op in ops:
 the_op = IROp_Info("Iop_F32toF64",1,[1])
 the_op.dotcode = dv("IRExpr_Unop(Iop_F32toF64,d1)")
 the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),IRExpr_Unop(Iop_ReinterpF32asI32,i1{HiLo})));" for HiLo in ["Lo","Hi"]])
-# Trick-code TODO
+the_op.trickcode = "\n".join(["IRExpr* flags{HiLo} = isZero(f1{HiLo}, Ity_F32);" for HiLo in ["Lo", "Hi"]])
 IROp_Infos += [the_op]
 
 
@@ -470,7 +470,8 @@ IROp_Infos += [the_op]
 for op in ["I32StoF64", "I32UtoF64"]:
   the_op = IROp_Info(f"Iop_{op}",1,[])
   the_op.dotcode = dv("IRExpr_Const(IRConst_F64i(0))")
-  the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64, IRExpr_Const(IRConst_U64(0)));" for HiLo in ["Lo","Hi"]])
+  the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = mkIRConst_zero(Ity_F64);" for HiLo in ["Lo","Hi"]])
+  the_op.trickcode = f"IRExpr* flagsLo = IRExpr_ITE(isZero(f1Lo,Ity_I32), mkIRConst_zero(Ity_F64), mkIRConst_ones(Ity_F64));\n IRExpr* flagsHi = mkIRConst_zero(Ity_F64);"
   IROp_Infos += [the_op]
 
 # Binary operations that move data, apply analogously to dot values and indices.
@@ -483,6 +484,7 @@ for op in ops:
   the_op = IROp_Info(op,2,[1,2])
   the_op.dotcode = dv(f"IRExpr_Binop({op},d1,d2)")
   the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Binop({op},i1{HiLo},i2{HiLo});" for HiLo in ["Lo","Hi"]])
+  the_op.trickcode = "\n".join([f"IRExpr* flags{HiLo} = IRExpr_Binop({op},f1{HiLo},f2{HiLo});" for HiLo in ["Lo","Hi"]])
   IROp_Infos += [the_op]
 
 # Bitshifts, as a special case of data move operations
@@ -491,12 +493,14 @@ for direction in ["Shr","Shl"]:
     the_op = IROp_Info(f"Iop_{direction}{size}", 2, [1]);
     the_op.dotcode = dv(f"IRExpr_Binop(Iop_{direction}{size},d1,arg2)")
     the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Binop(Iop_{direction}{size},i1{HiLo},arg2);" for HiLo in ["Lo","Hi"]])
+    the_op.trickcode = "IRExpr* flagsLo = IRExpr_Binop(Iop_{direction}{size}, f1Lo, arg2);\n IRExpr* flagsHi = IRExpr_ITE(isZero(arg2,Ity_I64), IRExpr_Binop(Iop_{direction}{size}, f1Hi, arg2), mkIRConst_ones(typeOfIRExpr(diffenv->sb_out->tyenv,{the_op.apply()}))); " # set discreteness flag for non-trivial shift
     IROp_Infos += [the_op]
 
 # Conversion F64 -> F32: Apply analogously to dot value, and cut bytes from index.
 f64tof32 = IROp_Info("Iop_F64toF32",2,[2])
 f64tof32.dotcode = dv(f64tof32.apply("arg1","d2"))
 f64tof32.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,IRExpr_Unop(Iop_ReinterpF64asI64,i2{HiLo})));" for HiLo in ["Lo","Hi"]])
+f64tof32.trickcode = "\n".join(["IRExpr* flagsLo = IRExpr_ITE(isZero(f2{HiLo}), mkIRConst_zero(Ity_F32), mkIRConst_ones(Ity_F64)); " for HiLo in ["Lo","Hi"]])
 IROp_Infos += [f64tof32]
 
 # Zero-derivative binary operations
@@ -572,6 +576,8 @@ for irop_info in IROp_Infos:
     print(irop_info.makeCaseDot(True))
   elif mode=='bar':
     print(irop_info.makeCaseBar())
+  elif mode=='trick':
+    print(irop_info.makeCaseTrick())
   else:
     print(f"Error: Bad mode '{mode}'.",file=sys.stderr)
     exit(1)
