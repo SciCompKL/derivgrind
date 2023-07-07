@@ -272,7 +272,7 @@ IRExpr* dg_bar_compare(DiffEnv* diffenv, void* arg1, void* arg2){
     case Ity_I16: cmp = Iop_CmpEQ16; break;
     case Ity_I32: cmp = Iop_CmpEQ32; break;
     case Ity_I64: cmp = Iop_CmpEQ64; break;
-    default: VG_(printf)("Unhandled type in dg_dot_compare.\n"); tl_assert(False); break;
+    default: VG_(printf)("Unhandled type in dg_bar_compare.\n"); tl_assert(False); break;
   }
   IRExpr* cmpLo = IRExpr_Binop(cmp,((IRExpr**)arg1)[0],((IRExpr**)arg2)[0]);
   IRExpr* cmpHi = IRExpr_Binop(cmp,((IRExpr**)arg1)[1],((IRExpr**)arg2)[1]);
