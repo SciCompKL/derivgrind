@@ -61,12 +61,14 @@ derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LINK = \
 	$(derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDFLAGS)
 endif
 
-BUILT_SOURCES = dot/dg_dot_operations.c bar/dg_bar_operations.c
+BUILT_SOURCES = dot/dg_dot_operations.c bar/dg_bar_operations.c trick/dg_trick_operations.c
 dot/dg_dot_operations.c: gen_operationhandling_code.py
 	python3 gen_operationhandling_code.py dot > dot/dg_dot_operations.c
 bar/dg_bar_operations.c: gen_operationhandling_code.py
 	python3 gen_operationhandling_code.py bar > bar/dg_bar_operations.c
-CLEANFILES = dot/dg_dot_operations.c bar/dg_bar_operations.c
+trick/dg_trick_operations.c: gen_operationhandling_code.py
+	python3 gen_operationhandling_code.py trick > trick/dg_trick_operations.c
+CLEANFILES = dot/dg_dot_operations.c bar/dg_bar_operations.c trick/dg_trick_operations.c
 
 
 #----------------------------------------------------------------------------
