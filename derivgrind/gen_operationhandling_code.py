@@ -305,7 +305,7 @@ def createTrickCode(op, inputs, fpsize,simdsize,llo):
   for HiLo in ["Lo", "Hi"]:
     bodyLowest += f"IRExpr* flagsInt{HiLo}_allzero = IRExpr_Const(IRConst_U1(True));\n" 
     for i in inputs:
-      bodyLowest += f"flagsInt{HiLo}_allzero = IRExpr_Binop(Iop_And1, flagsInt{HiLo}_allzero, isZero(f{i}{HiLo},Ity_I64));\n"
+      bodyLowest += f"flagsInt{HiLo}_allzero = IRExpr_Binop(Iop_And1, flagsInt{HiLo}_allzero, isZero(f{i}{HiLo}_part,Ity_I64));\n"
     bodyLowest += f"IRExpr* flagsInt{HiLo}_part = IRExpr_ITE(flagsInt{HiLo}_allzero, mkIRConst_zero(Ity_I64), mkIRConst_ones(Ity_I64));\n"
   if llo:
     bodyNonLowest = f'  IRExpr* flagsIntLo_part = f{inputs[0]}Lo_part;\n  IRExpr* flagsIntHi_part = f{inputs[0]}Hi_part;\n'
