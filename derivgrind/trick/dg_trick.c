@@ -145,7 +145,7 @@ ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size ){
     VG_(message)(Vg_UserMsg, "At\n");
     VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 16);
     VG_(message)(Vg_UserMsg, "\n");
-    VG_(gdbserver)(VG_(get_running_tid)());
+    //VG_(gdbserver)(VG_(get_running_tid)());
   }
 }
 

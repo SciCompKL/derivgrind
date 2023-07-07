@@ -393,6 +393,11 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
       tl_assert(False);
     }
     return True;
+  } else if(arg[0]==VG_USERREQ__MARK_FLOAT){
+    void* addr = (void*) arg[1];
+    UWord size = arg[2];
+    ULong ones = 0xfffffffffffffffful;
+    dg_bar_shadowSet(addr,&ones,NULL,size);
   } else if(arg[0]==VG_USERREQ__GET_MODE){
     *ret = (UWord)mode;
     return True;
