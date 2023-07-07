@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------*/
-/*--- Recording-mode handling of                  dg_bar_bitwise.h ---*/
+/*--- Bit-trick-finder handling of              dg_trick_bitwise.h ---*/
 /*--- bitwise logical operations.                                  ---*/
 /*--------------------------------------------------------------------*/
 
