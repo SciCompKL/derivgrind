@@ -474,7 +474,7 @@ for op in ops:
 the_op = IROp_Info("Iop_F32toF64",1,[1])
 the_op.dotcode = dv("IRExpr_Unop(Iop_F32toF64,d1)")
 the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),IRExpr_Unop(Iop_ReinterpF32asI32,i1{HiLo})));" for HiLo in ["Lo","Hi"]])
-the_op.trickcode = "\n".join([f"IRExpr* flags{HiLo} = isZero(f1{HiLo}, Ity_F32);" for HiLo in ["Lo", "Hi"]])
+the_op.trickcode = "\n".join([f"IRExpr* flags{HiLo} = IRExpr_ITE(isZero(f1{HiLo}, Ity_F32), mkIRConst_zero(Ity_F64), mkIRConst_ones(Ity_F64));" for HiLo in ["Lo", "Hi"]])
 IROp_Infos += [the_op]
 
 
