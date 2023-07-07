@@ -61,25 +61,37 @@ V256* dg_trick_shadow_mem_buffer;
 
 
 #include <VEX/priv/guest_generic_x87.h>
-/*! Dirtyhelper for the extra AD logic to dirty calls to
+/*! Dirtyhelper for the extra bit-trick-finding logic to dirty calls to
  *  x86g_dirtyhelper_storeF80le / amd64g_dirtyhelper_storeF80le.
  *
- *  It just writes the lower 4 bytes of the index to the beginning
- *  of the 80-bit blocks in the lower layer of shadow memory.
+ *  Any activity/discreteness bit in the 64-bit shadow data infects all
+ *  80 shadow bits stored in shadow memory.
  */
-void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo ( Addr addrU, ULong i64 )
+void dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Lo ( Addr addrU, ULong a64 )
 {
-  dg_bar_shadowSet((void*)addrU,(void*)&i64,NULL,4);
+  ULong a128[2];
+  if(a64==0){
+    a128[0] = a128[1] = 0;
+  } else {
+    a128[0] = a128[1] = 0xfffffffffffffffful;
+  }
+  dg_bar_shadowSet((void*)addrU,(void*)a128,NULL,10);
 }
-void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong i64 )
+void dg_trick_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong a64 )
 {
-  dg_bar_shadowSet((void*)addrU,NULL,(void*)&i64,4);
+  ULong a128[2];
+  if(a64==0){
+    a128[0] = a128[1] = 0;
+  } else {
+    a128[0] = a128[1] = 0xfffffffffffffffful;
+  }
+  dg_bar_shadowSet((void*)addrU,NULL,(void*)a128,10);
 }
-/*! Dirtyhelper for the extra AD logic to dirty calls to
+/*! Dirtyhelper for the bit-trick-finding logic to dirty calls to
  *  x86g_dirtyhelper_loadF80le / amd64g_dirtyhelper_loadF80le.
  *
- * When a single activity/discreteness bit is set, it will infect
- * all bits of the entire datum.
+ *  Any activity/discreteness bit in the 80-bit shadow datum infects
+ *  all 64 shadow bits when the datum is loaded from shadow memory.
  */
 ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Lo ( Addr addrU )
 {
