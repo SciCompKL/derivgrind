@@ -33,6 +33,7 @@
 #include "pub_tool_basics.h"
 
 #include "dg_trick_bitwise.h"
+#include "dg_trick.h"
 
 /*! \file dg_trick_bitwise.c
  *  Define functions for bit-trick-finding instrumentation of bitwise logical operations.
@@ -99,6 +100,7 @@ static ULong assemble64x2to64(ULong iLo, ULong iHi){
 #define DG_HANDLE_AND(out, fptype, inttype, x, y) \
   if( ( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1))-1 ) /* 0b01..1 */ \
       || ( x == (inttype)(-1) ) ){ /* 0b1..1 */ \
+    dg_trick_warn_dirtyhelper(y##iLo,y##iHi,sizeof(inttype)); \
     out->w64[0] = y##iLo; \
     out->w64[1] = 0; \
   }
@@ -119,7 +121,7 @@ static ULong assemble64x2to64(ULong iLo, ULong iHi){
 VG_REGPARM(0) void dg_trick_bitwise_and32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
   DG_HANDLE_AND((&dg_trick_bitwise_out), float,UInt, x, y)
   else DG_HANDLE_AND((&dg_trick_bitwise_out), float,UInt, y, x)
-  else { dg_trick_bitwise_out.w64[0] = dg_trick_bitwise_out.w64[1] = 0xffffffffffffffff; }
+  else { dg_trick_bitwise_out.w64[0] = (xiLo!=0 || yiLo!=0)?0xfffffffffffffffful:0ul; dg_trick_bitwise_out.w64[1] = 0xffffffffffffffff; }
 }
 
 /*! AD handling of logical "and" for F32 and F64 type.
@@ -140,6 +142,7 @@ VG_REGPARM(0) void dg_trick_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong
 #define DG_HANDLE_OR(out, fptype, inttype, x, y) \
   if( ( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) && *(UInt*)&x##iLo == 0 ) /* 0b10..0 */ \
     || ( x == 0 && *(UInt*)&x##iLo==0 ) ){ /* 0b0..0 */ \
+    dg_trick_warn_dirtyhelper(y##iLo,y##iHi,sizeof(inttype)); \
     out->w64[0] = y##iLo; \
     out->w64[1] = 0; \
   }
@@ -147,7 +150,7 @@ VG_REGPARM(0) void dg_trick_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong
 VG_REGPARM(0) void dg_trick_bitwise_or32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
   DG_HANDLE_OR((&dg_trick_bitwise_out), float,UInt, x, y)
   else DG_HANDLE_OR((&dg_trick_bitwise_out), float,UInt, y, x)
-  else { dg_trick_bitwise_out.w64[0] = dg_trick_bitwise_out.w64[1] = 0xffffffffffffffff; }
+  else { dg_trick_bitwise_out.w64[0] = (xiLo!=0 || yiLo!=0)?0xfffffffffffffffful:0ul; dg_trick_bitwise_out.w64[1] = 0xffffffffffffffff; }
 }
 
 VG_REGPARM(0) void dg_trick_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
@@ -161,6 +164,7 @@ VG_REGPARM(0) void dg_trick_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong 
 
 #define DG_HANDLE_XOR(out, fptype, inttype, x, y) \
   if( x == (inttype)(((inttype)1)<<(sizeof(inttype)*8-1)) && *(UInt*)&x##iLo == 0 ){ \
+    dg_trick_warn_dirtyhelper(y##iLo,y##iHi,sizeof(inttype)); \
     out->w64[0] = y##iLo; \
     out->w64[1] = 0; \
   }
@@ -168,7 +172,7 @@ VG_REGPARM(0) void dg_trick_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong 
 VG_REGPARM(0) void dg_trick_bitwise_xor32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi){
   DG_HANDLE_XOR((&dg_trick_bitwise_out), float,UInt, x, y)
   else DG_HANDLE_XOR((&dg_trick_bitwise_out), float,UInt, y, x)
-  else { dg_trick_bitwise_out.w64[0] = dg_trick_bitwise_out.w64[1] = 0xffffffffffffffff; }
+  else { dg_trick_bitwise_out.w64[0] = (xiLo!=0 || yiLo!=0)?0xfffffffffffffffful:0ul; dg_trick_bitwise_out.w64[1] = 0xffffffffffffffff; }
 }
 
 VG_REGPARM(0) void dg_trick_bitwise_xor64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi){
