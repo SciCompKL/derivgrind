@@ -520,11 +520,15 @@ for op in ["I64StoF64","I64UtoF64","RoundF64toInt"]:
   the_op = IROp_Info(f"Iop_{op}",2,[])
   the_op.dotcode = dv("IRExpr_Const(IRConst_F64i(0))")
   the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Const(IRConst_U64(0)));" for HiLo in ["Lo","Hi"]])
+  # Difficult to see what the proper bit-trick-finding instrumentation is. Either you suspect a bit-trick with these operations, and warn whenever they have an active operand, or at least set the discreteness flags of the result. Or you consider them ok, handling activity bits in an infectious way and not setting discreteness bits. We go for the latter option.
+  the_op.trickcode = "IRExpr* flagsLo = IRExpr_ITE(isZero(f2Lo,typeOfIRExpr(diffenv->sb_out->tyenv,f2Lo)), mkIRConst_zero(Ity_F64), mkIRConst_ones(Ity_F64));\n IRExpr* flagsHi = mkIRConst_zero(Ity_F64);"
   IROp_Infos += [the_op]
 for op in ["I64StoF32","I64UtoF32","I32StoF32","I32UtoF32"]:
   the_op = IROp_Info(f"Iop_{op}",2,[])
   the_op.dotcode = dv("IRExpr_Const(IRConst_F32i(0))")
   the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Const(IRConst_U32(0)));" for HiLo in ["Lo","Hi"]])
+  # See the above discussion of the 64-bit case. 
+  the_op.trickcode = "IRExpr* flagsLo = IRExpr_ITE(isZero(f2Lo,typeOfIRExpr(diffenv->sb_out->tyenv,f2Lo)), mkIRConst_zero(Ity_F32), mkIRConst_ones(Ity_F32));\n IRExpr* flagsHi = mkIRConst_zero(Ity_F32);"
   IROp_Infos += [the_op]
 
 # Quaternary operation that moves data, apply analogously to dot values and indices.
