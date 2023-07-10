@@ -56,6 +56,7 @@ static unsigned long long dg_indextmp, dg_indextmp2;
 static double dg_valtmp;
 static unsigned long long const dg_zero = 0;
 static double const dg_one = 1.;
+static unsigned long long const dg_ones = 0xfffffffffffffffful;
 
 /*! Mark variable as AD input and assign new 8-byte index to it.
  * 
@@ -87,6 +88,8 @@ static double const dg_one = 1.;
  */
 #define DG_OUTPUTF(var) { dg_indextmp2 = DG_OUTPUT(var); DG_INDEX_TO_FILE(DG_INDEXFILE_OUTPUT, &dg_indextmp2); }
 
-
+/*! Mark variable as active floating-point number for the bit-trick finder.
+ */
+#define DG_MARK_FLOAT(var) {DG_SET_FLAGS(&var, &dg_ones, (void*)0, sizeof(var));}
 
 #endif
