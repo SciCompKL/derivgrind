@@ -186,11 +186,13 @@ void* dg_trick_operation(DiffEnv* diffenv, IROp op,
       if(f3Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(f3Lo, t_arg3));
       if(f4Lo) notActive = IRExpr_Binop(Iop_And1, notActive, isZero(f4Lo, t_arg4));
       IRExpr* flagsLo;
-      if(t_dst!=Ity_I128){ // special treatment of I128 because of ISEL error
-        flagsLo = IRExpr_ITE(notActive, mkIRConst_zero(t_dst), mkIRConst_ones(t_dst));
-      } else {
+      if(t_dst==Ity_I128){ // special treatment of I128 and I1 because of ISEL error
         IRExpr* i64 = IRExpr_ITE(notActive, mkIRConst_zero(Ity_I64), mkIRConst_ones(Ity_I64));
         flagsLo = IRExpr_Binop(Iop_64HLto128, i64, i64);
+      } else if(t_dst==Ity_I1){
+        flagsLo = IRExpr_Unop(Iop_Not1, notActive);
+      } else {
+        flagsLo =  IRExpr_ITE(notActive, mkIRConst_zero(t_dst), mkIRConst_ones(t_dst));
       }
       // unhandled instruction means discrete data
       IRExpr* flagsHi = mkIRConst_ones(t_dst);

@@ -115,6 +115,7 @@ IRExpr* mkIRConst_fptwo(int fpsize, int simdsize){
 IRExpr* isZero(IRExpr* expr, IRType type){ // TODO check whether index is zero
   switch(type){
     case Ity_INVALID: return IRExpr_Const(IRConst_U1(True));
+    case Ity_I1: return IRExpr_Unop(Iop_Not1, expr);
     case Ity_I8: return IRExpr_Binop(Iop_CmpEQ8,expr,IRExpr_Const(IRConst_U8(0)));
     case Ity_I16: return IRExpr_Binop(Iop_CmpEQ16,expr,IRExpr_Const(IRConst_U16(0)));
     case Ity_I32: return IRExpr_Binop(Iop_CmpEQ32,expr,IRExpr_Const(IRConst_U32(0)));
