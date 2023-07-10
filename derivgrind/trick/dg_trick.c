@@ -99,14 +99,14 @@ void dg_trick_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong a64Lo, ULon
 ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Lo ( Addr addrU )
 {
   ULong a64Lo[2], a64Hi[2];
-  dg_bar_shadowGet((void*)addrU, (void*)&a64Lo, (void*)&a64Hi, 10);
+  dg_bar_shadowGet((void*)addrU, (void*)a64Lo, (void*)a64Hi, 10);
   if(a64Lo[0]!=0 || a64Lo[1]%0x10000!=0) return 0xfffffffffffffful;
   else return 0;
 }
 ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
 {
   ULong a64Lo[2], a64Hi[2];
-  dg_bar_shadowGet((void*)addrU, (void*)&a64Lo, (void*)&a64Hi, 10);
+  dg_bar_shadowGet((void*)addrU, (void*)a64Lo, (void*)a64Hi, 10);
   if(a64Lo[0]!=0 || a64Lo[1]%0x10000!=0){
     if(a64Hi[0]!=0 || a64Hi[1]%0x10000!=0){
       dg_trick_warn_dirtyhelper(a64Lo[0], a64Hi[0], 8); // TODO not quite, two bytes are not reported to user
