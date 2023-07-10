@@ -50,6 +50,7 @@
 */
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include "derivgrind.h"
 
 namespace py = pybind11;
@@ -87,5 +88,22 @@ PYBIND11_MODULE(derivgrind, m){
   });
   m.def( "outputf", [](double val)->void {
     DG_OUTPUTF(val);
+  });
+
+  // Bit-trick finding mode
+  m.def( "mark_float", [](double val)->double {
+    double ret = val;
+    DG_MARK_FLOAT(ret);
+    return ret;
+  });
+  m.def( "get_flags", [](double val)->std::vector<unsigned long long> {
+    unsigned long long flagA=0, flagD=0;
+    DG_GET_FLAGS(&val,&flagA,&flagD,sizeof(double));
+    return {flagA,flagD};
+  });
+  m.def( "get_flags", [](float val)->std::vector<unsigned int> {
+    unsigned int flagA=0, flagD=0;
+    DG_GET_FLAGS(&val,&flagA,&flagD,sizeof(double));
+    return {flagA,flagD};
   });
 }
