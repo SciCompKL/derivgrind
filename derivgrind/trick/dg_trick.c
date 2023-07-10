@@ -50,6 +50,7 @@
 #define DG_BAR_H_INCLUDE_TOOL_FUNCTIONS
 #include "../bar/dg_bar.h"
 #include "dg_trick.h"
+#include "dg_trick_bitwise.h"
 #include "dg_utils.h"
 
 extern Long dg_disable;
