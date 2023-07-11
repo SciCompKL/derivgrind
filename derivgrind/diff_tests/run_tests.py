@@ -324,6 +324,24 @@ abs_minus.test_dots = {'c':-2.0}
 abs_minus.test_bars = {'a':-2.0}
 regression_templates.append(abs_minus)
 
+copysign = ClientRequestTestCase("copysign")
+copysign.include = "#include <math.h>"
+copysign.ldflags = '-lm'
+copysign.cflags = "-Og -g"
+copysign.stmtd = "double c = copysign(a,b);"
+copysign.stmtf = "float c = copysignf(a,b);"
+copysign.stmtl = "long double c = copysignl(a,b);"
+copysign.stmtr4 = "real, target :: c; c = sign(a,b)"
+copysign.stmtr8 = "double precision, target :: c; c = sign(a,b)"
+copysign.stmtp = "c = np.copysign(a,b)"
+copysign.vals = {'a':3.14,'b':-1.0}
+copysign.dots = {'a':2.1,'b':0.1234}
+copysign.bars = {'c':2.2}
+copysign.test_vals = {'c':-3.14}
+copysign.test_dots = {'c':-2.1}
+copysign.test_bars = {'a':-2.2,'b':0.0}
+regression_templates.append(copysign)
+
 sqrt = ClientRequestTestCase("sqrt")
 sqrt.include = "#include <math.h>"
 sqrt.ldflags = '-lm'
