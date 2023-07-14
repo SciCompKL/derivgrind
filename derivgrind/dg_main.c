@@ -194,7 +194,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
   VG_(strcpy)(s, req);
   HChar* ssaveptr; //!< internal state of strtok_r
 
-  const HChar commands[] = "help get set fget fset lget lset index mark fmark lmark"; //!< list of possible commands
+  const HChar commands[] = "help get set fget fset lget lset index mark fmark lmark flagsget"; //!< list of possible commands
   HChar* wcmd = VG_(strtok_r)(s, " ", &ssaveptr); //!< User command
   int key = VG_(keyword_id)(commands, wcmd, kwd_report_duplicated_matches);
   switch(key){
@@ -218,6 +218,8 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         "  mark  <addr>      - Marks variable as input and prints its new index\n"
         "  fmark <addr>      \n"
         "  lmark <addr>      \n"
+        "monitor commands in bit-trick-finding mode:\n"
+        "  flagsget <addr> <size>  - Prints flags of address range"
       );
       return True;
     case 1: case 3: case 5: { // get, fget, lget
@@ -318,6 +320,24 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         VG_(gdb_printf)("index: %llu\n",setIndex);
         return True;
       }
+    }
+    case 11: { // flagsget
+      if(mode!='t'){ VG_(printf)("Only available in bit-trick-finding mode.\n"); return False; }
+      HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      HChar const* address_str_const = address_str;
+      Addr address;
+      if(!VG_(parse_Addr)(&address_str_const, &address)){
+        VG_(gdb_printf)("Usage: flagsget <addr> <size>\n");
+        return False;
+      }
+      HChar* size_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      ULong size = VG_(strtoll10)(size_str,NULL);
+      for(ULong i=0; i<size; i++){
+        UChar aflag=0, dflag=0;
+        dg_bar_shadowGet((void*)address+i,(void*)&aflag,(void*)&dflag,1);
+        VG_(gdb_printf)("%llu: %llu %llu\n", (ULong)address+i,(ULong)aflag,(ULong)dflag);
+      }
+      return True;
     }
     default:
       VG_(printf)("Error in dg_handle_gdb_monitor_command.\n");
