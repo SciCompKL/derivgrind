@@ -275,6 +275,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION2("pow"," (y==0.||y==-0.)?0.:(y*pow(x,y-1))", "(x<=0.) ? 0. : (pow(x,y)*log(x))","double"), 
   DERIVGRIND_MATH_FUNCTION2x("frexp","ldexp(1.,-*e)","double","int*","p"),
   DERIVGRIND_MATH_FUNCTION2x("ldexp","ldexp(1.,e)","double","int","i"),
+  DERIVGRIND_MATH_FUNCTION2("copysign", "(y>0.?1.:-1.)", "0.", "double"),
 
 
 
@@ -299,6 +300,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION2("powf"," (y==0.f||y==-0.f)?0.f:(y*powf(x,y-1))", "(x<=0.f) ? 0.f : (powf(x,y)*logf(x))","float"), 
   DERIVGRIND_MATH_FUNCTION2x("frexpf","ldexpf(1.f,-*e)","float","int*","p"),
   DERIVGRIND_MATH_FUNCTION2x("ldexpf","ldexpf(1.f,e)","float","int","i"),
+  DERIVGRIND_MATH_FUNCTION2("copysignf", "(y>0.f?1.f:-1.f)", "0.f", "float"),
 
 
   DERIVGRIND_MATH_FUNCTION("acosl","-1.l/sqrtl(1.l-x*x)","long double"),
@@ -322,6 +324,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION2("powl"," (y==0.l||y==-0.l)?0.l:(y*powl(x,y-1))", "(x<=0.l) ? 0.l : (powl(x,y)*logl(x))","long double"), 
   DERIVGRIND_MATH_FUNCTION2x("frexpl","ldexpl(1.l,-*e)","long double","int*","p"),
   DERIVGRIND_MATH_FUNCTION2x("ldexpl","ldexpl(1.l,e)","long double","int","i"),
+  DERIVGRIND_MATH_FUNCTION2("copysignl", "(y>0.l?1.l:-1.l)", "0.l", "long double"),
 ]
 
 
