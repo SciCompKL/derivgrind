@@ -126,6 +126,14 @@ tape_evaluation_SOURCES = eval/tape-evaluation.cpp
 tape_evaluation_CPPFLAGS = -O3
 
 #----------------------------------------------------------------------------
+# derivgrind-config,
+# a script providing the installation directory and related info
+#----------------------------------------------------------------------------
+
+bin_SCRIPTS = \
+  utils/derivgrind-config.sh
+
+#----------------------------------------------------------------------------
 # derivgrind-library-caller, 
 # the executable needed for the PyTorch and TensorFlow external function wrappers.
 #----------------------------------------------------------------------------
