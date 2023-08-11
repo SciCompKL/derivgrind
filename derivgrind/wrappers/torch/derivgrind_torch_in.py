@@ -125,7 +125,7 @@ def derivgrind(library,functionname,arch='amd64'):
       with open(tempdir.name+"/dg-libcaller-inputs", "wb") as input_buf:
         input.numpy().tofile(input_buf)
 
-      forward_process = subprocess.run([bin_path+"/valgrind", "--quiet", "--tool=derivgrind", "--record="+tempdir.name, libexec_path+"/valgrind/derivgrind-library-caller-"+arch, library, functionname, fptype, str(len(params)), str(len(input)), str(noutput), tempdir.name])
+      forward_process = subprocess.run([bin_path+"/valgrind", "--quiet", "--tool=derivgrind", "--record="+tempdir.name, libexec_path+"/valgrind/derivgrind-library-caller-"+arch+"_linux", library, functionname, fptype, str(len(params)), str(len(input)), str(noutput), tempdir.name])
       
       with open(tempdir.name+"/dg-libcaller-outputs",'rb') as output_buf:
         output = torch.tensor(np.fromfile(output_buf, dtype=input.numpy().dtype, count=noutput))

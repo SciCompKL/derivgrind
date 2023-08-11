@@ -145,26 +145,31 @@ bin_SCRIPTS += \
 # derivgrind-library-caller, 
 # the executable needed for the PyTorch and TensorFlow external function wrappers.
 #----------------------------------------------------------------------------
-noinst_PROGRAMS += derivgrind-library-caller-amd64
-derivgrind_library_caller_amd64_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
-derivgrind_library_caller_amd64_CPPFLAGS = -I. -I../include  # needs derivgrind.h and valgrind.h
-derivgrind_library_caller_amd64_LDADD = -ldl
+noinst_PROGRAMS += derivgrind-library-caller-@VGCONF_ARCH_PRI@_@VGCONF_OS@
+derivgrind_library_caller_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
+derivgrind_library_caller_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CPPFLAGS = -I. -I../include $(AM_FLAG_M3264_@VGCONF_PLATFORM_PRI_CAPS@) # needs derivgrind.h and valgrind.h
+derivgrind_library_caller_@VGCONF_ARCH_PRI@_@VGCONF_OS@_LDADD = -ldl $(AM_FLAG_M3264_@VGCONF_PLATFORM_PRI_CAPS@)
 
-noinst_PROGRAMS += derivgrind-library-caller-x86
-derivgrind_library_caller_x86_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
-derivgrind_library_caller_x86_CPPFLAGS = -I. -I../include -m32  # needs derivgrind.h and valgrind.h
-derivgrind_library_caller_x86_LDADD = -ldl
-derivgrind_library_caller_x86_LDFLAGS = -m32
+if VGCONF_HAVE_PLATFORM_SEC
+noinst_PROGRAMS += derivgrind-library-caller-@VGCONF_ARCH_SEC@_@VGCONF_OS@
+derivgrind_library_caller_@VGCONF_ARCH_SEC@_@VGCONF_OS@_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
+derivgrind_library_caller_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS = -I. -I../include $(AM_FLAG_M3264_@VGCONF_PLATFORM_SEC_CAPS@) # needs derivgrind.h and valgrind.h
+derivgrind_library_caller_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDADD = -ldl $(AM_FLAG_M3264_@VGCONF_PLATFORM_SEC_CAPS@)
+endif
+
 
 #----------------------------------------------------------------------------
 # Compiled client request macros.
 #----------------------------------------------------------------------------
-pkglib_LIBRARIES = libderivgrind_clientrequests-x86.a
-libderivgrind_clientrequests_x86_a_SOURCES = wrappers/compiled/derivgrind_clientrequests.c
-libderivgrind_clientrequests_x86_a_CFLAGS = -I. -I../include -m32 # needs derivgrind.h and valgrind.h
-pkglib_LIBRARIES += libderivgrind_clientrequests-amd64.a
-libderivgrind_clientrequests_amd64_a_SOURCES = wrappers/compiled/derivgrind_clientrequests.c
-libderivgrind_clientrequests_amd64_a_CFLAGS = -I. -I../include # needs derivgrind.h and valgrind.h
+pkglib_LIBRARIES = libderivgrind_clientrequests-@VGCONF_ARCH_PRI@_@VGCONF_OS@.a
+libderivgrind_clientrequests_@VGCONF_ARCH_PRI@_@VGCONF_OS@_a_SOURCES = wrappers/compiled/derivgrind_clientrequests.c
+libderivgrind_clientrequests_@VGCONF_ARCH_PRI@_@VGCONF_OS@_a_CFLAGS = -I. -I../include $(AM_FLAG_M3264_@VGCONF_PLATFORM_PRI_CAPS@) # needs derivgrind.h and valgrind.h
+
+if VGCONF_HAVE_PLATFORM_SEC
+pkglib_LIBRARIES += libderivgrind_clientrequests-@VGCONF_ARCH_SEC@_@VGCONF_OS@.a
+libderivgrind_clientrequests_@VGCONF_ARCH_SEC@_@VGCONF_OS@_a_SOURCES = wrappers/compiled/derivgrind_clientrequests.c
+libderivgrind_clientrequests_@VGCONF_ARCH_SEC@_@VGCONF_OS@_a_CFLAGS = -I. -I../include $(AM_FLAG_M3264_@VGCONF_PLATFORM_SEC_CAPS@) # needs derivgrind.h and valgrind.h
+endif
 
 #----------------------------------------------------------------------------
 # Fortran client request wrapper.
