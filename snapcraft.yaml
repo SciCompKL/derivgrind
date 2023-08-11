@@ -36,14 +36,8 @@ parts:
       - python3
       - python3-numpy
       - python3-dev
-      - gdb
       - libc6-dbg
       - git
-      - clang
-      - libomp-dev
-      - time
-    stage-packages:
-      - build-essential
 
 apps:
   derivgrind:
