@@ -131,7 +131,7 @@ tape_evaluation_CPPFLAGS = -O3
 #----------------------------------------------------------------------------
 
 bin_SCRIPTS = \
-  utils/derivgrind-config.sh
+  utils/derivgrind-config
 
 #----------------------------------------------------------------------------
 # derivgrind,
