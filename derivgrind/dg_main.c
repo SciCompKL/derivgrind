@@ -376,6 +376,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     if(bar_record_values && *newindexaddr!=0) valuesAddStatement(*valueaddr);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__INDEX_TO_FILE){
+    if(mode!='b') return True;
     if(arg[1]==DG_INDEXFILE_INPUT){
       dg_bar_tape_write_input_index(*(ULong*)(arg[2]));
     } else if(arg[1]==DG_INDEXFILE_OUTPUT){
