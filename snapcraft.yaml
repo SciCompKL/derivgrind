@@ -48,4 +48,8 @@ parts:
 apps:
   derivgrind:
     command: usr/local/bin/derivgrind
+  tape-evaluation:
+    command: usr/local/bin/tape-evaluation
+  derivgrind-config:
+    command: usr/local/bin/derivgrind-config
 
