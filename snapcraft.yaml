@@ -34,9 +34,7 @@ parts:
       - gfortran-multilib
       - gfortran
       - python3
-      - python3-numpy
       - python3-dev
-      - libc6-dbg
       - git
 
 apps:
