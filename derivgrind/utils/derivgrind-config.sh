@@ -1,3 +1,4 @@
+#!/usr/bin/bash
 path_of_config_script=$(readlink -f $0) 
 bindir=$(dirname $path_of_config_script)
 installdir=$(dirname $bindir)

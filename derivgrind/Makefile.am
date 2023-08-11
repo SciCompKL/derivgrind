@@ -134,6 +134,14 @@ bin_SCRIPTS = \
   utils/derivgrind-config.sh
 
 #----------------------------------------------------------------------------
+# derivgrind,
+# a stub for `valgrind --tool=derivgrind`
+#----------------------------------------------------------------------------
+
+bin_SCRIPTS += \
+  utils/derivgrind
+
+#----------------------------------------------------------------------------
 # derivgrind-library-caller, 
 # the executable needed for the PyTorch and TensorFlow external function wrappers.
 #----------------------------------------------------------------------------
