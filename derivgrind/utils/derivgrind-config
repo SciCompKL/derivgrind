@@ -4,11 +4,11 @@ bindir=$(dirname $path_of_config_script)
 installdir=$(dirname $bindir)
 
 incdir=$installdir/include
-libdir=$installdir/lib
+libdir=$installdir/lib/valgrind
 pythondir=$installdir/lib/python3/site-packages
 
 usage="\
-Usage: derivgrind-config [--cflags] [--libs] [--incdir]"
+Usage: derivgrind-config [--installdir] [--incdir] [--bindir] [--libdir] [--pythondir] [--cflags] [--cppflags] [--fflags64] [--fflags32]"
 
 if test $# -eq 0; then
   echo "${usage}" 1>&2
@@ -19,11 +19,15 @@ out=""
 
 while test $# -gt 0; do
   case "$1" in
-    --cflags) out="$out -I$incdir" ;;
+    --installdir) out="$out $installdir" ;;
     --incdir) out="$out $incdir" ;;
     --bindir) out="$out $bindir" ;;
-    --installdir) out="$out $installdir" ;;
+    --libdir) out="$out $libdir" ;;
     --pythondir) out="$out $pythondir" ;;
+    --cflags) out="$out -I$incdir" ;;
+    --cppflags) out="$out -I$incdir" ;;
+    --fflags64) out="$out -I$incdir/valgrind -L$libdir -lderivgrind_clientrequests-amd64_linux " ;;
+    --fflags32) out="$out -I$incdir/valgrind -L$libdir -lderivgrind_clientrequests-x86_linux " ;;
   esac
   shift
 done
