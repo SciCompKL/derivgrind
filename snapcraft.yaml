@@ -25,6 +25,7 @@ parts:
       - --enable-python 
       - --enable-fortran 
       - "SHADOW_LAYERS_64=16,16,16,16"
+      - --prefix=/usr/local
     build-packages:
       - build-essential
       - binutils
@@ -42,6 +43,8 @@ parts:
 apps:
   derivgrind:
     command: usr/local/bin/derivgrind
+    environment:
+      VALGRIND_LIB: $SNAP/usr/local/libexec/valgrind
   tape-evaluation:
     command: usr/local/bin/tape-evaluation
   derivgrind-config:
