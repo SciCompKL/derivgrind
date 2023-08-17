@@ -26,6 +26,7 @@ parts:
       - --enable-fortran 
       - "SHADOW_LAYERS_64=16,16,16,16"
       - --prefix=/usr/local
+      - --enable-lto=yes
     build-packages:
       - build-essential
       - binutils
