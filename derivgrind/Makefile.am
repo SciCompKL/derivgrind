@@ -145,6 +145,7 @@ bin_SCRIPTS += \
 # derivgrind-library-caller, 
 # the executable needed for the PyTorch and TensorFlow external function wrappers.
 #----------------------------------------------------------------------------
+if ENABLE_MLFRAMEWORKS
 noinst_PROGRAMS += derivgrind-library-caller-@VGCONF_ARCH_PRI@_@VGCONF_OS@
 derivgrind_library_caller_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
 derivgrind_library_caller_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CPPFLAGS = -I. -I../include $(AM_FLAG_M3264_@VGCONF_PLATFORM_PRI_CAPS@) # needs derivgrind.h and valgrind.h
@@ -156,7 +157,7 @@ derivgrind_library_caller_@VGCONF_ARCH_SEC@_@VGCONF_OS@_SOURCES = wrappers/libra
 derivgrind_library_caller_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS = -I. -I../include $(AM_FLAG_M3264_@VGCONF_PLATFORM_SEC_CAPS@) # needs derivgrind.h and valgrind.h
 derivgrind_library_caller_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDADD = -ldl $(AM_FLAG_M3264_@VGCONF_PLATFORM_SEC_CAPS@)
 endif
-
+endif
 
 #----------------------------------------------------------------------------
 # Compiled client request macros.
@@ -210,20 +211,24 @@ endif
 #----------------------------------------------------------------------------
 # PyTorch external function wrapper.
 #----------------------------------------------------------------------------
-libpython_SCRIPTS = wrappers/torch/derivgrind_torch.py
+libpython_SCRIPTS =
+if ENABLE_MLFRAMEWORKS
+libpython_SCRIPTS += wrappers/torch/derivgrind_torch.py
 wrappers/torch/derivgrind_torch.py: wrappers/torch/derivgrind_torch_in.py
 	cp wrappers/torch/derivgrind_torch_in.py wrappers/torch/derivgrind_torch.py # now append assignment of path to install bin directory
 	echo "bin_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${bindir}', '${libpythondir}'))")\"" >> wrappers/torch/derivgrind_torch.py
 	echo "libexec_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${libexecdir}', '${libpythondir}'))")\"" >> wrappers/torch/derivgrind_torch.py
 CLEANFILES += wrappers/torch/derivgrind_torch.py
+endif
 
 #----------------------------------------------------------------------------
 # TensorFlow external function wrapper.
 #----------------------------------------------------------------------------
+if ENABLE_MLFRAMEWORKS
 libpython_SCRIPTS += wrappers/tensorflow/derivgrind_tensorflow.py
 wrappers/tensorflow/derivgrind_tensorflow.py: wrappers/tensorflow/derivgrind_tensorflow_in.py
 	cp wrappers/tensorflow/derivgrind_tensorflow_in.py wrappers/tensorflow/derivgrind_tensorflow.py # now append assignment of path to install bin directory
 	echo "bin_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${bindir}', '${libpythondir}'))")\"" >> wrappers/tensorflow/derivgrind_tensorflow.py
 	echo "libexec_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${libexecdir}', '${libpythondir}'))")\"" >> wrappers/tensorflow/derivgrind_tensorflow.py
 CLEANFILES += wrappers/tensorflow/derivgrind_tensorflow.py
-
+endif

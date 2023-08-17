@@ -5347,6 +5347,12 @@ if test x$vg_cv_dg_python != xno; then
   fi
 fi
 
+AC_CACHE_CHECK([whether to create the Derivgrind wrappers for PyTorch and TensorFlow], vg_cv_dg_mlframeworks,
+  [AC_ARG_ENABLE(mlframeworks,
+    [  --enable-mlframeworks          enables building the Derivgrind wrappers for PyTorch and TensorFlow],
+    [vg_cv_dg_mlframeworks=$enableval],
+    [vg_cv_dg_mlframeworks=no])])
+AM_CONDITIONAL([ENABLE_MLFRAMEWORKS], [test x$vg_cv_dg_mlframeworks != xno])
 
 
 #----------------------------------------------------------------------------
