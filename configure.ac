@@ -5309,8 +5309,8 @@ AC_CACHE_CHECK([whether to build the Derivgrind Fortran client request wrappers]
   [AC_ARG_ENABLE(fortran,
     [  --enable-fortran          enables building the Derivgrind Fortran client request wrappers],
     [vg_cv_dg_fortran=$enableval],
-    [vg_cv_dg_fortran=yes])])
-AM_CONDITIONAL([ENABLE_FORTRAN], [test x$vg_cv_dg_fortran = xyes])
+    [vg_cv_dg_fortran=no])])
+AM_CONDITIONAL([ENABLE_FORTRAN], [test x$vg_cv_dg_fortran != xno])
 
 AC_CACHE_CHECK([whether to build the Derivgrind Python client request wrappers], vg_cv_dg_python,
   [AC_ARG_ENABLE(python,
