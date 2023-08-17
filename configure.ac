@@ -5317,7 +5317,7 @@ AC_CACHE_CHECK([whether to build the Derivgrind Python client request wrappers],
     [  --enable-python           enables building the Derivgrind Python client request wrappers],
     [vg_cv_dg_python=$enableval],
     [vg_cv_dg_python=no])])
-AM_CONDITIONAL([ENABLE_PYTHON], [test x$vg_cv_dg_python != no])
+AM_CONDITIONAL([ENABLE_PYTHON], [test x$vg_cv_dg_python != xno])
 AC_SUBST(PYTHON) # the Python executable
 if test x$vg_cv_dg_python != xno; then
   if test x$vg_cv_dg_python == xyes; then # no Python executable supplied
