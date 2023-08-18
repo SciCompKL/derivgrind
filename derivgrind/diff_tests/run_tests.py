@@ -1131,6 +1131,30 @@ virtualdispatch.test_dots = {'y': 2.1}
 virtualdispatch.test_bars = {'x': 2.1}
 regression_templates.append(virtualdispatch)
 
+exception = ClientRequestTestCase("exception")
+exception.include = """
+template<typename T>
+T f(T x){
+  try {
+    throw x*x;
+  } catch(T y) {
+    return y;
+  }
+  return 0;
+}
+"""
+exception.stmtd = "double y = f<double>(x);"
+exception.stmtf = "float y = f<float>(x);"
+exception.stmtl = "long double y = f<long double>(x);"
+exception.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
+exception.vals = {'x': -6.0}
+exception.dots = {'x': 2.0}
+exception.bars = {'y': -1.0}
+exception.test_vals = {'y': 36.0}
+exception.test_dots = {'y': -24.0}
+exception.test_bars = {'x': 12.0}
+regression_templates.append(exception)
+
 
 
 ### Interactive tests ###
