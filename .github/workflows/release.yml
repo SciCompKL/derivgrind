@@ -1,0 +1,56 @@
+name: Update Release
+
+on:
+  push:
+    branches:
+      derivgrind
+
+jobs:
+  build_and_release:
+    name: Build Derivgrind and update release
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/pypa/manylinux2014_x86_64
+    steps:
+      - name: Install software
+        run: yum update && yum install -y python3 libgcc.i686 glibc-devel.i686 libstdc++-devel.i686
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Configure and build
+        run: |
+          ./autogen.sh
+          ./configure --prefix=$PWD/install SHADOW_LAYERS_64=16,16,16,16
+          make install
+      - name: Extract relevant files and create archive
+        run: |
+          ./derivgrind/utils/export_install.sh ./install
+          mkdir install.tmp
+          mv install.export install.tmp/derivgrind
+          cd install.tmp
+          tar -caf derivgrind.tar.gz derivgrind
+      - name: Delete old release
+        uses: dev-drprasad/delete-tag-and-release@v1.0
+        with: 
+          tag_name: nightly
+          github_token: ${{ secrets.CI_TOKEN }}
+          delete_release: true
+        continue-on-error: true
+      - name: Wait
+        run: sleep 10
+      - name: Upload binary into new release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file: install.tmp/derivgrind.tar.gz
+          asset_name: derivgrind.tar.gz
+          overwrite: true
+          body: "The latest version of the source code and binaries."
+          repo_token: ${{ secrets.CI_TOKEN }}
+          release_name: nightly
+          target_commit: ${{ github.sha }}
+          tag: nightly
+
+
+
+  
