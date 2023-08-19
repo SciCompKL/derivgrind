@@ -54,10 +54,19 @@ int main(){
   std::cout << "df/dx(" << x << ") = " << y_d << std::endl;
 }
 ```
-via `g++ forward.cpp -o forward -Iinstall/include` and run it via
+via `g++ forward.cpp -o forward -Iinstall/include`. Here, `install`
+is the directory specified by `--prefix` during `./configure` if Derivgrind 
+was built from source, or the unpacked .tar.gz archive containing the binary release. 
+
+Then, run `forward` via
 ```bash
 install/bin/valgrind --tool=derivgrind ./forward
 ```
+if Derivgrind was built from source, or 
+```bash
+install/bin/derivgrind ./forward
+```
+with the binary release.
 Enter an input value `x` on the command line (e.g. `4.0`), and see whether 
 the derivative computed by Derivgrind matches the analytic derivative
 `3*x*x` (e.g. `48.0`).
@@ -88,6 +97,11 @@ via `g++ reverse.cpp -o reverse -Iinstall/include` and run it via
 ```bash
 install/bin/valgrind --tool=derivgrind --record=$PWD ./reverse
 ```
+if Derivgrind was built from source, or
+```bash
+install/bin/derivgrind --record=$PWD ./reverse
+```
+with the binary release.
 Enter an input value `x` on the command line (e.g. `4.0`). Once the program
 finishes, you should find a binary file `dg-tape` storing the recorded tape,
 and text files `dg-input-indices`, `dg-output-indices` storing identifiers for
