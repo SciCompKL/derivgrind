@@ -33,7 +33,7 @@ jobs:
       - name: Delete old release
         uses: dev-drprasad/delete-tag-and-release@v1.0
         with: 
-          tag_name: nightly
+          tag_name: latest 
           github_token: ${{ secrets.CI_TOKEN }}
           delete_release: true
         continue-on-error: true
@@ -47,9 +47,9 @@ jobs:
           overwrite: true
           body: "The latest version of the source code and binaries."
           repo_token: ${{ secrets.CI_TOKEN }}
-          release_name: nightly
+          release_name: latest
           target_commit: ${{ github.sha }}
-          tag: nightly
+          tag: latest
 
 
 
