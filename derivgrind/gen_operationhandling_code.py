@@ -474,7 +474,7 @@ for op in ops:
 the_op = IROp_Info("Iop_F32toF64",1,[1])
 the_op.dotcode = dv("IRExpr_Unop(Iop_F32toF64,d1)")
 the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),IRExpr_Unop(Iop_ReinterpF32asI32,i1{HiLo})));" for HiLo in ["Lo","Hi"]])
-the_op.trickcode = f"IRExpr* flagsLo = IRExpr_ITE(isZero(f1Lo, Ity_F32), mkIRConst_zero(Ity_F64), mkIRConst_ones(Ity_F64));\n IRExpr* flagsHi = mkIRConst_zero(Ity_F64);\n"
+the_op.trickcode = f"dg_trick_warn4(diffenv, IRExpr_Binop(Iop_32HLto64, IRExpr_Unop(Iop_ReinterpF32asI32,f1Lo),IRExpr_Const(IRConst_U32(0))), IRExpr_Binop(Iop_32HLto64, IRExpr_Unop(Iop_ReinterpF32asI32,f1Hi), IRExpr_Const(IRConst_U32(0)))); IRExpr* flagsLo = IRExpr_ITE(isZero(f1Lo, Ity_F32), mkIRConst_zero(Ity_F64), mkIRConst_ones(Ity_F64));\n IRExpr* flagsHi = mkIRConst_zero(Ity_F64);\n"
 IROp_Infos += [the_op]
 
 
@@ -512,7 +512,7 @@ for direction in ["Shr","Shl"]:
 f64tof32 = IROp_Info("Iop_F64toF32",2,[2])
 f64tof32.dotcode = dv(f64tof32.apply("arg1","d2"))
 f64tof32.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI32asF32,IRExpr_Unop(Iop_64to32,IRExpr_Unop(Iop_ReinterpF64asI64,i2{HiLo})));" for HiLo in ["Lo","Hi"]])
-f64tof32.trickcode = f"IRExpr* flagsLo = IRExpr_ITE(isZero(f2Lo, Ity_F64), mkIRConst_zero(Ity_F32), mkIRConst_ones(Ity_F32));\n IRExpr* flagsHi = mkIRConst_zero(Ity_F32); "
+f64tof32.trickcode = f"dg_trick_warn8(diffenv, IRExpr_Unop(Iop_ReinterpF64asI64,f2Lo), IRExpr_Unop(Iop_ReinterpF64asI64,f2Hi)); IRExpr* flagsLo = IRExpr_ITE(isZero(f2Lo, Ity_F64), mkIRConst_zero(Ity_F32), mkIRConst_ones(Ity_F32));\n IRExpr* flagsHi = mkIRConst_zero(Ity_F32); "
 IROp_Infos += [f64tof32]
 
 # Zero-derivative binary operations
@@ -522,6 +522,8 @@ for op in ["I64StoF64","I64UtoF64","RoundF64toInt"]:
   the_op.barcode = "\n".join([f"IRExpr* index{HiLo} = IRExpr_Unop(Iop_ReinterpI64asF64,IRExpr_Const(IRConst_U64(0)));" for HiLo in ["Lo","Hi"]])
   # Difficult to see what the proper bit-trick-finding instrumentation is. Either you suspect a bit-trick with these operations, and warn whenever they have an active operand, or at least set the discreteness flags of the result. Or you consider them ok, handling activity bits in an infectious way and not setting discreteness bits. We go for the latter option.
   the_op.trickcode = "IRExpr* flagsLo = IRExpr_ITE(isZero(f2Lo,typeOfIRExpr(diffenv->sb_out->tyenv,f2Lo)), mkIRConst_zero(Ity_F64), mkIRConst_ones(Ity_F64));\n IRExpr* flagsHi = mkIRConst_zero(Ity_F64);"
+  if op=="RoundF64toInt":
+    the_op.trickcode = "dg_trick_warn8(diffenv, IRExpr_Unop(Iop_ReinterpF64asI64,f2Lo), IRExpr_Unop(Iop_ReinterpF64asI64,f2Hi)); " + the_op.trickcode
   IROp_Infos += [the_op]
 for op in ["I64StoF32","I64UtoF32","I32StoF32","I32UtoF32"]:
   the_op = IROp_Info(f"Iop_{op}",2,[])
