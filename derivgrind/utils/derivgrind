@@ -1,0 +1,12 @@
+#!/usr/bin/bash
+path_of_config_script=$(readlink -f $0) 
+bindir=$(dirname $path_of_config_script)
+installdir=$(dirname $bindir)
+if test -f "$bindir/derivgrind-valgrind"; then
+  VALGRIND_LIB=$installdir/libexec/valgrind $bindir/derivgrind-valgrind --tool=derivgrind "$@"
+elif test -f "$bindir/valgrind"; then
+  VALGRIND_LIB=$installdir/libexec/valgrind $bindir/valgrind --tool=derivgrind "$@"
+else
+  >&2 echo "derivgrind: Could not find derivgrind-valgrind or valgrind executable."
+fi
+  

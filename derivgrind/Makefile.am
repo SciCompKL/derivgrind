@@ -126,29 +126,51 @@ tape_evaluation_SOURCES = eval/tape-evaluation.cpp
 tape_evaluation_CPPFLAGS = -O3
 
 #----------------------------------------------------------------------------
+# derivgrind-config,
+# a script providing the installation directory and related info
+#----------------------------------------------------------------------------
+
+bin_SCRIPTS = \
+  utils/derivgrind-config
+
+#----------------------------------------------------------------------------
+# derivgrind,
+# a stub for `valgrind --tool=derivgrind`
+#----------------------------------------------------------------------------
+
+bin_SCRIPTS += \
+  utils/derivgrind
+
+#----------------------------------------------------------------------------
 # derivgrind-library-caller, 
 # the executable needed for the PyTorch and TensorFlow external function wrappers.
 #----------------------------------------------------------------------------
-noinst_PROGRAMS += derivgrind-library-caller-amd64
-derivgrind_library_caller_amd64_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
-derivgrind_library_caller_amd64_CPPFLAGS = -I. -I../include  # needs derivgrind.h and valgrind.h
-derivgrind_library_caller_amd64_LDADD = -ldl
+if ENABLE_MLFRAMEWORKS
+noinst_PROGRAMS += derivgrind-library-caller-@VGCONF_ARCH_PRI@_@VGCONF_OS@
+derivgrind_library_caller_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
+derivgrind_library_caller_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CPPFLAGS = -I. -I../include $(AM_FLAG_M3264_@VGCONF_PLATFORM_PRI_CAPS@) # needs derivgrind.h and valgrind.h
+derivgrind_library_caller_@VGCONF_ARCH_PRI@_@VGCONF_OS@_LDADD = -ldl $(AM_FLAG_M3264_@VGCONF_PLATFORM_PRI_CAPS@)
 
-noinst_PROGRAMS += derivgrind-library-caller-x86
-derivgrind_library_caller_x86_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
-derivgrind_library_caller_x86_CPPFLAGS = -I. -I../include -m32  # needs derivgrind.h and valgrind.h
-derivgrind_library_caller_x86_LDADD = -ldl
-derivgrind_library_caller_x86_LDFLAGS = -m32
+if VGCONF_HAVE_PLATFORM_SEC
+noinst_PROGRAMS += derivgrind-library-caller-@VGCONF_ARCH_SEC@_@VGCONF_OS@
+derivgrind_library_caller_@VGCONF_ARCH_SEC@_@VGCONF_OS@_SOURCES = wrappers/library-caller/derivgrind-library-caller.cpp
+derivgrind_library_caller_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS = -I. -I../include $(AM_FLAG_M3264_@VGCONF_PLATFORM_SEC_CAPS@) # needs derivgrind.h and valgrind.h
+derivgrind_library_caller_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDADD = -ldl $(AM_FLAG_M3264_@VGCONF_PLATFORM_SEC_CAPS@)
+endif
+endif
 
 #----------------------------------------------------------------------------
 # Compiled client request macros.
 #----------------------------------------------------------------------------
-pkglib_LIBRARIES = libderivgrind_clientrequests-x86.a
-libderivgrind_clientrequests_x86_a_SOURCES = wrappers/compiled/derivgrind_clientrequests.c
-libderivgrind_clientrequests_x86_a_CFLAGS = -I. -I../include -m32 # needs derivgrind.h and valgrind.h
-pkglib_LIBRARIES += libderivgrind_clientrequests-amd64.a
-libderivgrind_clientrequests_amd64_a_SOURCES = wrappers/compiled/derivgrind_clientrequests.c
-libderivgrind_clientrequests_amd64_a_CFLAGS = -I. -I../include # needs derivgrind.h and valgrind.h
+pkglib_LIBRARIES = libderivgrind_clientrequests-@VGCONF_ARCH_PRI@_@VGCONF_OS@.a
+libderivgrind_clientrequests_@VGCONF_ARCH_PRI@_@VGCONF_OS@_a_SOURCES = wrappers/compiled/derivgrind_clientrequests.c
+libderivgrind_clientrequests_@VGCONF_ARCH_PRI@_@VGCONF_OS@_a_CFLAGS = -I. -I../include $(AM_FLAG_M3264_@VGCONF_PLATFORM_PRI_CAPS@) # needs derivgrind.h and valgrind.h
+
+if VGCONF_HAVE_PLATFORM_SEC
+pkglib_LIBRARIES += libderivgrind_clientrequests-@VGCONF_ARCH_SEC@_@VGCONF_OS@.a
+libderivgrind_clientrequests_@VGCONF_ARCH_SEC@_@VGCONF_OS@_a_SOURCES = wrappers/compiled/derivgrind_clientrequests.c
+libderivgrind_clientrequests_@VGCONF_ARCH_SEC@_@VGCONF_OS@_a_CFLAGS = -I. -I../include $(AM_FLAG_M3264_@VGCONF_PLATFORM_SEC_CAPS@) # needs derivgrind.h and valgrind.h
+endif
 
 #----------------------------------------------------------------------------
 # Fortran client request wrapper.
@@ -189,20 +211,24 @@ endif
 #----------------------------------------------------------------------------
 # PyTorch external function wrapper.
 #----------------------------------------------------------------------------
-libpython_SCRIPTS = wrappers/torch/derivgrind_torch.py
+libpython_SCRIPTS =
+if ENABLE_MLFRAMEWORKS
+libpython_SCRIPTS += wrappers/torch/derivgrind_torch.py
 wrappers/torch/derivgrind_torch.py: wrappers/torch/derivgrind_torch_in.py
 	cp wrappers/torch/derivgrind_torch_in.py wrappers/torch/derivgrind_torch.py # now append assignment of path to install bin directory
 	echo "bin_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${bindir}', '${libpythondir}'))")\"" >> wrappers/torch/derivgrind_torch.py
 	echo "libexec_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${libexecdir}', '${libpythondir}'))")\"" >> wrappers/torch/derivgrind_torch.py
 CLEANFILES += wrappers/torch/derivgrind_torch.py
+endif
 
 #----------------------------------------------------------------------------
 # TensorFlow external function wrapper.
 #----------------------------------------------------------------------------
+if ENABLE_MLFRAMEWORKS
 libpython_SCRIPTS += wrappers/tensorflow/derivgrind_tensorflow.py
 wrappers/tensorflow/derivgrind_tensorflow.py: wrappers/tensorflow/derivgrind_tensorflow_in.py
 	cp wrappers/tensorflow/derivgrind_tensorflow_in.py wrappers/tensorflow/derivgrind_tensorflow.py # now append assignment of path to install bin directory
 	echo "bin_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${bindir}', '${libpythondir}'))")\"" >> wrappers/tensorflow/derivgrind_tensorflow.py
 	echo "libexec_path = os.path.dirname(__file__)+\"/\"+\"$$(python3 -c "import os; print(os.path.relpath('${libexecdir}', '${libpythondir}'))")\"" >> wrappers/tensorflow/derivgrind_tensorflow.py
 CLEANFILES += wrappers/tensorflow/derivgrind_tensorflow.py
-
+endif

@@ -1,0 +1,53 @@
+name: derivgrind
+version: abc
+summary: An automatic differentiation tool applicable to compiled programs
+description: |
+  Derivgrind is a dynamic binary instrumentation tool implemented
+  in the Valgrind framework. It computes forward- and reverse-mode
+  algorithmic derivatives of computer code by analyzing their machine
+  code for real-arithmetic operations, and augmenting them with 
+  differentiation logic.
+issues: 
+  - https://github.com/SciCompKL/derivgrind/issues
+  - mailto:derivgrind@projects.rptu.de
+license: GPL-2.0-only
+source-code: https://github.com/SciCompKL/derivgrind
+title: Derivgrind
+confinement: classic
+
+base: core22
+
+parts:
+  derivgrind:
+    plugin: autotools
+    source: .
+    autotools-configure-parameters: 
+      - --enable-python 
+      - --enable-fortran 
+      - "SHADOW_LAYERS_64=16,16,16,16"
+      - --prefix=/usr/local
+      - --enable-lto=yes
+    build-packages:
+      - build-essential
+      - binutils
+      - automake
+      - gcc-multilib
+      - g++-multilib
+      - gfortran-multilib
+      - gfortran
+      - python3
+      - python3-dev
+      - git
+    build-attributes:
+      - enable-patchelf
+
+apps:
+  derivgrind:
+    command: usr/local/bin/derivgrind
+    environment:
+      VALGRIND_LIB: $SNAP/usr/local/libexec/valgrind
+  tape-evaluation:
+    command: usr/local/bin/tape-evaluation
+  derivgrind-config:
+    command: usr/local/bin/derivgrind-config
+

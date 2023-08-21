@@ -1,0 +1,41 @@
+name: Regression Tests
+
+on:
+  push:
+    branches:
+      - derivgrind
+
+jobs:
+  build_and_run:
+    name: Build Derivgrind and run regression tests
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install software
+        run: sudo apt-get update && sudo apt-get install -y build-essential binutils automake gcc-multilib g++-multilib gfortran-multilib gfortran python3 python3-numpy python3-dev gdb  libc6-dbg git clang libomp-dev time
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Configure and build
+        run: |
+          ./autogen.sh
+          ./configure --prefix=$PWD/install --enable-fortran --enable-python3 --enable-mlframeworks SHADOW_LAYERS_64=16,16,16,16
+          make install
+      - name: Forward-mode regression tests
+        run: python3 derivgrind/diff_tests/run_tests.py dot* --prefix=$PWD/install 2>&1 | tee forward_log 
+      - name: Upload log of forward-mode regression tests
+        uses: actions/upload-artifact@v3
+        with:
+          name: forward_log
+          path: forward_log
+          retention-days: 7
+      - name: Reverse-mode regression tests
+        run: python3 derivgrind/diff_tests/run_tests.py bar* --prefix=$PWD/install 2>&1 | tee reverse_log
+      - name: Upload log of reverse-mode regression tests
+        uses: actions/upload-artifact@v3
+        with:
+          name: reverse_log
+          path: reverse_log
+          retention-days: 7
