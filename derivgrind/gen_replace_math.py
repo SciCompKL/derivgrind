@@ -123,12 +123,12 @@ __attribute__((optimize("O0")))
       DG_SET_INDEX(&ret,&ret_i);
     }} else if(DG_GET_MODE=='t') {{ /* bit-trick-finding mode */
       DG_DISABLE(0,1);
-      unsigned long long xA=0, xD=0;
-      DG_GET_FLAGS(&x, &xA, &xD, {self.size});
+      unsigned long long xA[2]={{0,0}}, xD[2]={{0,0}};
+      DG_GET_FLAGS(&x, xA, xD, {self.size});
       dg_trick_warn_clientcode(xA, xD, {self.size});
-      if(xA!=0) xA = 0xfffffffffffffffful;
-      xD = 0;
-      DG_SET_FLAGS(&ret, &xA, &xD, {self.size});
+      if(xA[0]!=0||xA[1]!=0) xA[0] = xA[1] = 0xfffffffffffffffful;
+      xD[0] = xD[1] = 0;
+      DG_SET_FLAGS(&ret, xA, xD, {self.size});
     }}
   }} else {{
     DG_DISABLE(0,1);
@@ -180,14 +180,15 @@ __attribute__((optimize("O0")))
       DG_SET_INDEX(&ret,&ret_i);
     }} else if(DG_GET_MODE=='t') {{ /* bit-trick-finding mode */
       DG_DISABLE(0,1);
-      unsigned long long xA=0, xD=0, yA=0, yD=0;
-      DG_GET_FLAGS(&x, &xA, &xD, {self.size});
-      DG_GET_FLAGS(&y, &yA, &yD, {self.size});
+      unsigned long long xA[2]={{0,0}}, xD[2]={{0,0}};
+      unsigned long long yA[2]={{0,0}}, yD[2]={{0,0}};
+      DG_GET_FLAGS(&x, xA, xD, {self.size});
+      DG_GET_FLAGS(&y, yA, yD, {self.size});
       dg_trick_warn_clientcode(xA, xD, {self.size});
       dg_trick_warn_clientcode(yA, yD, {self.size});
-      if(xA!=0 || yA!=0) xA = 0xfffffffffffffffful;
-      xD = 0;
-      DG_SET_FLAGS(&ret, &xA, &xD, {self.size});
+      if(xA[0]!=0||xA[1]!=0||yA[0]!=0||yA[1]!=0) xA[0] = xA[1] = 0xfffffffffffffffful;
+      xD[0] = xD[1] = 0;
+      DG_SET_FLAGS(&ret, xA, xD, {self.size});
     }}
   }} else {{
     DG_DISABLE(0,1);
@@ -237,12 +238,12 @@ __attribute__((optimize("O0")))
       DG_SET_INDEX(&ret,&ret_i);
     }} else if(DG_GET_MODE=='t') {{ /* bit-trick-finding mode */
       DG_DISABLE(0,1);
-      unsigned long long xA=0, xD=0;
-      DG_GET_FLAGS(&x, &xA, &xD, {self.size});
+      unsigned long long xA[2]={{0,0}}, xD[2]={{0,0}};
+      DG_GET_FLAGS(&x, xA, xD, {self.size});
       dg_trick_warn_clientcode(xA, xD, {self.size});
-      if(xA!=0) xA = 0xfffffffffffffffful;
-      xD = 0;
-      DG_SET_FLAGS(&ret, &xA, &xD, {self.size});
+      if(xA[0]!=0||xA[1]!=0) xA[0] = xA[1] = 0xfffffffffffffffful;
+      xD[0] = xD[1] = 0;
+      DG_SET_FLAGS(&ret, xA, xD, {self.size});
     }}
   }} else {{
     DG_DISABLE(0,1);
@@ -373,12 +374,22 @@ with open("dg_replace_math.c","w") as f:
 #include <stdio.h>
 #include <execinfo.h>
 
-static void dg_trick_warn_clientcode(unsigned long long fLo, unsigned long long fHi, unsigned long long size){
-  unsigned long long mask = (size==4) ? 0x00000000fffffffful : 0xfffffffffffffffful;
-  if(fLo & fHi & mask){
+static void dg_trick_warn_clientcode(unsigned long long* fLo, unsigned long long* fHi, unsigned long long size){
+  bool warn=false;
+  unsigned long long i;
+  for(i=0; i<size; i++){
+    if( ((unsigned char*)fLo)[i] & ((unsigned char*)fHi)[i] ){
+      warn = true;
+    }
+  }
+
+  if(warn){
     printf("Active discrete data used as floating-point argument to math function.\\n");
-    printf("Activity bits: %llu. Discreteness bits: %llu.\\n", fLo, fHi);
-    printf("At\\n");
+    printf("Activity bits: 0x"); 
+    for(i=size-1; i>=0; i--) printf("%02X", ((unsigned char*)fLo)[i]); 
+    printf(". Discreteness bits: 0x"); 
+    for(i=size-1; i>=0; i--) printf("%02X", ((unsigned char*)fHi)[i]); 
+    printf("\\nAt\\n");
     void* buffer[50];
     int levels = backtrace(buffer, 50);
     backtrace_symbols_fd(buffer,levels,2);
