@@ -159,12 +159,19 @@ extern Bool diffquotdebug;
 extern Long dg_disable;
 ULong buffer[2000000];
 static Int fd=-1;
+
+void dg_add_diffquotdebug_fini(){
+  if(outcount%1000000!=0){
+    VG_(write)(fd,buffer,2*(outcount%1000000)*sizeof(ULong));
+  }
+}
+
 static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalue){
   if(fd==-1){
-    fd=VG_(fd_open)("~/dump",VKI_O_WRONLY,VKI_O_CREAT);
+    fd=VG_(fd_open)("dg-dqd",VKI_O_WRONLY|VKI_O_CREAT|VKI_O_TRUNC|VKI_O_LARGEFILE,0777);
   }
   if(fd==-1){
-    VG_(printf)("Cannot get file descriptor.");
+    VG_(printf)("Cannot get file descriptor.\n");
   }
   if(diffquotdebug && dg_disable==0){
     buffer[2*(outcount%1000000)] = value;
@@ -175,6 +182,7 @@ static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalu
     outcount++;
   }
 }
+
 void dg_add_diffquotdebug(IRSB* sb_out, IRExpr* value, IRExpr* dotvalue){
   IRType type = typeOfIRExpr(sb_out->tyenv, value);
   tl_assert(type == typeOfIRExpr(sb_out->tyenv, dotvalue));

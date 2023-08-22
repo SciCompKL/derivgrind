@@ -249,5 +249,6 @@ void dg_dot_initialize(void){
 void dg_dot_finalize(void){
   VG_(free)(dg_dot_shadow_mem_buffer);
   dg_dot_shadowFini();
+  dg_add_diffquotdebug_fini();
 }
 

@@ -55,4 +55,6 @@ void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr);
  */
 void dg_add_diffquotdebug(IRSB* sb_out, IRExpr* value, IRExpr* dotvalue);
 
+void dg_add_diffquotdebug_fini(void);
+
 #endif // DG_SHADOW_H
