@@ -416,7 +416,7 @@ for Op in ["Add", "Sub"]:
       d2 = "IRExpr_Unop(Iop_F32toF64,d2)"
       d3 = "IRExpr_Unop(Iop_F32toF64,d3)"
       d4 = "IRExpr_Unop(Iop_F32toF64,d4)"
-    res = f"IRExpr_Triop(Iop_AddF64, arg1, IRExpr_Triop(Iop_AddF64, arg1, IRExpr_Triop(Iop_MulF64,arg1,{d2},{arg3}), IRExpr_Triop(Iop_MulF64,arg1,{arg2},{d3})), {d4})"
+    res = f"IRExpr_Triop(Iop_{Op}F64, arg1, IRExpr_Triop(Iop_AddF64, arg1, IRExpr_Triop(Iop_MulF64,arg1,{d2},{arg3}), IRExpr_Triop(Iop_MulF64,arg1,{arg2},{d3})), {d4})"
     if fpsize==4:
       res = f"IRExpr_Binop(Iop_F64toF32,arg1,{res})"
     the_op.dotcode = dv(res)

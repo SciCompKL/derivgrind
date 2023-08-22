@@ -342,6 +342,36 @@ copysign.test_dots = {'c':-2.1}
 copysign.test_bars = {'a':-2.2,'b':0.0}
 regression_templates.append(copysign)
 
+fma_add = ClientRequestTestCase("fma_add")
+fma_add.cflags = "-O3 -march=native"
+fma_add.stmtd = "double y = a*b+c;"
+fma_add.stmtf = "float y = a*b+c;"
+fma_add.stmtl = "long double y = a*b+c;"
+fma_add.stmtr4 = "real, target :: y; y = a*b+c"
+fma_add.stmtr8 = "double precision, target :: y; y = a*b+c"
+fma_add.vals = {'a':3.0,'b':4.0,'c':2.0}
+fma_add.dots = {'a':1.0, 'b':10.0, 'c':100.0}
+fma_add.bars = {'y':1.0}
+fma_add.test_vals = {'y':14.0}
+fma_add.test_dots = {'y':134.0}
+fma_add.test_bars = {'a':4.0,'b':3.0,'c':1.0}
+regression_templates.append(fma_add)
+
+fma_sub = ClientRequestTestCase("fma_sub")
+fma_sub.cflags = "-O3 -march=native"
+fma_sub.stmtd = "double y = a*b-c;"
+fma_sub.stmtf = "float y = a*b-c;"
+fma_sub.stmtl = "long double y = a*b-c;"
+fma_sub.stmtr4 = "real, target :: y; y = a*b-c"
+fma_sub.stmtr8 = "double precision, target :: y; y = a*b-c"
+fma_sub.vals = {'a':3.0,'b':4.0,'c':2.0}
+fma_sub.dots = {'a':1.0, 'b':10.0, 'c':100.0}
+fma_sub.bars = {'y':1.0}
+fma_sub.test_vals = {'y':10.0}
+fma_sub.test_dots = {'y':-66.0}
+fma_sub.test_bars = {'a':4.0,'b':3.0,'c':-1.0}
+regression_templates.append(fma_sub)
+
 sqrt = ClientRequestTestCase("sqrt")
 sqrt.include = "#include <math.h>"
 sqrt.ldflags = '-lm'
