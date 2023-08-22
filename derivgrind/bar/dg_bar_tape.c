@@ -106,7 +106,7 @@ ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1
       VG_(write)(fd_tape,buffer_tape,4*BUFSIZE*sizeof(ULong));
     }
   }
-  if(index1!=0||index2!=0){
+  if(index1==0xffffffffffffffff||index2==0xffffffffffffffff){
     VG_(message)(Vg_UserMsg, "Result of unwrapped operation used as input of differentiable operation.\n");
     VG_(message)(Vg_UserMsg, "Index of result of differentiable operation: %llu.\n",nextindex-1);
     VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 16);
