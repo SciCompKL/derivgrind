@@ -355,6 +355,7 @@ fma_add.bars = {'y':1.0}
 fma_add.test_vals = {'y':14.0}
 fma_add.test_dots = {'y':134.0}
 fma_add.test_bars = {'a':4.0,'b':3.0,'c':1.0}
+fma_add.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
 regression_templates.append(fma_add)
 
 fma_sub = ClientRequestTestCase("fma_sub")
@@ -370,6 +371,7 @@ fma_sub.bars = {'y':1.0}
 fma_sub.test_vals = {'y':10.0}
 fma_sub.test_dots = {'y':-66.0}
 fma_sub.test_bars = {'a':4.0,'b':3.0,'c':-1.0}
+fma_sub.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
 regression_templates.append(fma_sub)
 
 max_ = ClientRequestTestCase("max")
@@ -385,6 +387,7 @@ max_.bars = {'y':2.4}
 max_.test_vals = {'y':4.0}
 max_.test_dots = {'y':10.0}
 max_.test_bars = {'a':0.0, 'b':2.4}
+max_.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
 regression_templates.append(max_)
 
 min_ = ClientRequestTestCase("min")
@@ -400,6 +403,7 @@ min_.bars = {'y':2.4}
 min_.test_vals = {'y':3.0}
 min_.test_dots = {'y':1.0}
 min_.test_bars = {'a':2.4, 'b':0.0}
+min_.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
 regression_templates.append(min_)
 
 sqrt = ClientRequestTestCase("sqrt")
