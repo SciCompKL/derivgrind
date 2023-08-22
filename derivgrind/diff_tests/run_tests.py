@@ -372,6 +372,36 @@ fma_sub.test_dots = {'y':-66.0}
 fma_sub.test_bars = {'a':4.0,'b':3.0,'c':-1.0}
 regression_templates.append(fma_sub)
 
+max_ = ClientRequestTestCase("max")
+max_.cflags = "-O3 -march=native"
+max_.stmtd = "double y = (a>b) ? a : b;"
+max_.stmtf = "float y = (a>b) ? a : b;"
+max_.stmtl = "long double y = (a>b) ? a : b;"
+max_.stmtr4 = "real, target :: y; y = MAX(a,b)"
+max_.stmtr8 = "double precision, target :: y; y = MAX(a,b)"
+max_.vals = {'a':3.0,'b':4.0}
+max_.dots = {'a':1.0, 'b':10.0}
+max_.bars = {'y':2.4}
+max_.test_vals = {'y':4.0}
+max_.test_dots = {'y':10.0}
+max_.test_bars = {'a':0.0, 'b':2.4}
+regression_templates.append(max_)
+
+min_ = ClientRequestTestCase("min")
+min_.cflags = "-O3 -march=native"
+min_.stmtd = "double y = (a<b) ? a : b;"
+min_.stmtf = "float y = (a<b) ? a : b;"
+min_.stmtl = "long double y = (a<b) ? a : b;"
+min_.stmtr4 = "real, target :: y; y = MIN(a,b)"
+min_.stmtr8 = "double precision, target :: y; y = MIN(a,b)"
+min_.vals = {'a':3.0,'b':4.0}
+min_.dots = {'a':1.0, 'b':10.0}
+min_.bars = {'y':2.4}
+min_.test_vals = {'y':3.0}
+min_.test_dots = {'y':1.0}
+min_.test_bars = {'a':2.4, 'b':0.0}
+regression_templates.append(min_)
+
 sqrt = ClientRequestTestCase("sqrt")
 sqrt.include = "#include <math.h>"
 sqrt.ldflags = '-lm'
