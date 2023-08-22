@@ -590,7 +590,7 @@ print("""
 
 for irop_info in IROp_Infos:
   if mode=='dot':
-    print(irop_info.makeCaseDot(True))
+    print(irop_info.makeCaseDot(False))
   elif mode=='dot-dqd':
     print(irop_info.makeCaseDot(True))
   elif mode=='bar':
