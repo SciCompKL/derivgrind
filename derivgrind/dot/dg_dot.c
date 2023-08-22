@@ -45,9 +45,13 @@
 #include "dg_dot.h"
 #include "dg_dot_bitwise.h"
 #include "dg_dot_minmax.h"
+#include "dg_dot_diffquotdebug.h"
 
 //! Data is copied to/from shadow memory via this buffer of 1x V256.
 V256* dg_dot_shadow_mem_buffer;
+
+extern Bool diffquotdebug;
+extern const HChar* diffquotdebug_directory;
 
 #define dg_rounding_mode IRExpr_Const(IRConst_U32(0))
 
@@ -244,11 +248,12 @@ void dg_dot_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){
 void dg_dot_initialize(void){
   dg_dot_shadow_mem_buffer = VG_(malloc)("dg_dot_shadow_mem_buffer",sizeof(V256));
   dg_dot_shadowInit();
+  if(diffquotdebug) dg_dot_diffquotdebug_initialize(diffquotdebug_directory);
 }
 
 void dg_dot_finalize(void){
+  if(diffquotdebug) dg_dot_diffquotdebug_finalize();
   VG_(free)(dg_dot_shadow_mem_buffer);
   dg_dot_shadowFini();
-  dg_add_diffquotdebug_fini();
 }
 

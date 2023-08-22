@@ -76,9 +76,10 @@ static unsigned long stmt_counter = 0;
 //! Debugging output.
 Bool warn_about_unwrapped_expressions = False;
 
-/*! Print intermediate values and dot values for difference quotient debugging.
+/*! Write intermediate values and dot values for difference quotient debugging into a file.
  */
 Bool diffquotdebug = False;
+const HChar* diffquotdebug_directory = NULL;
 
 /*! If nonzero, do not print difference quotient debugging information.
  */
@@ -155,7 +156,7 @@ static void dg_post_clo_init(void)
 static Bool dg_process_cmd_line_option(const HChar* arg)
 {
    if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
-   else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
+   else if VG_STR_CLO(arg, "--diffquotdebug", diffquotdebug_directory) {diffquotdebug=True;}
    else if VG_STR_CLO(arg, "--record", recording_directory) { mode = 'b'; }
    else if VG_STR_CLO(arg, "--trick", bittrick_warnlevel) {mode = 't'; }
    else if VG_BOOL_CLO(arg, "--typegrind", typegrind) { }
