@@ -45,12 +45,28 @@ extern Bool bar_record_values;
  */
 void dg_bar_handle_statement(DiffEnv* diffenv, IRStmt* st_orig);
 
-/*! Initialize forward-mode data structures.
+/*! Initialize recording-pass data structures.
  */
 void dg_bar_initialize(void);
 
-/*! Destroy forward-mode data structures.
+/*! Destroy recording-pass data structures.
  */
 void dg_bar_finalize(void);
+
+// Declarations of the tool functions are required by the bit-trick-finding instrumentation.
+#ifdef DG_BAR_H_INCLUDE_TOOL_FUNCTIONS
+  static void dg_bar_wrtmp(DiffEnv* diffenv, IRTemp temp, void* expr);
+  static void* dg_bar_rdtmp(DiffEnv* diffenv, IRTemp temp);
+  static void dg_bar_puti(DiffEnv* diffenv, Int offset, void* expr, IRRegArray* descr, IRExpr* ix);
+  static void* dg_bar_geti(DiffEnv* diffenv, Int offset, IRType type, IRRegArray* descr, IRExpr* ix);
+  static void dg_bar_store(DiffEnv* diffenv, IRExpr* addr, void* expr, IRExpr* guard);
+  static void* dg_bar_load(DiffEnv* diffenv, IRExpr* addr, IRType type);
+  static void* dg_bar_constant(DiffEnv* diffenv, IRConstTag type);
+  static void* dg_bar_default_(DiffEnv* diffenv, IRType type);
+  static IRExpr* dg_bar_compare(DiffEnv* diffenv, void* arg1, void* arg2);
+  static void* dg_bar_ite(DiffEnv* diffenv, IRExpr* cond, void* dtrue, void* dfalse);
+  extern V256* dg_bar_shadow_mem_buffer;
+#endif
+
 
 #endif // DG_BAR_H

@@ -62,3 +62,10 @@ void dg_inputf(void** val){
 void dg_outputf(void** val){
   DG_OUTPUTF(*(unsigned long long*)*val);
 }
+void dg_mark_float(void** val, int* size){
+  switch(*size){
+    case 4: DG_MARK_FLOAT(*(float*)*val); break;
+    case 8: DG_MARK_FLOAT(*(double*)*val); break;
+    case 10: DG_MARK_FLOAT(*(long double*)*val); break;
+  }
+}

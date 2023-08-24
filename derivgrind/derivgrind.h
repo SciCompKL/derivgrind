@@ -73,7 +73,9 @@ typedef
       VG_USERREQ__NEW_INDEX,
       VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS,
       VG_USERREQ__INDEX_TO_FILE,
-      VG_USERREQ__GET_MODE
+      VG_USERREQ__GET_MODE,
+      VG_USERREQ__GET_FLAGS,
+      VG_USERREQ__SET_FLAGS,
    } Vg_DerivgrindClientRequest;
 
 typedef enum {
@@ -201,6 +203,20 @@ static TapeBlockInfo tbi;
                             VG_USERREQ__INDEX_TO_FILE,          \
                             (_qzz_outputfile), (_qzz_indexaddr), 0, 0, 0)
 #define DERIVGRIND_INDEX_TO_FILE(_qzz_outputfile,_qzz_addrindex) DG_INDEX_TO_FILE(_qzz_outputfile,_qzz_addrindex)
+
+/* Get flags of the bit-trick finder.
+ */
+#define DG_GET_FLAGS(_qzz_addr,_qzz_Aaddr, _qzz_Daddr, _qzz_size)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0, \
+                            VG_USERREQ__GET_FLAGS,\
+                            (_qzz_addr), (_qzz_Aaddr), (_qzz_Daddr), (_qzz_size), 0)
+
+/* Set flags of the bit-trick finder.
+ */
+#define DG_SET_FLAGS(_qzz_addr,_qzz_Aaddr, _qzz_Daddr, _qzz_size)  \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0, \
+                            VG_USERREQ__SET_FLAGS,\
+                            (_qzz_addr), (_qzz_Aaddr), (_qzz_Daddr), (_qzz_size), 0)
 
 /* Get AD mode.
  */

@@ -68,7 +68,7 @@ extern Bool tape_in_ram;
 extern const ULong* recording_stop_indices;
 
 ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2){
-  if(index1==0 && index2==0) // activity analysis
+  if(index1==0 && index2==0 && !typegrind) // activity analysis
     return 0;
   else
     return tapeAddStatement_noActivityAnalysis(index1,index2,diff1,diff2);
@@ -112,7 +112,7 @@ ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1
     VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 16);
     VG_(message)(Vg_UserMsg, "\n");
   }
-  return nextindex-1;
+  return typegrind ? 0 : (nextindex-1);
 }
 
 void dg_bar_tape_initialize(const HChar* path){

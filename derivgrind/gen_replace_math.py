@@ -110,7 +110,7 @@ __attribute__((optimize("O0")))
       called_from_within_wrapper = false;
       DG_SET_DOTVALUE(&ret, &ret_d, {self.size});
       DG_DISABLE(0,1);
-    }} else {{ /* recording mode */
+    }} else if(DG_GET_MODE=='b') {{ /* recording mode */
       unsigned long long x_i, y_i=0;
       DG_GET_INDEX(&x, &x_i);
       double x_pdiff, y_pdiff=0.;
@@ -121,6 +121,14 @@ __attribute__((optimize("O0")))
       DG_DISABLE(0,1);
       DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
       DG_SET_INDEX(&ret,&ret_i);
+    }} else if(DG_GET_MODE=='t') {{ /* bit-trick-finding mode */
+      DG_DISABLE(0,1);
+      unsigned long long xA[2]={{0,0}}, xD[2]={{0,0}};
+      DG_GET_FLAGS(&x, xA, xD, {self.size});
+      dg_trick_warn_clientcode(xA, xD, {self.size});
+      if(xA[0]!=0||xA[1]!=0) xA[0] = xA[1] = 0xfffffffffffffffful;
+      xD[0] = xD[1] = 0;
+      DG_SET_FLAGS(&ret, xA, xD, {self.size});
     }}
   }} else {{
     DG_DISABLE(0,1);
@@ -157,7 +165,7 @@ __attribute__((optimize("O0")))
       called_from_within_wrapper = false;
       DG_SET_DOTVALUE(&ret, &ret_d, {self.size});
       DG_DISABLE(0,1);
-    }} else {{ /* recording mode */
+    }} else if(DG_GET_MODE=='b') {{ /* recording mode */
       unsigned long long x_i, y_i;
       DG_GET_INDEX(&x,&x_i);
       DG_GET_INDEX(&y,&y_i);
@@ -170,6 +178,17 @@ __attribute__((optimize("O0")))
       DG_DISABLE(0,1);
       DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
       DG_SET_INDEX(&ret,&ret_i);
+    }} else if(DG_GET_MODE=='t') {{ /* bit-trick-finding mode */
+      DG_DISABLE(0,1);
+      unsigned long long xA[2]={{0,0}}, xD[2]={{0,0}};
+      unsigned long long yA[2]={{0,0}}, yD[2]={{0,0}};
+      DG_GET_FLAGS(&x, xA, xD, {self.size});
+      DG_GET_FLAGS(&y, yA, yD, {self.size});
+      dg_trick_warn_clientcode(xA, xD, {self.size});
+      dg_trick_warn_clientcode(yA, yD, {self.size});
+      if(xA[0]!=0||xA[1]!=0||yA[0]!=0||yA[1]!=0) xA[0] = xA[1] = 0xfffffffffffffffful;
+      xD[0] = xD[1] = 0;
+      DG_SET_FLAGS(&ret, xA, xD, {self.size});
     }}
   }} else {{
     DG_DISABLE(0,1);
@@ -206,7 +225,7 @@ __attribute__((optimize("O0")))
       called_from_within_wrapper = false;
       DG_SET_DOTVALUE(&ret, &ret_d, {self.size});
       DG_DISABLE(0,1);
-    }} else {{ /* recording mode */
+    }} else if(DG_GET_MODE=='b') {{ /* recording mode */
       unsigned long long x_i, y_i=0;
       DG_GET_INDEX(&x, &x_i);
       double x_pdiff, y_pdiff=0.;
@@ -217,6 +236,14 @@ __attribute__((optimize("O0")))
       DG_DISABLE(0,1);
       DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
       DG_SET_INDEX(&ret,&ret_i);
+    }} else if(DG_GET_MODE=='t') {{ /* bit-trick-finding mode */
+      DG_DISABLE(0,1);
+      unsigned long long xA[2]={{0,0}}, xD[2]={{0,0}};
+      DG_GET_FLAGS(&x, xA, xD, {self.size});
+      dg_trick_warn_clientcode(xA, xD, {self.size});
+      if(xA[0]!=0||xA[1]!=0) xA[0] = xA[1] = 0xfffffffffffffffful;
+      xD[0] = xD[1] = 0;
+      DG_SET_FLAGS(&ret, xA, xD, {self.size});
     }}
   }} else {{
     DG_DISABLE(0,1);
@@ -249,6 +276,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION2("pow"," (y==0.||y==-0.)?0.:(y*pow(x,y-1))", "(x<=0.) ? 0. : (pow(x,y)*log(x))","double"), 
   DERIVGRIND_MATH_FUNCTION2x("frexp","ldexp(1.,-*e)","double","int*","p"),
   DERIVGRIND_MATH_FUNCTION2x("ldexp","ldexp(1.,e)","double","int","i"),
+  DERIVGRIND_MATH_FUNCTION2("copysign", "((x>=0.)^(y>=0.)?-1.:1.)", "0.", "double"),
 
 
 
@@ -273,6 +301,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION2("powf"," (y==0.f||y==-0.f)?0.f:(y*powf(x,y-1))", "(x<=0.f) ? 0.f : (powf(x,y)*logf(x))","float"), 
   DERIVGRIND_MATH_FUNCTION2x("frexpf","ldexpf(1.f,-*e)","float","int*","p"),
   DERIVGRIND_MATH_FUNCTION2x("ldexpf","ldexpf(1.f,e)","float","int","i"),
+  DERIVGRIND_MATH_FUNCTION2("copysignf", "((x>=0.f)^(y>=0.f)?-1.f:1.f)", "0.f", "float"),
 
 
   DERIVGRIND_MATH_FUNCTION("acosl","-1.l/sqrtl(1.l-x*x)","long double"),
@@ -296,6 +325,7 @@ functions = [
   DERIVGRIND_MATH_FUNCTION2("powl"," (y==0.l||y==-0.l)?0.l:(y*powl(x,y-1))", "(x<=0.l) ? 0.l : (powl(x,y)*logl(x))","long double"), 
   DERIVGRIND_MATH_FUNCTION2x("frexpl","ldexpl(1.l,-*e)","long double","int*","p"),
   DERIVGRIND_MATH_FUNCTION2x("ldexpl","ldexpl(1.l,e)","long double","int","i"),
+  DERIVGRIND_MATH_FUNCTION2("copysignl", "((x>=0.l)^(y>=0.l)?-1.l:1.l)", "0.l", "long double"),
 ]
 
 
@@ -341,6 +371,31 @@ with open("dg_replace_math.c","w") as f:
 #include "derivgrind.h" 
 #include <stdbool.h>
 #include <math.h>
+#include <stdio.h>
+#include <execinfo.h>
+
+static void dg_trick_warn_clientcode(unsigned long long* fLo, unsigned long long* fHi, unsigned long long size){
+  bool warn=false;
+  unsigned long long i;
+  for(i=0; i<size; i++){
+    if( ((unsigned char*)fLo)[i] & ((unsigned char*)fHi)[i] ){
+      warn = true;
+    }
+  }
+
+  if(warn){
+    printf("Active discrete data used as floating-point argument to math function.\\n");
+    printf("Activity bits: 0x"); 
+    for(i=size-1; i>=0; i--) printf("%02X", ((unsigned char*)fLo)[i]); 
+    printf(". Discreteness bits: 0x"); 
+    for(i=size-1; i>=0; i--) printf("%02X", ((unsigned char*)fHi)[i]); 
+    printf("\\nAt\\n");
+    void* buffer[50];
+    int levels = backtrace(buffer, 50);
+    backtrace_symbols_fd(buffer,levels,2);
+    printf("\\n");
+  }
+}
 
 static bool called_from_within_wrapper = false;
 """)

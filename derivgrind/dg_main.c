@@ -48,6 +48,7 @@
 #include "dot/dg_dot.h"
 #include "bar/dg_bar.h"
 #include "bar/dg_bar_tape.h"
+#include "trick/dg_trick.h"
 
 /*! \page storage_convention Storage convention for shadow memory
  *
@@ -75,9 +76,10 @@ static unsigned long stmt_counter = 0;
 //! Debugging output.
 Bool warn_about_unwrapped_expressions = False;
 
-/*! Print intermediate values and dot values for difference quotient debugging.
+/*! Write intermediate values and dot values for difference quotient debugging into a file.
  */
 Bool diffquotdebug = False;
+const HChar* diffquotdebug_directory = NULL;
 
 /*! If nonzero, do not print difference quotient debugging information.
  */
@@ -101,6 +103,10 @@ const ULong* recording_stop_indices = NULL;
  *  Only for benchmarking purposes!
  */
 Bool tape_in_ram = False;
+
+/*! Warnlevel for bit-trick finder.
+ */
+const HChar* bittrick_warnlevel = NULL;
 
 static void dg_post_clo_init(void)
 {
@@ -139,17 +145,20 @@ static void dg_post_clo_init(void)
 
   if(mode=='d'){
     dg_dot_initialize();
-  } else {
+  } else if (mode=='b') {
     dg_bar_initialize();
     dg_bar_tape_initialize(recording_directory);
+  } else if (mode=='t') {
+    dg_trick_initialize();
   }
 }
 
 static Bool dg_process_cmd_line_option(const HChar* arg)
 {
    if VG_BOOL_CLO(arg, "--warn-unwrapped", warn_about_unwrapped_expressions) {}
-   else if VG_BOOL_CLO(arg, "--diffquotdebug", diffquotdebug) {}
+   else if VG_STR_CLO(arg, "--diffquotdebug", diffquotdebug_directory) {diffquotdebug=True;}
    else if VG_STR_CLO(arg, "--record", recording_directory) { mode = 'b'; }
+   else if VG_STR_CLO(arg, "--trick", bittrick_warnlevel) {mode = 't'; }
    else if VG_BOOL_CLO(arg, "--typegrind", typegrind) { }
    else if VG_BOOL_CLO(arg, "--record-values", bar_record_values) { }
    else if VG_STR_CLO(arg, "--record-stop", recording_stop_indices_str) { }
@@ -186,7 +195,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
   VG_(strcpy)(s, req);
   HChar* ssaveptr; //!< internal state of strtok_r
 
-  const HChar commands[] = "help get set fget fset lget lset index mark fmark lmark"; //!< list of possible commands
+  const HChar commands[] = "help get set fget fset lget lset index mark fmark lmark flagsget"; //!< list of possible commands
   HChar* wcmd = VG_(strtok_r)(s, " ", &ssaveptr); //!< User command
   int key = VG_(keyword_id)(commands, wcmd, kwd_report_duplicated_matches);
   switch(key){
@@ -210,6 +219,8 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         "  mark  <addr>      - Marks variable as input and prints its new index\n"
         "  fmark <addr>      \n"
         "  lmark <addr>      \n"
+        "monitor commands in bit-trick-finding mode:\n"
+        "  flagsget <addr> <size>  - Prints flags of address range"
       );
       return True;
     case 1: case 3: case 5: { // get, fget, lget
@@ -311,6 +322,24 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         return True;
       }
     }
+    case 11: { // flagsget
+      if(mode!='t'){ VG_(printf)("Only available in bit-trick-finding mode.\n"); return False; }
+      HChar* address_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      HChar const* address_str_const = address_str;
+      Addr address;
+      if(!VG_(parse_Addr)(&address_str_const, &address)){
+        VG_(gdb_printf)("Usage: flagsget <addr> <size>\n");
+        return False;
+      }
+      HChar* size_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
+      ULong size = VG_(strtoll10)(size_str,NULL);
+      for(ULong i=0; i<size; i++){
+        UChar aflag=0, dflag=0;
+        dg_bar_shadowGet((void*)address+i,(void*)&aflag,(void*)&dflag,1);
+        VG_(gdb_printf)("%llu: %llu %llu\n", (ULong)address+i,(ULong)aflag,(ULong)dflag);
+      }
+      return True;
+    }
     default:
       VG_(printf)("Error in dg_handle_gdb_monitor_command.\n");
       return False;
@@ -386,6 +415,20 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
       tl_assert(False);
     }
     return True;
+  } else if(arg[0]==VG_USERREQ__GET_FLAGS){
+    if(mode!='t') return True;
+    void* addr = (void*) arg[1];
+    void* Aaddr = (void*) arg[2];
+    void* Daddr = (void*) arg[3];
+    UWord size = arg[4];
+    dg_bar_shadowGet(addr,Aaddr,Daddr,size);
+  } else if(arg[0]==VG_USERREQ__SET_FLAGS){
+    if(mode!='t') return True;
+    void* addr = (void*) arg[1];
+    void* Aaddr = (void*) arg[2];
+    void* Daddr = (void*) arg[3];
+    UWord size = arg[4];
+    dg_bar_shadowSet(addr,Aaddr,Daddr,size);
   } else if(arg[0]==VG_USERREQ__GET_MODE){
     *ret = (UWord)mode;
     return True;
@@ -479,8 +522,8 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
   for(IRTemp t=0; t<nTmp; t++){
     newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
   }
-  // another layer in recording mode
-  if(mode=='b'){
+  // another layer in recording mode and bit-trick finding mode
+  if(mode=='b' || mode=='t'){
     for(IRTemp t=0; t<nTmp; t++){
       newIRTemp(sb_out->tyenv, sb_in->tyenv->types[t]);
     }
@@ -506,6 +549,7 @@ IRSB* dg_instrument ( VgCallbackClosure* closure,
 
     if(mode=='d') dg_dot_handle_statement(&diffenv,st_orig);
     else if(mode=='b') dg_bar_handle_statement(&diffenv,st_orig);
+    else if(mode=='t') dg_trick_handle_statement(&diffenv,st_orig);
     dg_original_statement(&diffenv,st_orig);
 
   }
@@ -521,6 +565,8 @@ static void dg_fini(Int exitcode)
   } else if(mode=='b') {
     dg_bar_finalize();
     dg_bar_tape_finalize();
+  } else if(mode=='t'){
+    dg_trick_finalize();
   }
 }
 

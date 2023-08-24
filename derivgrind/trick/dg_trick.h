@@ -1,7 +1,7 @@
 /*--------------------------------------------------------------------*/
-/*--- Shadow memory stuff.                             dg_shadow.h ---*/
+/*--- Declaration of bit-trick-finding                  dg_trick.h ---*/
+/*--- expression handling.                                         ---*/
 /*--------------------------------------------------------------------*/
-
 /*
    This file is part of Derivgrind, an automatic differentiation
    tool applicable to compiled programs.
@@ -29,32 +29,28 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#ifndef DG_SHADOW_H
-#define DG_SHADOW_H
+#ifndef DG_TRICK_H
+#define DG_TRICK_H
 
 #include "pub_tool_basics.h"
-#include "pub_tool_tooliface.h"
-#include "pub_tool_mallocfree.h"
-#include "pub_tool_libcassert.h"
-#include "pub_tool_gdbserver.h"
-#include "pub_tool_libcbase.h"
+#include "../dg_utils.h"
 
-#include "dg_utils.h"
-
-/*! Debugging help. Add a dirty statement to IRSB that prints the value of expr whenever it is run.
- *  \param[in] tag - Tag of your choice, will be printed alongside.
- *  \param[in] sb_out - IRSB to which the dirty statement is added.
- *  \param[in] expr - Expression.
+/*! Add bit-trick-finding instrumentation to output IRSB.
+ *  \param[in,out] diffenv - General data.
+ *  \param[in] st_orig - Original statement.
  */
-void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr);
+void dg_trick_handle_statement(DiffEnv* diffenv, IRStmt* st_orig);
 
-/*! Debugging help. Add a dirty statement to IRSB that prints two expressions whenever it is run.
- *  \param[in] sb_out - IRSB to which the dirty statement is added.
- *  \param[in] value - Expression.
- *  \param[in] dotvalue - Expression.
+/*! Initialize forward-mode data structures.
  */
-void dg_add_diffquotdebug(IRSB* sb_out, IRExpr* value, IRExpr* dotvalue);
+void dg_trick_initialize(void);
 
-void dg_add_diffquotdebug_fini(void);
+/*! Destroy forward-mode data structures.
+ */
+void dg_trick_finalize(void);
 
-#endif // DG_SHADOW_H
+/*! Print warning message for active discrete data.
+ */
+ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size );
+
+#endif // DG_TRICK_H

@@ -40,18 +40,18 @@
 #include "pub_tool_basics.h"
 
 VG_REGPARM(0) ULong dg_dot_arithmetic_min32(ULong x, ULong xd, ULong y, ULong yd){
-  if( *(double*)&x < *(double*)&y ) return xd;
-  else return yd;
-}
-VG_REGPARM(0) ULong dg_dot_arithmetic_min64(ULong x, ULong xd, ULong y, ULong yd){
   if( *(float*)&x < *(float*)&y ) return xd;
   else return yd;
 }
+VG_REGPARM(0) ULong dg_dot_arithmetic_min64(ULong x, ULong xd, ULong y, ULong yd){
+  if( *(double*)&x < *(double*)&y ) return xd;
+  else return yd;
+}
 VG_REGPARM(0) ULong dg_dot_arithmetic_max32(ULong x, ULong xd, ULong y, ULong yd){
-  if( *(double*)&x > *(double*)&y ) return xd;
+  if( *(float*)&x > *(float*)&y ) return xd;
   else return yd;
 }
 VG_REGPARM(0) ULong dg_dot_arithmetic_max64(ULong x, ULong xd, ULong y, ULong yd){
-  if( *(float*)&x > *(float*)&y ) return xd;
+  if( *(double*)&x > *(double*)&y ) return xd;
   else return yd;
 }

@@ -1,5 +1,6 @@
 /*--------------------------------------------------------------------*/
-/*--- Shadow memory stuff.                             dg_shadow.h ---*/
+/*--- Bit-trick-finder handling of              dg_trick_bitwise.h ---*/
+/*--- bitwise logical operations.                                  ---*/
 /*--------------------------------------------------------------------*/
 
 /*
@@ -29,32 +30,21 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#ifndef DG_SHADOW_H
-#define DG_SHADOW_H
+#ifndef DG_TRICK_BITWISE_H
+#define DG_TRICK_BITWISE_H
 
 #include "pub_tool_basics.h"
-#include "pub_tool_tooliface.h"
-#include "pub_tool_mallocfree.h"
-#include "pub_tool_libcassert.h"
-#include "pub_tool_gdbserver.h"
-#include "pub_tool_libcbase.h"
 
-#include "dg_utils.h"
+VG_REGPARM(0) ULong dg_trick_bitwise_get_lower(void);
+VG_REGPARM(0) ULong dg_trick_bitwise_get_higher(void);
 
-/*! Debugging help. Add a dirty statement to IRSB that prints the value of expr whenever it is run.
- *  \param[in] tag - Tag of your choice, will be printed alongside.
- *  \param[in] sb_out - IRSB to which the dirty statement is added.
- *  \param[in] expr - Expression.
- */
-void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr);
+VG_REGPARM(0) void dg_trick_bitwise_and32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
+VG_REGPARM(0) void dg_trick_bitwise_and64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
 
-/*! Debugging help. Add a dirty statement to IRSB that prints two expressions whenever it is run.
- *  \param[in] sb_out - IRSB to which the dirty statement is added.
- *  \param[in] value - Expression.
- *  \param[in] dotvalue - Expression.
- */
-void dg_add_diffquotdebug(IRSB* sb_out, IRExpr* value, IRExpr* dotvalue);
+VG_REGPARM(0) void dg_trick_bitwise_or32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
+VG_REGPARM(0) void dg_trick_bitwise_or64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
 
-void dg_add_diffquotdebug_fini(void);
+VG_REGPARM(0) void dg_trick_bitwise_xor32(UInt x, UInt xiLo, UInt xiHi, UInt y, UInt yiLo, UInt yiHi);
+VG_REGPARM(0) void dg_trick_bitwise_xor64(ULong x, ULong xiLo, ULong xiHi, ULong y, ULong yiLo, ULong yiHi);
 
-#endif // DG_SHADOW_H
+#endif // DG_TRICK_BITWISE_H

@@ -154,48 +154,5 @@ void dg_add_print_stmt(ULong tag, IRSB* sb_out, IRExpr* expr){
 #include "pub_tool_threadstate.h"
 #include "pub_tool_libcfile.h"
 #include "pub_tool_vki.h"
-static unsigned long outcount = 0;
-extern Bool diffquotdebug;
-extern Long dg_disable;
-ULong buffer[2000000];
-static Int fd=-1;
-static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalue){
-  if(fd==-1){
-    fd=VG_(fd_open)("~/dump",VKI_O_WRONLY,VKI_O_CREAT);
-  }
-  if(fd==-1){
-    VG_(printf)("Cannot get file descriptor.");
-  }
-  if(diffquotdebug && dg_disable==0){
-    buffer[2*(outcount%1000000)] = value;
-    buffer[2*(outcount%1000000)+1] = dotvalue;
-    if(outcount%1000000==999999){
-      VG_(write)(fd,buffer,2000000*sizeof(ULong));
-    }
-    outcount++;
-  }
-}
-void dg_add_diffquotdebug(IRSB* sb_out, IRExpr* value, IRExpr* dotvalue){
-  IRType type = typeOfIRExpr(sb_out->tyenv, value);
-  tl_assert(type == typeOfIRExpr(sb_out->tyenv, dotvalue));
-  IRExpr *value_to_print, *dotvalue_to_print;
-  switch(type){
-    case Ity_F64:
-      value_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,value);
-      dotvalue_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,dotvalue);
-      break;
-    case Ity_F32:
-      value_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,IRExpr_Unop(Iop_F32toF64,value));
-      dotvalue_to_print = IRExpr_Unop(Iop_ReinterpF64asI64,IRExpr_Unop(Iop_F32toF64,dotvalue));
-      break;
-    default:
-      VG_(printf)("Bad type in dg_add_diffquotdebug.\n");
-      return;
-  }
-  IRDirty* di = unsafeIRDirty_0_N(
-        0,
-        "dg_add_diffquotdebug_helper", VG_(fnptr_to_fnentry)(&dg_add_diffquotdebug_helper),
-        mkIRExprVec_2(value_to_print, dotvalue_to_print));
-  addStmtToIRSB(sb_out, IRStmt_Dirty(di));
-}
+
 

@@ -88,6 +88,14 @@ module derivgrind_clientrequests
       type(c_ptr)  :: val
     end subroutine dg_outputf
   end interface
+  interface
+    subroutine dg_mark_float(val, size_) bind(C)
+      use, intrinsic :: iso_c_binding
+      implicit none
+      type(c_ptr)  :: val
+      integer(kind=c_int), intent(in) :: size_
+    end subroutine dg_mark_float
+  end interface
   
 end module
 

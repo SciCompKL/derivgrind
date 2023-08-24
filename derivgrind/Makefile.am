@@ -19,7 +19,7 @@ if VGCONF_HAVE_PLATFORM_SEC
 noinst_PROGRAMS += derivgrind-@VGCONF_ARCH_SEC@-@VGCONF_OS@
 endif
 
-DERIVGRIND_SOURCES_COMMON = dg_main.c dg_shadow.c dg_utils.c dg_expressionhandling.c dot/dg_dot.c dot/dg_dot_bitwise.c dot/dg_dot_minmax.c bar/dg_bar.c bar/dg_bar_bitwise.c bar/dg_bar_tape.c dot/dg_dot_shadow.cpp bar/dg_bar_shadow.cpp
+DERIVGRIND_SOURCES_COMMON = dg_main.c dg_shadow.c dg_utils.c dg_expressionhandling.c dot/dg_dot.c dot/dg_dot_bitwise.c dot/dg_dot_minmax.c dot/dg_dot_diffquotdebug.c bar/dg_bar.c bar/dg_bar_bitwise.c bar/dg_bar_tape.c dot/dg_dot_shadow.cpp bar/dg_bar_shadow.cpp trick/dg_trick.c trick/dg_trick_bitwise.c 
 
 derivgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES      = \
 	$(DERIVGRIND_SOURCES_COMMON)
@@ -61,12 +61,14 @@ derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LINK = \
 	$(derivgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDFLAGS)
 endif
 
-BUILT_SOURCES = dot/dg_dot_operations.c bar/dg_bar_operations.c
+BUILT_SOURCES = dot/dg_dot_operations.c bar/dg_bar_operations.c trick/dg_trick_operations.c
 dot/dg_dot_operations.c: gen_operationhandling_code.py
 	python3 gen_operationhandling_code.py dot > dot/dg_dot_operations.c
 bar/dg_bar_operations.c: gen_operationhandling_code.py
 	python3 gen_operationhandling_code.py bar > bar/dg_bar_operations.c
-CLEANFILES = dot/dg_dot_operations.c bar/dg_bar_operations.c
+trick/dg_trick_operations.c: gen_operationhandling_code.py
+	python3 gen_operationhandling_code.py trick > trick/dg_trick_operations.c
+CLEANFILES = dot/dg_dot_operations.c bar/dg_bar_operations.c trick/dg_trick_operations.c
 
 
 #----------------------------------------------------------------------------

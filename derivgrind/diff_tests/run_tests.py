@@ -324,6 +324,88 @@ abs_minus.test_dots = {'c':-2.0}
 abs_minus.test_bars = {'a':-2.0}
 regression_templates.append(abs_minus)
 
+copysign = ClientRequestTestCase("copysign")
+copysign.include = "#include <math.h>"
+copysign.ldflags = '-lm'
+copysign.cflags = "-Og -g"
+copysign.stmtd = "double c = copysign(a,b);"
+copysign.stmtf = "float c = copysignf(a,b);"
+copysign.stmtl = "long double c = copysignl(a,b);"
+copysign.stmtr4 = "real, target :: c; c = sign(a,b)"
+copysign.stmtr8 = "double precision, target :: c; c = sign(a,b)"
+copysign.stmtp = "c = np.copysign(a,b)"
+copysign.vals = {'a':3.14,'b':-1.0}
+copysign.dots = {'a':2.1,'b':0.1234}
+copysign.bars = {'c':2.2}
+copysign.test_vals = {'c':-3.14}
+copysign.test_dots = {'c':-2.1}
+copysign.test_bars = {'a':-2.2,'b':0.0}
+regression_templates.append(copysign)
+
+fma_add = ClientRequestTestCase("fma_add")
+fma_add.cflags = "-O3 -march=native"
+fma_add.stmtd = "double y = a*b+c;"
+fma_add.stmtf = "float y = a*b+c;"
+fma_add.stmtl = "long double y = a*b+c;"
+fma_add.stmtr4 = "real, target :: y; y = a*b+c"
+fma_add.stmtr8 = "double precision, target :: y; y = a*b+c"
+fma_add.vals = {'a':3.0,'b':4.0,'c':2.0}
+fma_add.dots = {'a':1.0, 'b':10.0, 'c':100.0}
+fma_add.bars = {'y':1.0}
+fma_add.test_vals = {'y':14.0}
+fma_add.test_dots = {'y':134.0}
+fma_add.test_bars = {'a':4.0,'b':3.0,'c':1.0}
+fma_add.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
+regression_templates.append(fma_add)
+
+fma_sub = ClientRequestTestCase("fma_sub")
+fma_sub.cflags = "-O3 -march=native"
+fma_sub.stmtd = "double y = a*b-c;"
+fma_sub.stmtf = "float y = a*b-c;"
+fma_sub.stmtl = "long double y = a*b-c;"
+fma_sub.stmtr4 = "real, target :: y; y = a*b-c"
+fma_sub.stmtr8 = "double precision, target :: y; y = a*b-c"
+fma_sub.vals = {'a':3.0,'b':4.0,'c':2.0}
+fma_sub.dots = {'a':1.0, 'b':10.0, 'c':100.0}
+fma_sub.bars = {'y':1.0}
+fma_sub.test_vals = {'y':10.0}
+fma_sub.test_dots = {'y':-66.0}
+fma_sub.test_bars = {'a':4.0,'b':3.0,'c':-1.0}
+fma_sub.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
+regression_templates.append(fma_sub)
+
+max_ = ClientRequestTestCase("max")
+max_.cflags = "-O3 -march=native"
+max_.stmtd = "double y = (a>b) ? a : b;"
+max_.stmtf = "float y = (a>b) ? a : b;"
+max_.stmtl = "long double y = (a>b) ? a : b;"
+max_.stmtr4 = "real, target :: y; y = MAX(a,b)"
+max_.stmtr8 = "double precision, target :: y; y = MAX(a,b)"
+max_.vals = {'a':3.0,'b':4.0}
+max_.dots = {'a':1.0, 'b':10.0}
+max_.bars = {'y':2.4}
+max_.test_vals = {'y':4.0}
+max_.test_dots = {'y':10.0}
+max_.test_bars = {'a':0.0, 'b':2.4}
+max_.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
+regression_templates.append(max_)
+
+min_ = ClientRequestTestCase("min")
+min_.cflags = "-O3 -march=native"
+min_.stmtd = "double y = (a<b) ? a : b;"
+min_.stmtf = "float y = (a<b) ? a : b;"
+min_.stmtl = "long double y = (a<b) ? a : b;"
+min_.stmtr4 = "real, target :: y; y = MIN(a,b)"
+min_.stmtr8 = "double precision, target :: y; y = MIN(a,b)"
+min_.vals = {'a':3.0,'b':4.0}
+min_.dots = {'a':1.0, 'b':10.0}
+min_.bars = {'y':2.4}
+min_.test_vals = {'y':3.0}
+min_.test_dots = {'y':1.0}
+min_.test_bars = {'a':2.4, 'b':0.0}
+min_.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
+regression_templates.append(min_)
+
 sqrt = ClientRequestTestCase("sqrt")
 sqrt.include = "#include <math.h>"
 sqrt.ldflags = '-lm'
