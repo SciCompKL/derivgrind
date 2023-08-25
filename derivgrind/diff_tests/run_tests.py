@@ -343,7 +343,7 @@ copysign.test_bars = {'a':-2.2,'b':0.0}
 regression_templates.append(copysign)
 
 fma_add = ClientRequestTestCase("fma_add")
-fma_add.cflags = "-O3 -march=native"
+fma_add.cflags = "-O3 -march=native -mno-avx512f"
 fma_add.stmtd = "double y = a*b+c;"
 fma_add.stmtf = "float y = a*b+c;"
 fma_add.stmtl = "long double y = a*b+c;"
@@ -359,7 +359,7 @@ fma_add.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherw
 regression_templates.append(fma_add)
 
 fma_sub = ClientRequestTestCase("fma_sub")
-fma_sub.cflags = "-O3 -march=native"
+fma_sub.cflags = "-O3 -march=native -mno-avx512f"
 fma_sub.stmtd = "double y = a*b-c;"
 fma_sub.stmtf = "float y = a*b-c;"
 fma_sub.stmtl = "long double y = a*b-c;"
@@ -375,7 +375,7 @@ fma_sub.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherw
 regression_templates.append(fma_sub)
 
 max_ = ClientRequestTestCase("max")
-max_.cflags = "-O3 -march=native"
+max_.cflags = "-O3 -march=native -mno-avx512f"
 max_.stmtd = "double y = (a>b) ? a : b;"
 max_.stmtf = "float y = (a>b) ? a : b;"
 max_.stmtl = "long double y = (a>b) ? a : b;"
@@ -391,7 +391,7 @@ max_.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise
 regression_templates.append(max_)
 
 min_ = ClientRequestTestCase("min")
-min_.cflags = "-O3 -march=native"
+min_.cflags = "-O3 -march=native -mno-avx512f"
 min_.stmtd = "double y = (a<b) ? a : b;"
 min_.stmtf = "float y = (a<b) ? a : b;"
 min_.stmtl = "long double y = (a<b) ? a : b;"
