@@ -124,33 +124,6 @@ void exploiting_imprecision_for_rounding_float(){
   bittrick_output(b,123.0f,0.0f);
 }
 
-/*! Bit-trick: Rational arithmetic.
- *
- * In this example, we approximate exp(a) as the limit of (1+a/n)^n for n -> infinity.
- * For a = 1.0, we may use fractions of integers for this.
- */
-void rational_arithmetic(){
-
-  struct fraction {
-    ul num, den;
-    fraction operator*(fraction other){
-      return {this->num*other.num, this->den*other.den}; 
-    }
-    fraction operator+(fraction other){
-      return {this->num*other.den + this->den*other.num, this->den*other.den};
-    }
-  };
-
-  ul n = 5;
-  fraction a = {1,1};
-  fraction base = fraction{1,1} + a * fraction{1,n}; // (1+a/n)
-  fraction result = {1,1};
-  for(int i=0; i<n; i++) result = result * base;
-  double b = ((double)result.num) / result.den;
-  bittrick_output(b,std::exp(1.0),std::exp(1.0));
-}
-  
-
 
 int main(int argc, char* argv[]){
   integer_addition_to_exponent_double();
@@ -159,7 +132,6 @@ int main(int argc, char* argv[]){
   incomplete_masking_to_perform_frexp_float();
   exploiting_imprecision_for_rounding_double();
   exploiting_imprecision_for_rounding_float();
-  rational_arithmetic();
 }
 
 
