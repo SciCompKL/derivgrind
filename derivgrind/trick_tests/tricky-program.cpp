@@ -1,22 +1,7 @@
 
-#include <type_traits>
 #include <iostream>
 #include <cmath>
-
-/*! \struct typeinfo
- * \brief Store information about floating-point types
- * \tparam fp Floating-point type
- */
-template<typename fp>
-struct typeinfo {
-  using uint = void; //!< Unsigned integer type of the same size
-};
-template<> struct typeinfo<double>{ using type = unsigned long long; };
-template<> struct typeinfo<float>{ using type = unsigned int; };
-
-int main(){
-  typeinfo<double>::type i = 4;
-
+#include "valgrind/derivgrind.h"
 
 template<typename fp>
 void bittrick_input(fp& a){
@@ -41,50 +26,32 @@ void bittrick_output(fp& var, fp expected_derivative){
       std::cout << "WRONG FORWARD-MODE DERIVATIVE: computed=" << derivative << " expected=" << expected_derivative << std::endl;
     }
   } else if(mode=='b'){
-    DG_OUTPUTF(a);
+    DG_OUTPUTF(var);
   } else if(mode=='t'){
+    // just use the output somehow
+    fp volatile var2 = var;
+    var2 += (fp)1.0;
   }
 }
 
-using ul8 = unsigned long long;
-using ul4 = unsigned int;
+using ul = unsigned long long;
+using ui = unsigned int;
 
-template<typename fp>
-std::conditional<std::is_same<fp,double>::value, ul8, ul4> as_int(fp val){
-  return 
+ul as_ul(double val){ return *(ul*)&val; }
+ui as_ui(float val){ return *(ui*)&val; }
+double as_double(ul val){ return *(double*)&val; }
+float as_float(ui val){ return *(float*)&val;} 
 
-//! 8-byte unsigned integer type
-typedef unsigned long long volatile ul;
-
-//! convert floating-point to unsigned integer data
-ul as_ul(double a){
-  return *(ul*)&a;
-}
-
-//! convert unsigned integer to floating-point data
-double as_fp(ul a){
-  return *(double*)&a;
-}
-
-//! Further processing of a number contaminated with bit-tricks
-void use(double a){
-  double volatile b = a;
-  b += 1.0;
-}
-
-
-bool integer_addition_to_exponent(){
-  double a_d = 2.7;
-  BITTRICK_INPUT(a_d);
-  ul a_i = as_ul(a_d);
-  ul n = 2;
-  a_i += (n<<52);
-  double res = as_fp(a_i);
-  BITTRICK_OUTPUT(res, 
+void integer_addition_to_exponent_double(){
+  double a = 2.7;
+  bittrick_input(a);
+  ul exponent = 2;
+  double b = as_double( as_ul(a) + (exponent<<52) );
+  bittrick_output(b,4.0);
 }
 
 int main(){
-  integer_addition_to_exponent();
+  integer_addition_to_exponent_double();
 }
 
 
