@@ -92,11 +92,46 @@ void incomplete_masking_to_perform_frexp_float(){
   bittrick_output(b, -38.1f/64.0f, 1/64.0f);
 }
 
+/*! Bit-trick: Round a double to an integer by adding 1.5*2^52 and
+ * subtracting it right away.
+ * 
+ * Between 1.0*2^52 and 2.0*2^52, the real number representable by double are
+ * precisely the integers. Thus, when adding a number smaller than 2^51 in magnitude, 
+ * the result will be rounded to an integer, according to the present rounding mode.
+ * For this example to work, it should be "round to nearest". 
+ *
+ * If the rounding does not work (i.e. b is 123.456 and not 123.000), try the 
+ * following fixes:
+ *  - compile with -O0 to avoid compiler optimizations
+ *  - compile with -mfpmath=sse to avoid using x87 arithmetic, which can have higher precision
+ */
+void exploiting_imprecision_for_rounding_double(){
+  double a = 123.456;
+  bittrick_input(a);
+  double b = (a + 0x1.8p52) - 0x1.8p52;
+  bittrick_output(b,123.0,0.0);
+}
+
+/*! Bit-trick: Round a float to an integer by adding 1.5*2^23 and
+ * subtracting it right away.
+ *
+ * See explointing_imprecision_for_rounding_float.
+ */
+void exploiting_imprecision_for_rounding_float(){
+  float a = 123.456;
+  bittrick_input(a);
+  float b = (a + 0x1.8p23f) - 0x1.8p23f;
+  bittrick_output(b,123.0f,0.0f);
+}
+
+
 int main(int argc, char* argv[]){
   integer_addition_to_exponent_double();
   integer_addition_to_exponent_float();
   incomplete_masking_to_perform_frexp_double();
   incomplete_masking_to_perform_frexp_float();
+  exploiting_imprecision_for_rounding_double();
+  exploiting_imprecision_for_rounding_float();
 }
 
 
