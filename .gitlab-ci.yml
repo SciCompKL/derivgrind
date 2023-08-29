@@ -59,6 +59,14 @@ test_bar_amd64:
     - apt-get install -y build-essential gfortran gdb gcc-multilib g++-multilib gfortran-multilib libc6-dbg clang libomp-dev python3 python3-numpy
     - cd derivgrind/diff_tests && python3 run_tests.py bar_amd64* --prefix=$PWD/../../install_lightweight
 
+test_trick_amd64:
+  stage: test
+  script:
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt-get update
+    - apt-get install -y build-essential python3
+    - cd derivgrind/trick_tests && python3 trick-tests.py --prefix=$PWD/../../install_lightweight
+
 test_perf_x86:
   stage: test
   script:
