@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <cmath>
+#include <map>
 #include "valgrind/derivgrind.h"
 
 template<typename fp>
@@ -126,12 +127,32 @@ void exploiting_imprecision_for_rounding_float(){
 
 
 int main(int argc, char* argv[]){
-  integer_addition_to_exponent_double();
-  integer_addition_to_exponent_float();
-  incomplete_masking_to_perform_frexp_double();
-  incomplete_masking_to_perform_frexp_float();
-  exploiting_imprecision_for_rounding_double();
-  exploiting_imprecision_for_rounding_float();
+  std::map<std::string,void(*)(void)> tests = {
+    {"integer_addition_to_exponent_double", &integer_addition_to_exponent_double},
+    {"integer_addition_to_exponent_float", &integer_addition_to_exponent_float},
+    {"incomplete_masking_to_perform_frexp_double", &incomplete_masking_to_perform_frexp_double},
+    {"incomplete_masking_to_perform_frexp_float", &incomplete_masking_to_perform_frexp_float},
+    {"exploiting_imprecisions_for_rounding_double", &exploiting_imprecision_for_rounding_double},
+    {"exploiting_imprecisions_for_rounding_float", &exploiting_imprecision_for_rounding_float},
+  };
+  if(argc!=2){
+    std::cerr << "Usage:\n" 
+              << "  " << argv[0] << " --list             List names of bit-tricks.\n"
+              << "  " << argv[0] << " name_of_bittrick   Run code with bit-trick."
+              << std::endl;
+    std::exit(1);
+  }
+  std::string s(argv[1]);
+  if(s=="--list"){
+    for(auto const& name : tests){
+      std::cout << name.first << " ";
+    }
+    std::cout << std::endl;
+  } else if(tests.count(s)) {
+    (tests[s])();
+  } else {
+    std::cerr << "Unknown argument '"<<s<<"'." << std::endl;
+  }
 }
 
 
