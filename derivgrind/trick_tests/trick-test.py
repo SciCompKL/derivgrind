@@ -1,16 +1,24 @@
 import sys
 import subprocess
 import fnmatch
+import tempfile
 
 install_dir = "../../install"
+temp_dir = None
 selected_testcase = "*"
 for arg in sys.argv[1:]:
   if arg.startswith("--prefix="):
     install_dir = arg[len("--prefix="):]
+  elif arg.startswith('--tempdir='):
+    temp_dir = arg[len('--tempdir='):]
   else:
     selected_testcase = arg
+if temp_dir == None:
+  t = tempfile.TemporaryDirectory()
+  temp_dir = t.name
 
-subprocess.run(["g++", "tricky-program.cpp", "-o", "tricky-program", "-O0", "-mfpmath=sse", "-g", "-I"+install_dir+"/include"])
+
+subprocess.run(["g++", "tricky-program.cpp", "-o", temp_dir+"/tricky-program", "-O0", "-mfpmath=sse", "-g", "-I"+install_dir+"/include"])
 
 # Map testcase name to a pair of booleans.
 # The first element indicates whether a wrong derivative is reported as an error. 
@@ -29,7 +37,7 @@ fail = False
 for test in tests:
   if fnmatch.fnmatchcase(test,selected_testcase):
     print(test+":")
-    forwardrun = subprocess.run([install_dir+"/bin/valgrind", "--tool=derivgrind", "./tricky-program", test], capture_output=True)
+    forwardrun = subprocess.run([install_dir+"/bin/valgrind", "--tool=derivgrind", temp_dir+"/tricky-program", test], capture_output=True)
     forward_correct = (forwardrun.stdout.decode("utf-8").find("WRONG FORWARD-MODE DERIVATIVE")==-1)
     if forward_correct:
       forward_output = "correct derivative - OK  "
@@ -40,7 +48,7 @@ for test in tests:
       fail = True
     print("  "+forward_output)
 
-    trickrun = subprocess.run([install_dir+"/bin/valgrind", "--tool=derivgrind", "--trick=yes", "./tricky-program", test], capture_output=True)
+    trickrun = subprocess.run([install_dir+"/bin/valgrind", "--tool=derivgrind", "--trick=yes", temp_dir+"/tricky-program", test], capture_output=True)
     trick_found = (trickrun.stderr.decode("utf-8").find("Active discrete data used as floating-point operand.")!=-1)
     if trick_found:
       trick_output = "trick found        - OK  "
