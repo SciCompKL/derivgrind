@@ -81,7 +81,9 @@ Bool warn_about_unwrapped_expressions = False;
 Bool diffquotdebug = False;
 const HChar* diffquotdebug_directory = NULL;
 
-/*! If nonzero, do not print difference quotient debugging information.
+/*! If non-zero, disables certain Derivgrind actions.
+ *
+ *  See DG_DISABLE in derivgrind.h.
  */
 Long dg_disable = 0;
 
