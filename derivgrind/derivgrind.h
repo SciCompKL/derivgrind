@@ -110,7 +110,8 @@ typedef enum {
  *
  * The macro DG_DISABLE(plus,minus) will add plus and subtract minus from
  * a Derivgrind-internal counter dg_disable. When the counter is non-zero,
- * the following Derivgrind actions are disabled.
+ * the following Derivgrind actions are disabled. The macro evaluates to
+ * the previous content of dg_disable.
  *
  * In forward mode, this will enable/disable outputting of values and
  * dot values for difference quotient debugging, but dot values will still

@@ -383,8 +383,9 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     dg_dot_shadowSet(addr,daddr,size);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__DISABLE) {
+    *ret = dg_disable[tid]; // return previous value
     dg_disable[tid] += (Long)(arg[1]) - (Long)(arg[2]);
-    *ret = 1; return True;
+    return True;
   } else if(arg[0]==VG_USERREQ__GET_INDEX) {
     if(mode!='b') return True;
     void* addr = (void*) arg[1];
