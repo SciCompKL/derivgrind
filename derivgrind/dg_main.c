@@ -35,6 +35,7 @@
 #include "pub_tool_mallocfree.h"
 #include "pub_tool_libcassert.h"
 #include "pub_tool_gdbserver.h"
+#include "pub_tool_threadstate.h"
 #include "pub_tool_libcbase.h"
 #include "pub_tool_options.h"
 #include "valgrind.h"
@@ -81,11 +82,12 @@ Bool warn_about_unwrapped_expressions = False;
 Bool diffquotdebug = False;
 const HChar* diffquotdebug_directory = NULL;
 
-/*! If non-zero, disables certain Derivgrind actions.
+/*! If dg_disable[threadID] is non-zero, certain Derivgrind actions
+ *  are disabled for the thread.
  *
  *  See DG_DISABLE in derivgrind.h.
  */
-Long dg_disable = 0;
+Long* dg_disable;
 
 /*! Mode: d=dot/forward, b=bar/reverse/recording
  */
@@ -143,6 +145,11 @@ static void dg_post_clo_init(void)
     indices[i] = 0;
     recording_stop_indices = indices;
     VG_(free)(recording_stop_indices_str_copy);
+  }
+
+  dg_disable = VG_(malloc)("dg-disable",(VG_N_THREADS+1)*sizeof(Long));
+  for(UInt i=0; i<VG_N_THREADS+1; i++){
+    dg_disable[i] = 0;
   }
 
   if(mode=='d'){
@@ -376,7 +383,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     dg_dot_shadowSet(addr,daddr,size);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__DISABLE) {
-    dg_disable += (Long)(arg[1]) - (Long)(arg[2]);
+    dg_disable[tid] += (Long)(arg[1]) - (Long)(arg[2]);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__GET_INDEX) {
     if(mode!='b') return True;
