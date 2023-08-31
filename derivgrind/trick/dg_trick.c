@@ -53,7 +53,7 @@
 #include "dg_trick_bitwise.h"
 #include "dg_utils.h"
 
-extern Long dg_disable;
+extern Long* dg_disable;
 
 //! Data is copied to/from shadow memory via this buffer of 2x V256.
 V256* dg_trick_shadow_mem_buffer;
@@ -141,7 +141,7 @@ static void dg_trick_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp
 
 ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size ){
   ULong mask = (size==4) ? 0x00000000fffffffful : 0xfffffffffffffffful;
-  if((dg_disable==0) && (fLo & fHi & mask)){
+  if((dg_disable[VG_(get_running_tid)()]==0) && (fLo & fHi & mask)){
     VG_(message)(Vg_UserMsg, "Active discrete data used as floating-point operand.\n");
     VG_(message)(Vg_UserMsg, "Activity bits: %llu. Discreteness bits: %llu.\n", fLo, fHi);
     VG_(message)(Vg_UserMsg, "At\n");

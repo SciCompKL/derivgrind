@@ -97,26 +97,22 @@ __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x) {{
   OrigFn fn;
   VALGRIND_GET_ORIG_FN(fn);
-  DG_DISABLE(1,0);
+  bool already_disabled = DG_DISABLE(1,0)!=0;
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}(ret, fn, x);
   double ret_d = ret;
-  if(!called_from_within_wrapper) {{
+  if(!already_disabled) {{
     if(DG_GET_MODE=='d'){{ /* forward mode */
       {self.type} x_d;
       DG_GET_DOTVALUE(&x, &x_d, {self.size});
-      called_from_within_wrapper = true;
-        {self.type} ret_d = ({self.deriv}) * x_d;
-      called_from_within_wrapper = false;
+      {self.type} ret_d = ({self.deriv}) * x_d;
       DG_SET_DOTVALUE(&ret, &ret_d, {self.size});
       DG_DISABLE(0,1);
     }} else if(DG_GET_MODE=='b') {{ /* recording mode */
       unsigned long long x_i, y_i=0;
       DG_GET_INDEX(&x, &x_i);
       double x_pdiff, y_pdiff=0.;
-      called_from_within_wrapper = true;
-        x_pdiff = ({self.deriv});
-      called_from_within_wrapper = false;
+      x_pdiff = ({self.deriv});
       unsigned long long ret_i;
       DG_DISABLE(0,1);
       DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
@@ -151,18 +147,16 @@ __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.type} y) {{
   OrigFn fn;
   VALGRIND_GET_ORIG_FN(fn);
-  DG_DISABLE(1,0);
+  bool already_disabled = DG_DISABLE(1,0);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}{self.T}(ret, fn, x, y);
   double ret_d = ret;
-  if(!called_from_within_wrapper) {{
+  if(!already_disabled) {{
     if(DG_GET_MODE=='d'){{ /* forward mode */
       {self.type} x_d, y_d;
       DG_GET_DOTVALUE(&x, &x_d, {self.size});
       DG_GET_DOTVALUE(&y, &y_d, {self.size});
-      called_from_within_wrapper = true;
-        {self.type} ret_d = ({self.derivX}) * x_d + ({self.derivY}) * y_d;
-      called_from_within_wrapper = false;
+      {self.type} ret_d = ({self.derivX}) * x_d + ({self.derivY}) * y_d;
       DG_SET_DOTVALUE(&ret, &ret_d, {self.size});
       DG_DISABLE(0,1);
     }} else if(DG_GET_MODE=='b') {{ /* recording mode */
@@ -170,10 +164,8 @@ __attribute__((optimize("O0")))
       DG_GET_INDEX(&x,&x_i);
       DG_GET_INDEX(&y,&y_i);
       double x_pdiff, y_pdiff;
-      called_from_within_wrapper = true;
-        x_pdiff = ({self.derivX});
-        y_pdiff = ({self.derivY});
-      called_from_within_wrapper = false;
+      x_pdiff = ({self.derivX});
+      y_pdiff = ({self.derivY});
       unsigned long long ret_i;
       DG_DISABLE(0,1);
       DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
@@ -212,26 +204,22 @@ __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.extratype} e) {{
   OrigFn fn;
   VALGRIND_GET_ORIG_FN(fn);
-  DG_DISABLE(1,0);
+  bool already_disabled = DG_DISABLE(1,0);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}{self.extratypeletter}(ret, fn, x, e);
   double ret_d = ret;
-  if(!called_from_within_wrapper) {{
+  if(!already_disabled) {{
     if(DG_GET_MODE=='d'){{ /* forward mode */
       {self.type} x_d;
       DG_GET_DOTVALUE(&x, &x_d, {self.size});
-      called_from_within_wrapper = true;
-        {self.type} ret_d = ({self.deriv}) * x_d;
-      called_from_within_wrapper = false;
+      {self.type} ret_d = ({self.deriv}) * x_d;
       DG_SET_DOTVALUE(&ret, &ret_d, {self.size});
       DG_DISABLE(0,1);
     }} else if(DG_GET_MODE=='b') {{ /* recording mode */
       unsigned long long x_i, y_i=0;
       DG_GET_INDEX(&x, &x_i);
       double x_pdiff, y_pdiff=0.;
-      called_from_within_wrapper = true;
-        x_pdiff = ({self.deriv});
-      called_from_within_wrapper = false;
+      x_pdiff = ({self.deriv});
       unsigned long long ret_i;
       DG_DISABLE(0,1);
       DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
@@ -397,7 +385,6 @@ static void dg_trick_warn_clientcode(unsigned long long* fLo, unsigned long long
   }
 }
 
-static bool called_from_within_wrapper = false;
 """)
   for function in functions:
     f.write(function.c_code())
