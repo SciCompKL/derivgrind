@@ -51,9 +51,10 @@
 
 /*! Tuple of functions defining how to modify expressions and to instrument statements.
  * 
- * We define two instances:
+ * We define three instances:
  * - dg_dot_expressionhandling in dot/dg_dot.c for forward-mode instrumentation.
  * - dg_bar_expressionhandling in bar/dg_bar.c for recording-mode instrumentation.
+ * - dg_trick_expressionhandling in trick/dg_trick.c for bit-trick-finder instrumentation.
  */
 typedef struct {
 
