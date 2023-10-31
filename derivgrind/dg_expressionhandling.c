@@ -83,6 +83,15 @@ void* dg_modify_expression(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* ex){
     return eh.geti(diffenv,ex->Iex.GetI.bias,Ity_INVALID,ex->Iex.GetI.descr,ex->Iex.GetI.ix);
   } else if (ex->tag==Iex_Load) {
     return eh.load(diffenv,ex->Iex.Load.addr,ex->Iex.Load.ty);
+  } else if (ex->tag==Iex_CCall) {
+    IRExpr** args = ex->Iex.CCall.args;
+    int nargs = 0;
+    while(args[nargs]!=NULL) nargs++;
+    void** modified_args = LibVEX_Alloc(nargs*sizeof(void*));
+    for(int i=0; i<nargs; i++){
+      modified_args[i] = dg_modify_expression(diffenv,eh,args[i]);
+    }
+    return eh.ccall(diffenv,ex->Iex.CCall.cee,ex->Iex.CCall.retty,args,modified_args);
   } else {
     return NULL;
   }

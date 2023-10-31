@@ -231,6 +231,10 @@ void* dg_dot_operation(DiffEnv* diffenv, IROp op,
   }
 }
 
+void* dg_dot_ccall(DiffEnv* diffenv, IRCallee* cee, IRType retty, IRExpr** args, void** modified_args){
+  return NULL;
+}
+
 const ExpressionHandling dg_dot_expressionhandling = {
   &dg_dot_wrtmp,&dg_dot_rdtmp,
   &dg_dot_puti,&dg_dot_geti,
@@ -238,7 +242,7 @@ const ExpressionHandling dg_dot_expressionhandling = {
   &dg_dot_dirty_storeF80le,&dg_dot_dirty_loadF80le,
   &dg_dot_constant,&dg_dot_default_,
   &dg_dot_compare,&dg_dot_ite,
-  &dg_dot_operation
+  &dg_dot_operation,&dg_dot_ccall
 };
 
 void dg_dot_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){

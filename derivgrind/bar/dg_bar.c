@@ -375,6 +375,10 @@ void* dg_bar_operation(DiffEnv* diffenv, IROp op,
   }
 }
 
+void* dg_bar_ccall(DiffEnv* diffenv, IRCallee* cee, IRType retty, IRExpr** args, void** modified_args){
+  return NULL;
+}
+
 const ExpressionHandling dg_bar_expressionhandling = {
   &dg_bar_wrtmp,&dg_bar_rdtmp,
   &dg_bar_puti,&dg_bar_geti,
@@ -382,7 +386,7 @@ const ExpressionHandling dg_bar_expressionhandling = {
   &dg_bar_dirty_storeF80le,&dg_bar_dirty_loadF80le,
   &dg_bar_constant,&dg_bar_default_,
   &dg_bar_compare,&dg_bar_ite,
-  &dg_bar_operation
+  &dg_bar_operation,&dg_bar_ccall
 };
 
 void dg_bar_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){

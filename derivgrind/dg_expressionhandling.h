@@ -159,6 +159,15 @@ typedef struct {
                      IRExpr* arg1, IRExpr* arg2, IRExpr* arg3, IRExpr* arg4,
                      void* mod1, void* mod2, void* mod3, void* mod4);
 
+  /*! Handling of CCalls.
+   *  \param diffenv - General setup.
+   *  \param cee - Function wrapped by the CCall.
+   *  \param retty - Type of return value of the CCall.
+   *  \param args - NULL-terminated list of argument expressions.
+   *  \param modified_args - NULL-terminated list of the corresponding modified arguments.
+   */
+  void* (*ccall)(DiffEnv* diffenv, IRCallee* cee, IRType retty, IRExpr** args, void** modified_args);
+
 } ExpressionHandling;
 
 /*! Return expression modified for use in the instrumented statement.
