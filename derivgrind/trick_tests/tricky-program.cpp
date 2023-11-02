@@ -147,13 +147,13 @@ gcry_cipher_hd_t get_hd(){
 void encrypt_decrypt(){
   double x = 3.14159;
   bittrick_input(x);
-  char cleartext[32], ciphertext[32];
-  ((double*)cleartext)[0] = x;
+  char plaintext[32], ciphertext[32];
+  ((double*)plaintext)[0] = x;
   gcry_cipher_encrypt(get_hd(),
-    ciphertext, 32, cleartext, 32);
+    ciphertext, 32, plaintext, 32);
   gcry_cipher_decrypt(get_hd(),
-    cleartext, 32, ciphertext, 32);
-  double y = ((double*)cleartext)[0];
+    plaintext, 32, ciphertext, 32);
+  double y = ((double*)plaintext)[0];
   bittrick_output(y,3.14159,1.0);
 }
 #endif
@@ -173,10 +173,10 @@ void compress_inflate(){
   unsigned char buf[1024];
   unsigned long buflen=1024;
   compress(buf,&buflen,(unsigned char*)&x,N*sizeof(double));
-  double infl[N];
-  unsigned long infllen = N*sizeof(double);
-  uncompress((unsigned char*)&infl,&infllen,buf,buflen);
-  bittrick_output(infl[0],42.0,1.0);
+  double y[N];
+  unsigned long ylen = N*sizeof(double);
+  uncompress((unsigned char*)&y,&ylen,buf,buflen);
+  bittrick_output(y[0],42.0,1.0);
 }
 #endif
 
