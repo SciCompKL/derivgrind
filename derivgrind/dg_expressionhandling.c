@@ -226,7 +226,7 @@ void add_statement_modified(DiffEnv* diffenv, ExpressionHandling eh, IRStmt* st_
       IRExpr** args = det->args;
       IRExpr* addr = args[0];
       IRExpr* expr = args[1];
-      IRExpr* modified_expr = dg_modify_expression_or_default(diffenv,eh,expr,False,"");
+      void* modified_expr = dg_modify_expression_or_default(diffenv,eh,expr,False,"");
       eh.dirty_storeF80le(diffenv,addr, modified_expr);
     }
     // The x86g_dirtyhelper_loadF80le dirty call loads 80 bit from
