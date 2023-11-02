@@ -64,7 +64,7 @@ test_trick_amd64:
   script:
     - export DEBIAN_FRONTEND=noninteractive
     - apt-get update
-    - apt-get install -y build-essential python3 libgcrypt20-dev
+    - apt-get install -y build-essential python3 libgcrypt20-dev zlib1g-dev
     - cd derivgrind/trick_tests && python3 trick-tests.py --prefix=$PWD/../../install_lightweight
 
 test_perf_x86:
