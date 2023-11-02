@@ -1,7 +1,11 @@
-
+// Some bit-trick tests require external libraries like libgcrypt, libz. 
+// Compile with -DTRICKTEST_NO_EXTERNAL_DEPENDENCIES in order to disable these tests.
 #include <iostream>
 #include <cmath>
 #include <map>
+#ifndef TRICKTEST_NO_EXTERNAL_DEPENDENCIES
+  #include <gcrypt.h> // for the encryption-decryption test
+#endif
 #include "valgrind/derivgrind.h"
 
 template<typename fp>
@@ -126,6 +130,36 @@ void exploiting_imprecision_for_rounding_float(){
 }
 
 
+#ifndef TRICKTEST_NO_EXTERNAL_DEPENDENCIES
+/*! Bit-trick: Binary identity, encryption followed by decryption.
+ *
+ * We use the gcrypt library with the twofish cipher, as the AES ciphers 
+ * could be implemented with special AES instructions and we don't want to
+ * test those.
+ */
+gcry_cipher_hd_t get_hd(){
+  gcry_cipher_hd_t hd;
+  gcry_cipher_open(&hd, GCRY_CIPHER_TWOFISH, GCRY_CIPHER_MODE_CBC, 0);
+  gcry_cipher_setkey(hd, "some 256-bit secret stored here ", 32);
+  return hd;
+}
+void encrypt_decrypt(){
+  double x = 3.14159;
+  bittrick_input(x);
+  char cleartext[32], ciphertext[32];
+  ((double*)cleartext)[0] = x;
+  gcry_cipher_encrypt(get_hd(),
+    ciphertext, 32, cleartext, 32);
+  gcry_cipher_decrypt(get_hd(),
+    cleartext, 32, ciphertext, 32);
+  double y = ((double*)cleartext)[0];
+  bittrick_output(y,3.14159,1.0);
+}
+#endif
+
+
+
+
 int main(int argc, char* argv[]){
   std::map<std::string,void(*)(void)> tests = {
     {"integer_addition_to_exponent_double", &integer_addition_to_exponent_double},
@@ -134,6 +168,9 @@ int main(int argc, char* argv[]){
     {"incomplete_masking_to_perform_frexp_float", &incomplete_masking_to_perform_frexp_float},
     {"exploiting_imprecisions_for_rounding_double", &exploiting_imprecision_for_rounding_double},
     {"exploiting_imprecisions_for_rounding_float", &exploiting_imprecision_for_rounding_float},
+    #ifndef TRICKTEST_NO_EXTERNAL_DEPENDENCIES
+      {"encrypt_decrypt", &encrypt_decrypt},
+    #endif
   };
   if(argc!=2){
     std::cerr << "Usage:\n" 
