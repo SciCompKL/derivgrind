@@ -5,6 +5,7 @@
 #include <map>
 #ifndef TRICKTEST_NO_EXTERNAL_DEPENDENCIES
   #include <gcrypt.h> // for the encryption-decryption test
+  #include <zlib.h> // for the compression-extraction test
 #endif
 #include "valgrind/derivgrind.h"
 
@@ -157,6 +158,27 @@ void encrypt_decrypt(){
 }
 #endif
 
+#ifndef TRICKTEST_NO_EXTERNAL_DEPENDENCIES
+/*! Bit-trick: Binary identity, compression followed by inflation.
+ *
+ * We use the zlib library implementing the DEFLATE algorithm.
+ * If for the given "plaintext", the algorithm just copies around bytes
+ * of data, that's fine for derivatives and the bit-trick finder.
+ */
+void compress_inflate(){
+  constexpr int N = 16;
+  double x[N];
+  for(int i=0; i<N; i++) x[i] = 42.0;
+  bittrick_input(x[0]);
+  unsigned char buf[1024];
+  unsigned long buflen=1024;
+  compress(buf,&buflen,(unsigned char*)&x,N*sizeof(double));
+  double infl[N];
+  unsigned long infllen = N*sizeof(double);
+  uncompress((unsigned char*)&infl,&infllen,buf,buflen);
+  bittrick_output(infl[0],42.0,1.0);
+}
+#endif
 
 
 
@@ -170,6 +192,7 @@ int main(int argc, char* argv[]){
     {"exploiting_imprecisions_for_rounding_float", &exploiting_imprecision_for_rounding_float},
     #ifndef TRICKTEST_NO_EXTERNAL_DEPENDENCIES
       {"encrypt_decrypt", &encrypt_decrypt},
+      {"compress_inflate", &compress_inflate},
     #endif
   };
   if(argc!=2){

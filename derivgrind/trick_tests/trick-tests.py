@@ -35,7 +35,7 @@ if temp_dir == None:
   t = tempfile.TemporaryDirectory()
   temp_dir = t.name
 
-subprocess.run(["g++"] + (["-DTRICKTEST_NO_EXTERNAL_DEPENDENCIES"] if no_external_dependencies else []) +["tricky-program.cpp", "-o", temp_dir+"/tricky-program", "-O0", "-mfpmath=sse", "-g", "-I"+install_dir+"/include"] + ([] if no_external_dependencies else ["-lgcrypt"]) )
+subprocess.run(["g++"] + (["-DTRICKTEST_NO_EXTERNAL_DEPENDENCIES"] if no_external_dependencies else []) +["tricky-program.cpp", "-o", temp_dir+"/tricky-program", "-O0", "-mfpmath=sse", "-g", "-I"+install_dir+"/include"] + ([] if no_external_dependencies else ["-lgcrypt","-lz"]) )
 
 # Map testcase name to a tuple of booleans.
 # The first element indicates whether external dependencies are required.
@@ -51,6 +51,7 @@ tests = {
   "exploiting_imprecisions_for_rounding_double": (False,False,False),
   "exploiting_imprecisions_for_rounding_float": (False,False,False),
   "encrypt_decrypt": (True,False,True),
+  "compress_inflate": (True,True,True),
 }
 fail = False
 for test in tests:
