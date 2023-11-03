@@ -1,11 +1,16 @@
 // Some bit-trick tests require external libraries like libgcrypt, libz. 
 // Compile with -DTRICKTEST_NO_EXTERNAL_DEPENDENCIES in order to disable these tests.
+#ifndef _GNU_SOURCE
+  #define _GNU_SOURCE
+#endif
 #include <iostream>
 #include <cmath>
 #include <map>
 #ifndef TRICKTEST_NO_EXTERNAL_DEPENDENCIES
   #include <gcrypt.h> // for the encryption-decryption test
-  #include <zlib.h> // for the compression-extraction test
+  #include <zlib.h> // for the compression-inflation test
+  #include <sys/mman.h> // for the multiple-mmap test
+  #include <unistd.h> // also for the multiple-mmap test
 #endif
 #include "valgrind/derivgrind.h"
 
@@ -180,6 +185,27 @@ void compress_inflate(){
 }
 #endif
 
+#ifndef TRICKTEST_NO_EXTERNAL_DEPENDENCIES
+/*! Bit-trick: Multiply-mapped memory
+ *
+ * We perform two mmap calls for the same anonymous file,
+ * to obtain two different virtual memory addresses mapping
+ * to the same physical memory address. 
+ *
+ * This is a problem for Derivgrind as it provides shadow 
+ * memory for virtual addresses, and so one piece of data is
+ * now shadowed twice.
+ */
+void multiple_mmap(){
+  int fd = memfd_create("",0);
+  ftruncate(fd,0x1000);
+  double* x = (double*)mmap(NULL,0x1000,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
+  double* y = (double*)mmap(NULL,0x1000,PROT_READ,MAP_PRIVATE,fd,0);
+  *x = 2.718;
+  bittrick_input(*x);
+  bittrick_output(*y,2.718,1.0);
+}
+#endif
 
 
 int main(int argc, char* argv[]){
@@ -193,6 +219,7 @@ int main(int argc, char* argv[]){
     #ifndef TRICKTEST_NO_EXTERNAL_DEPENDENCIES
       {"encrypt_decrypt", &encrypt_decrypt},
       {"compress_inflate", &compress_inflate},
+      {"multiple_mmap", &multiple_mmap},
     #endif
   };
   if(argc!=2){

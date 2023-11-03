@@ -51,7 +51,8 @@ tests = {
   "exploiting_imprecisions_for_rounding_double": (False,False,False),
   "exploiting_imprecisions_for_rounding_float": (False,False,False),
   "encrypt_decrypt": (True,False,True),
-  "compress_inflate": (True,False,True),
+  "compress_inflate": (True,False,False),
+  "multiple_mmap": (True,False,False),
 }
 fail = False
 for test in tests:
