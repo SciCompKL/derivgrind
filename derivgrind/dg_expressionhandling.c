@@ -83,6 +83,15 @@ void* dg_modify_expression(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* ex){
     return eh.geti(diffenv,ex->Iex.GetI.bias,Ity_INVALID,ex->Iex.GetI.descr,ex->Iex.GetI.ix);
   } else if (ex->tag==Iex_Load) {
     return eh.load(diffenv,ex->Iex.Load.addr,ex->Iex.Load.ty);
+  } else if (ex->tag==Iex_CCall) {
+    IRExpr** args = ex->Iex.CCall.args;
+    int nargs = 0;
+    while(args[nargs]!=NULL) nargs++;
+    void** modified_args = LibVEX_Alloc(nargs*sizeof(void*));
+    for(int i=0; i<nargs; i++){
+      modified_args[i] = dg_modify_expression(diffenv,eh,args[i]);
+    }
+    return eh.ccall(diffenv,ex->Iex.CCall.cee,ex->Iex.CCall.retty,args,modified_args);
   } else {
     return NULL;
   }
@@ -217,7 +226,7 @@ void add_statement_modified(DiffEnv* diffenv, ExpressionHandling eh, IRStmt* st_
       IRExpr** args = det->args;
       IRExpr* addr = args[0];
       IRExpr* expr = args[1];
-      IRExpr* modified_expr = dg_modify_expression_or_default(diffenv,eh,expr,False,"");
+      void* modified_expr = dg_modify_expression_or_default(diffenv,eh,expr,False,"");
       eh.dirty_storeF80le(diffenv,addr, modified_expr);
     }
     // The x86g_dirtyhelper_loadF80le dirty call loads 80 bit from

@@ -202,6 +202,22 @@ void* dg_trick_operation(DiffEnv* diffenv, IROp op,
   }
 }
 
+void* dg_trick_ccall(DiffEnv* diffenv, IRCallee* cee, IRType retty, IRExpr** args, void** modified_args){
+  // The result is active if there is an operand with non-zero activity flags.
+  IRExpr* notActive = IRExpr_Const(IRConst_U1(True));
+  int i=0;
+  while(args[i]){
+    IRType argtype = typeOfIRExpr(diffenv->sb_out->tyenv, args[i]);
+    notActive = IRExpr_Binop(Iop_And1,notActive,isZero(((IRExpr**)(modified_args[i]))[0],argtype));
+    i++;
+  }
+  IRExpr* flagsLo = IRExpr_ITE(notActive,mkIRConst_zero(retty),mkIRConst_ones(retty));
+  // The result is always discrete, as we do not consider expressions in the
+  // AD expression handling right now.
+  IRExpr* flagsHi = mkIRConst_ones(retty);
+  return mkIRExprVec_2(flagsLo,flagsHi);
+}
+
 const ExpressionHandling dg_trick_expressionhandling = {
   &dg_bar_wrtmp,&dg_bar_rdtmp,
   &dg_bar_puti,&dg_bar_geti,
@@ -209,7 +225,7 @@ const ExpressionHandling dg_trick_expressionhandling = {
   &dg_trick_dirty_storeF80le,&dg_trick_dirty_loadF80le,
   &dg_bar_constant,&dg_bar_default_,
   &dg_bar_compare,&dg_bar_ite,
-  &dg_trick_operation
+  &dg_trick_operation,&dg_trick_ccall
 };
 
 void dg_trick_handle_statement(DiffEnv* diffenv, IRStmt* st_orig){
