@@ -105,13 +105,13 @@ typedef enum {
 #define DERIVGRIND_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size) DG_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
 #define VALGRIND_SET_DERIVATIVE(_qzz_addr,_qzz_daddr,_qzz_size) DG_SET_DOTVALUE(_qzz_addr,_qzz_daddr,_qzz_size)
 
-/* Disable Derivgrind on specific code sections by putting the section
- * into a DG_DISABLE(1,0) ... DG_DISABLE(0,1) bracket. Used by the math function
- * wrappers.
+/* Disable certain Derivgrind actions on specific sections of user code
+ * by putting the section into a DG_DISABLE(1,0) ... DG_DISABLE(0,1) bracket.
  *
  * The macro DG_DISABLE(plus,minus) will add plus and subtract minus from
  * a Derivgrind-internal counter dg_disable. When the counter is non-zero,
- * certain actions are disabled.
+ * the following Derivgrind actions are disabled. The macro evaluates to
+ * the previous content of dg_disable.
  *
  * In forward mode, this will enable/disable outputting of values and
  * dot values for difference quotient debugging, but dot values will still
@@ -121,6 +121,12 @@ typedef enum {
  * will assign the index 0 or 0xff..f (if --typegrind=yes) instead of the
  * block index and not write to the tape. Also, typgrind warnings about an
  * index 0xff..f will be suppressed.
+ *
+ * In bit-trick-finding mode, warning messages will be suppressed.
+ *
+ * We use this client request in the math replacement wrappers, because we
+ * do not want to see Derivgrind messages for, and recordings of, the
+ * original math library code and the derivative computation.
  */
 #define DG_DISABLE(_qzz_plus,_qzz_minus) \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \

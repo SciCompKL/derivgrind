@@ -61,7 +61,7 @@ static Int fd_tape;
 static Int fd_values;
 static VgFile *fp_inputs, *fp_outputs;
 
-extern Long dg_disable;
+extern Long* dg_disable;
 extern Bool typegrind;
 extern Bool bar_record_values;
 extern Bool tape_in_ram;
@@ -75,7 +75,7 @@ ULong tapeAddStatement(ULong index1,ULong index2,double diff1,double diff2){
 }
 
 ULong tapeAddStatement_noActivityAnalysis(ULong index1,ULong index2,double diff1,double diff2){
-  if(dg_disable!=0) return typegrind ? 0xffffffffffffffff : 0;
+  if(dg_disable[VG_(get_running_tid)()]!=0) return typegrind ? 0xffffffffffffffff : 0;
   ULong pos = (nextindex%BUFSIZE);
   buffer_tape[4*pos] = index1;
   buffer_tape[4*pos+1] = index2;

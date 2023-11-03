@@ -1,6 +1,6 @@
 #include "dot/dg_dot_diffquotdebug.h"
 
-extern Bool dg_disable;
+extern Long* dg_disable;
 
 //! Next index in the buffers to be written to
 static ULong dg_dot_nextindex = 0;
@@ -64,7 +64,7 @@ void dg_dot_diffquotdebug_finalize(void){
 
 
 static VG_REGPARM(0) void dg_add_diffquotdebug_helper(ULong value, ULong dotvalue){
-  if(dg_disable==0){
+  if(dg_disable[VG_(get_running_tid)()]==0){
     dg_dot_buffer_val[dg_dot_nextindex] = value;
     dg_dot_buffer_dot[dg_dot_nextindex] = dotvalue;
     dg_dot_nextindex++;
