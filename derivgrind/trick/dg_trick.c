@@ -82,7 +82,7 @@ void dg_trick_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong a64Lo, ULon
   if(a64Lo==0){
     dg_bar_shadowSet((void*)addrU,(void*)zero,(void*)zero,10);
   } else {
-    if(a64Hi){
+    if(a64Lo & a64Hi){
       dg_trick_warn_dirtyhelper(a64Lo,a64Hi,8);
     }
     dg_bar_shadowSet((void*)addrU,(void*)ones,(void*)zero,10);
@@ -110,7 +110,8 @@ ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
   dg_bar_shadowGet((void*)addrU, (void*)a64Lo, (void*)a64Hi, 10);
   if(a64Lo[0]!=0 || a64Lo[1]%0x10000!=0){
     if(a64Hi[0]!=0 || a64Hi[1]%0x10000!=0){
-      dg_trick_warn_dirtyhelper(a64Lo[0], a64Hi[0], 8); // TODO not quite, two bytes are not reported to user
+      dg_trick_warn_dirtyhelper(a64Lo[0], a64Hi[0], 8);
+      dg_trick_warn_dirtyhelper(a64Lo[1], a64Hi[1], 2);
     }
   }
   return 0;
@@ -140,7 +141,12 @@ static void dg_trick_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp
 }
 
 ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size ){
-  ULong mask = (size==4) ? 0x00000000fffffffful : 0xfffffffffffffffful;
+  ULong mask;
+  switch(size){
+    case 2: mask = 0x000000000000fffful;
+    case 4: mask = 0x00000000fffffffful;
+    default: mask =  0xfffffffffffffffful;
+  }
   if((dg_disable[VG_(get_running_tid)()]==0) && (fLo & fHi & mask)){
     VG_(message)(Vg_UserMsg, "Active discrete data used as floating-point operand.\n");
     VG_(message)(Vg_UserMsg, "Activity bits: %llu. Discreteness bits: %llu.\n", fLo, fHi);
