@@ -438,6 +438,24 @@ cbrt.test_dots = {'c':40./3.}
 cbrt.test_bars = {'a':40./3.}
 regression_templates.append(cbrt)
 
+hypot = ClientRequestTestCase("hypot")
+hypot.include = "#include <math.h>"
+hypot.ldflags = '-lm'
+hypot.stmtd = "double c = hypot(a,b);"
+hypot.stmtf = "float c = hypotf(a,b);"
+hypot.stmtl = "long double c = hypotl(a,b);"
+hypot.stmtr4 = "real, target :: c; c = hypot(a,b)"
+hypot.stmtr8 = "double precision, target :: c; c = hypot(a,b)"
+hypot.stmtp = "c = np.hypot(a,b)"
+hypot.vals = {'a':3.0,'b':-4.0}
+hypot.dots = {'a':1.3, 'b':1.5}
+hypot.bars = {'c':1.0}
+hypot.test_vals = {'c':5.0}
+hypot.test_dots = {'c':1.3*3./5. + 1.5*(-4.)/5}
+hypot.test_bars = {'a':3./5., 'b':-4./5.}
+regression_templates.append(hypot)
+
+
 # if pow(a,b) is implemented as a*a for b==2., 
 # the gradient of b would be discarded
 pow_2 = ClientRequestTestCase("pow_2") 
