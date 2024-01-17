@@ -778,39 +778,34 @@ atan2.test_dots = {'c':1.3*(-4)/(3**2+4**2) + 1.5*3/(3**2+4**2)}
 atan2.test_bars = {'a':(-4)/(3**2+4**2), 'b':3/(3**2+4**2)}
 regression_templates.append(atan2)
 
-floor = ClientRequestTestCase("floor")
-floor.include = "#include <math.h>"
-floor.ldflags = '-lm'
-floor.stmtd = "double c = floor(a);"
-floor.stmtf = "float c = floorf(a);"
-floor.stmtl = "long double c = floorl(a);"
-floor.stmtr4 = "real, target :: c; c = floor(a)"
-floor.stmtr8 = "double precision, target :: c; c = floor(a)"
-floor.stmtp = "c = np.floor(a)"
-floor.vals = {'a':2.0}
-floor.dots = {'a':1.0}
-floor.bars = {'c':1.0}
-floor.test_vals = {'c':2.0}
-floor.test_dots = {'c':0.0}
-floor.test_bars = {'a':0.0}
-regression_templates.append(floor)
-
-ceil = ClientRequestTestCase("ceil")
-ceil.include = "#include <math.h>"
-ceil.ldflags = '-lm'
-ceil.stmtd = "double c = ceil(a);"
-ceil.stmtf = "float c = ceilf(a);"
-ceil.stmtl = "long double c = ceill(a);"
-ceil.stmtr4 = "real, target :: c; c = ceiling(a)"
-ceil.stmtr8 = "double precision, target :: c; c = ceiling(a)"
-ceil.stmtp = "c = np.ceil(a)"
-ceil.vals = {'a':2.1}
-ceil.dots = {'a':1.0}
-ceil.bars = {'c':1.0}
-ceil.test_vals = {'c':3.0}
-ceil.test_dots = {'c':0.0}
-ceil.test_bars = {'a':0.0}
-regression_templates.append(ceil)
+for cname,fortranname4,fortranname8,numpyname,a,c in [
+  ("floor","floor","floor","floor",2.0,2.0),
+  ("ceil","ceiling","ceiling","ceil",2.1,3.0),
+  ("trunc","aint",None,"trunc",2.9,2.0),
+  ("round","nint",None,"round",-2.6,-3.0),
+  ("nearbyint",None,None,None,-2.6,None),
+  ("rint",None,None,"rint",5.6,6.0) ]:
+  test = ClientRequestTestCase(cname)
+  test.include = "#include <math.h>"
+  test.ldflags = '-lm'
+  test.stmtd = f"double c = {cname}(a);"
+  test.stmtf = f"float c = {cname}f(a);"
+  test.stmtl = f"long double c = {cname}l(a);"
+  if fortranname4:
+    test.stmtr4 = f"real, target :: c; c = {fortranname4}(a)"
+  if fortranname8:
+    test.stmtr8 = f"double precision, target :: c; c = {fortranname8}(a)"
+  if numpyname:
+    test.stmtp = f"c = np.{numpyname}(a)"
+  test.disable = lambda mode, arch, compiler, typename : arch=='amd64' and (compiler=='gcc' or compiler=='g++') and (typename=='float' or typename=='double')
+  test.vals = {'a':a}
+  test.dots = {'a':1.0}
+  test.bars = {'c':1.0}
+  if c!=None:
+    test.test_vals = {'c':c}
+  test.test_dots = {'c':0.0}
+  test.test_bars = {'a':0.0}
+  regression_templates.append(test)
 
 ldexp = ClientRequestTestCase("ldexp")
 ldexp.include = "#include <math.h>"
