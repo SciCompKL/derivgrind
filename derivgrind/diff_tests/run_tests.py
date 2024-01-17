@@ -531,6 +531,36 @@ exp.test_bars = {'a':np.exp(4)*5.0}
 exp.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
 regression_templates.append(exp)
 
+exp2 = ClientRequestTestCase("exp2")
+exp2.include = "#include <math.h>"
+exp2.ldflags = '-lm'
+exp2.stmtd = "double c = exp2(a);"
+exp2.stmtf = "float c = exp2f(a);"
+exp2.stmtl = "long double c = exp2l(a);"
+exp2.stmtp = "c = np.exp2(a)"
+exp2.vals = {'a':10}
+exp2.dots = {'a':5.0}
+exp2.bars = {'c':5.0}
+exp2.test_vals = {'c':1024.0}
+exp2.test_dots = {'c':1024*np.log(2)*5.0}
+exp2.test_bars = {'a':1024*np.log(2)*5.0}
+regression_templates.append(exp2)
+
+expm1 = ClientRequestTestCase("expm1")
+expm1.include = "#include <math.h>"
+expm1.ldflags = '-lm'
+expm1.stmtd = "double c = expm1(a);"
+expm1.stmtf = "float c = expm1f(a);"
+expm1.stmtl = "long double c = expm1l(a);"
+expm1.stmtp = "c = np.expm1(a)"
+expm1.vals = {'a':4}
+expm1.dots = {'a':5.0}
+expm1.bars = {'c':5.0}
+expm1.test_vals = {'c':np.exp(4)-1}
+expm1.test_dots = {'c':np.exp(4)*5.0}
+expm1.test_bars = {'a':np.exp(4)*5.0}
+regression_templates.append(expm1)
+
 log = ClientRequestTestCase("log")
 log.include = "#include <math.h>"
 log.ldflags = '-lm'
