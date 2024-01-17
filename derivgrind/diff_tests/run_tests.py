@@ -423,6 +423,21 @@ sqrt.test_dots = {'c':0.25}
 sqrt.test_bars = {'a':0.25}
 regression_templates.append(sqrt)
 
+cbrt = ClientRequestTestCase("cbrt")
+cbrt.include = "#include <math.h>"
+cbrt.ldflags = '-lm'
+cbrt.stmtd = "double c = cbrt(a);"
+cbrt.stmtf = "float c = cbrtf(a);"
+cbrt.stmtl = "long double c = cbrtl(a);"
+cbrt.stmtp = "c = np.cbrt(a)"
+cbrt.vals = {'a':-0.125}
+cbrt.dots = {'a':10.0}
+cbrt.bars = {'c':10.0}
+cbrt.test_vals = {'c':-0.5}
+cbrt.test_dots = {'c':40./3.}
+cbrt.test_bars = {'a':40./3.}
+regression_templates.append(cbrt)
+
 # if pow(a,b) is implemented as a*a for b==2., 
 # the gradient of b would be discarded
 pow_2 = ClientRequestTestCase("pow_2") 
