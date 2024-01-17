@@ -549,6 +549,21 @@ log.test_bars = {'a':0.05}
 log.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
 regression_templates.append(log)
 
+log2 = ClientRequestTestCase("log2")
+log2.include = "#include <math.h>"
+log2.ldflags = '-lm'
+log2.stmtd = "double c = log2(a);"
+log2.stmtf = "float c = log2f(a);"
+log2.stmtl = "long double c = log2l(a);"
+log2.stmtp = "c = np.log2(a)"
+log2.vals = {'a':1024.0}
+log2.dots = {'a':1.0}
+log2.bars = {'c':1.0}
+log2.test_vals = {'c':10.0}
+log2.test_dots = {'c':1./(1024.*np.log(2))}
+log2.test_bars = {'a':1./(1024.*np.log(2))}
+regression_templates.append(log2)
+
 log10 = ClientRequestTestCase("log10")
 log10.include = "#include <math.h>"
 log10.ldflags = '-lm'
@@ -565,6 +580,21 @@ log10.test_vals = {'c':-2}
 log10.test_dots = {'c':100/np.log(10)}
 log10.test_bars = {'a':100/np.log(10)}
 regression_templates.append(log10)
+
+log1p = ClientRequestTestCase("log1p")
+log1p.include = "#include <math.h>"
+log1p.ldflags = '-lm'
+log1p.stmtd = "double c = log1p(a);"
+log1p.stmtf = "float c = log1pf(a);"
+log1p.stmtl = "long double c = log1pl(a);"
+log1p.stmtp = "c = np.log1p(a)"
+log1p.vals = {'a':4.0}
+log1p.dots = {'a':10.0}
+log1p.bars = {'c':10.0}
+log1p.test_vals = {'c':np.log(5.)}
+log1p.test_dots = {'c':2.0}
+log1p.test_bars = {'a':2.0}
+regression_templates.append(log1p)
 
 sinh = ClientRequestTestCase("sinh")
 sinh.include = "#include <math.h>"
