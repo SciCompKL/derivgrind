@@ -509,7 +509,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.test_vals = {'c':np.sin(angle)}
   sin.test_dots = {'c':np.cos(angle)*3.1}
   sin.test_bars = {'a':np.cos(angle)*3.1}
-  sin.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+  sin.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # Probably a bit-trick in NumPy
   regression_templates.append(sin)
 
   cos = ClientRequestTestCase("cos_"+angletext)
@@ -527,7 +527,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.test_vals = {'c':np.cos(angle)}
   cos.test_dots = {'c':-np.sin(angle)*2.7}
   cos.test_bars = {'a':-np.sin(angle)*2.7}
-  cos.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+  cos.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # Probably a bit-trick in NumPy
   regression_templates.append(cos)
 
   tan = ClientRequestTestCase("tan_"+angletext)
@@ -562,7 +562,7 @@ exp.bars = {'c':5.0}
 exp.test_vals = {'c':np.exp(4)}
 exp.test_dots = {'c':np.exp(4)*5.0}
 exp.test_bars = {'a':np.exp(4)*5.0}
-exp.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+exp.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # Probably a bit-trick in NumPy
 regression_templates.append(exp)
 
 exp2 = ClientRequestTestCase("exp2")
@@ -610,7 +610,7 @@ log.bars = {'c':1.0}
 log.test_vals = {'c':np.log(20)}
 log.test_dots = {'c':0.05}
 log.test_bars = {'a':0.05}
-log.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+log.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # Probably a bit-trick in NumPy
 regression_templates.append(log)
 
 log2 = ClientRequestTestCase("log2")
@@ -799,6 +799,7 @@ for cname,fortranname4,fortranname8,numpyname,a,c in [
   if numpyname:
     test.stmtp = f"c = np.{numpyname}(a)"
   test.disable = lambda mode, arch, compiler, typename : arch=='amd64' and (compiler=='gcc' or compiler=='g++') and (typename=='float' or typename=='double')
+  # GCC may realize rint() using a bit-trick.
   test.vals = {'a':a}
   test.dots = {'a':1.0}
   test.bars = {'c':1.0}
@@ -890,6 +891,8 @@ ifbranch.stmtr4 = "real, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end 
 ifbranch.stmtr8 = "double precision, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end if"
 ifbranch.stmtp = "if a<1:\n  c = 2+a\nelse:\n  c = 2*a\n"
 ifbranch.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+# disabled because the Python code is not correct, 'if a<1:' leads to a
+# ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
 ifbranch.vals = {'a':0.0}
 ifbranch.dots = {'a':1.0}
 ifbranch.bars = {'c':1.0}
@@ -905,7 +908,7 @@ elsebranch.stmtl = "long double c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.stmtr4 = "real, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.stmtr8 = "double precision, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.stmtp = "if a<-1:\n  c = 2+a\nelse:\n  c = 2*a\n"
-elsebranch.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+elsebranch.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"] # see ifbranch
 elsebranch.vals = {'a':0.0}
 elsebranch.dots = {'a':1.0}
 elsebranch.bars = {'c':1.0}
@@ -921,7 +924,7 @@ ternary_true.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_true.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtp = "c = (3*a) if (a>-1) else (a*a)"
-ternary_true.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+ternary_true.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"] # see ifbranch
 ternary_true.vals = {'a':10.0}
 ternary_true.dots = {'a':1.0}
 ternary_true.bars = {'c':1.0}
@@ -937,7 +940,7 @@ ternary_false.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_false.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_false.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_false.stmtp = "c = (3*a) if (a>-1) else (a*a)"
-ternary_false.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+ternary_false.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"] # see ifbranch
 ternary_false.vals = {'a':-10.0}
 ternary_false.dots = {'a':1.0}
 ternary_false.bars = {'c':1.0}
@@ -984,7 +987,7 @@ addition_whileloop.stmtl = "long double c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtr4 = "real, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.stmtr8 = "double precision, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.stmtp = "c=0\nwhile c<19:\n  c=c+a"
-addition_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+addition_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"] # see ifbranch
 addition_whileloop.vals = {'a':2.0}
 addition_whileloop.dots = {'a':1.0}
 addition_whileloop.bars = {'c':1.0}
@@ -1000,7 +1003,7 @@ multiplication_whileloop.stmtl = "long double c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtr4 = "real, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.stmtr8 = "double precision, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.stmtp = "c=1\nwhile c<1023:\n  c=c*a"
-multiplication_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+multiplication_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"] # see ifbranch
 multiplication_whileloop.vals = {'a':2.0}
 multiplication_whileloop.dots = {'a':1.0}
 multiplication_whileloop.bars = {'c':1.0}
@@ -1238,7 +1241,8 @@ exponentadd.bars = {'c': 1.0}
 exponentadd.test_vals = {'c':6.28}
 exponentadd.test_dots = {'c':-84.0}
 exponentadd.test_bars = {'a':2.0}
-exponentadd.disable = lambda mode, arch, compiler, typename: True
+exponentadd.disable = lambda mode, arch, compiler, typename: True 
+# Disabled because we admit that this is an unrecognized bit-trick. 
 regression_templates.append(exponentadd)
 
 exponentsub = ClientRequestTestCase("exponentsub")
@@ -1251,6 +1255,7 @@ exponentsub.test_vals = {'c':3.14}
 exponentsub.test_dots = {'c':-42.0}
 exponentsub.test_bars = {'a':0.5}
 exponentsub.disable = lambda mode, arch, compiler, typename: True
+# Disabled because we admit that this is an unrecognized bit-trick. 
 regression_templates.append(exponentadd)
 
 ### C++ tests ###
@@ -1259,7 +1264,7 @@ constructornew.include = "template<typename T> struct A { T t; A(T t): t(t*t) {}
 constructornew.stmtd = "A<double>* a = new A<double>(x); double y=a->t; "
 constructornew.stmtf = "A<float>* a = new A<float>(x); float y=a->t; "
 constructornew.stmtl = "A<long double>* a = new A<long double>(x); long double y=a->t; "
-constructornew.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
+constructornew.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++') # pure C++ code
 constructornew.vals = {'x': 2.0}
 constructornew.dots = {'x': 3.0}
 constructornew.bars = {'y': 1.0}
@@ -1293,7 +1298,7 @@ class B : public A<T> {
 virtualdispatch.stmtd = "B<double> b1(1,x), b2(3,4); b2 = static_cast<A<double> >(b1); double y = b2.t1;"
 virtualdispatch.stmtf = "B<float> b1(1,x), b2(3,4); b2 = static_cast<A<float> >(b1); float y = b2.t1;"
 virtualdispatch.stmtl = "B<long double> b1(1,x), b2(3,4); b2 = static_cast<A<long double> >(b1); long double y = b2.t1;"
-virtualdispatch.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
+virtualdispatch.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++') # pure C++ code
 virtualdispatch.vals = {'x': 2.}
 virtualdispatch.dots = {'x': 2.1}
 virtualdispatch.bars = {'y': 2.1}
@@ -1317,7 +1322,7 @@ T f(T x){
 exception.stmtd = "double y = f<double>(x);"
 exception.stmtf = "float y = f<float>(x);"
 exception.stmtl = "long double y = f<long double>(x);"
-exception.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
+exception.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++') # pure C++ code
 exception.vals = {'x': -6.0}
 exception.dots = {'x': 2.0}
 exception.bars = {'y': -1.0}
