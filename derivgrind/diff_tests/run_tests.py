@@ -1201,6 +1201,7 @@ omp_atomic.test_vals = {'sum':omp_test_sum_val}
 omp_atomic.test_dots = {'sum':omp_test_sum_grad}
 omp_atomic.test_bars = {'a':omp_test_sum_grad}
 omp_atomic.disable = lambda mode, arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
+# On a simpler testcase, GCC on x86 uses a fildq followed by a fistpq instruction to copy the number that is atomically incremented.
 regression_templates.append(omp_atomic)
 
 omp_reduction = ClientRequestTestCase("omp_reduction")
