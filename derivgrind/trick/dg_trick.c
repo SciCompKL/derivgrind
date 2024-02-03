@@ -173,6 +173,12 @@ static void dg_trick_warn8(DiffEnv* diffenv, IRExpr* flagsLo, IRExpr* flagsHi){
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
 }
 
+void* dg_trick_default_(DiffEnv* diffenv, IRType type){
+  IRExpr* activity = mkIRConst_zero(type);
+  IRExpr* discreteness = mkIRConst_ones(type);
+  return mkIRExprVec_2(activity,discreteness);
+}
+
 void* dg_trick_operation(DiffEnv* diffenv, IROp op,
                          IRExpr* arg1, IRExpr* arg2, IRExpr* arg3, IRExpr* arg4,
                          void* f1, void* f2, void* f3, void* f4){
@@ -229,7 +235,7 @@ const ExpressionHandling dg_trick_expressionhandling = {
   &dg_bar_puti,&dg_bar_geti,
   &dg_bar_store,&dg_bar_load,
   &dg_trick_dirty_storeF80le,&dg_trick_dirty_loadF80le,
-  &dg_bar_constant,&dg_bar_default_,
+  &dg_bar_constant,&dg_trick_default_,
   &dg_bar_compare,&dg_bar_ite,
   &dg_trick_operation,&dg_trick_ccall
 };
