@@ -187,7 +187,7 @@ void* dg_modify_expression(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* ex);
 /*! Handle expressions with dg_modify_expressions, but return default data 
  *  in unhandled cases.
  */
-void* dg_modify_expression_or_default(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* expr, Bool warn, const char* operation);
+void* dg_modify_expression_or_default(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* expr, int warn, const char* operation);
 
 /*! Add instrumented statement to output IRSB.
  *  \param diffenv - General setup.
