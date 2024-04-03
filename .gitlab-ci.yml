@@ -1,4 +1,4 @@
-image: debian:11.5
+image: debian:12.5
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
