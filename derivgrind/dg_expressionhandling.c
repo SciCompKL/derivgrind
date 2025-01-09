@@ -36,7 +36,7 @@
  * AD-mode independent handling of VEX statements and expressions.
  */
 
-extern Bool warn_about_unwrapped_expressions;
+extern int warn_about_unwrapped_expressions;
 
 void* dg_modify_expression(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* ex){
   if(ex == NULL){
@@ -97,13 +97,49 @@ void* dg_modify_expression(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* ex){
   }
 }
 
+// Used to check if a VEX operation has floating-point args and return type,
+// to warn about unwrapped expressions.
+// We're not checking for SIMD types here, as this is only a heuristic and we
+// try to minimize false positives.
+Bool isFloatingPoint(IRType type){
+  return type==Ity_F16 || type==Ity_F32 || type==Ity_F64 || type==Ity_F128 || type==Ity_D32 || type==Ity_D64 || type==Ity_D128;
+}
 
-void* dg_modify_expression_or_default(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* expr, Bool warn, const char* operation){
+// Return true if the "signature" of the VEX operations suggests that it might
+// handle floating-point data.
+Bool operation_with_float_args(IRExpr* expr){
+  IRType t_dst=Ity_INVALID, t_arg1=Ity_INVALID, t_arg2=Ity_INVALID, t_arg3=Ity_INVALID, t_arg4=Ity_INVALID;
+  if(expr->tag==Iex_Unop){
+    typeOfPrimop(expr->Iex.Unop.op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
+    if(isFloatingPoint(t_dst) && isFloatingPoint(t_arg1)){
+      return True;
+    }
+  } else if(expr->tag==Iex_Binop){
+    typeOfPrimop(expr->Iex.Binop.op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
+    if(isFloatingPoint(t_dst) && (isFloatingPoint(t_arg1)||isFloatingPoint(t_arg2))){
+      return True;
+    }
+  } else if(expr->tag==Iex_Triop){
+    typeOfPrimop(expr->Iex.Triop.details->op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
+    if(isFloatingPoint(t_dst) && (isFloatingPoint(t_arg1)||isFloatingPoint(t_arg2)||isFloatingPoint(t_arg3))){
+      return True;
+    }
+  } else if(expr->tag==Iex_Binop){
+    typeOfPrimop(expr->Iex.Qop.details->op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
+    if(isFloatingPoint(t_dst) && (isFloatingPoint(t_arg1)||isFloatingPoint(t_arg2)||isFloatingPoint(t_arg3)||isFloatingPoint(t_arg4))){
+      return True;
+    }
+  }
+  return False;
+}
+
+
+void* dg_modify_expression_or_default(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* expr, int warn, const char* operation){
   void* diff = dg_modify_expression(diffenv, eh, expr);
   if(diff){
     return diff;
   } else {
-    if(warn){
+    if(warn==2 || (warn==1 && operation_with_float_args(expr))){
       VG_(printf)("Warning: Expression\n");
       ppIRExpr(expr);
       VG_(printf)("\ncould not be modified, %s'ing zero instead.\n\n", operation);

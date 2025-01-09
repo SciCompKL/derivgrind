@@ -437,7 +437,11 @@ yl2xp1f64 = IROp_Info("Iop_Yl2xp1F64", 3, [2,3],8,1,True)
 yl2xp1f64.dotcode = dv("IRExpr_Triop(Iop_AddF64,arg1,IRExpr_Triop(Iop_Yl2xp1F64,arg1,d2,arg3),IRExpr_Triop(Iop_DivF64,arg1,IRExpr_Triop(Iop_MulF64,arg1,arg2,d3),IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.))))))")
 yl2xp1f64.barcode = createBarCode(yl2xp1f64, [2,3], [], ["IRExpr_Triop(Iop_Yl2xp1F64,arg1,IRExpr_Const(IRConst_F64(1.)),arg3)",  "IRExpr_Triop(Iop_DivF64,arg1,arg2,IRExpr_Triop(Iop_MulF64,arg1,IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)),IRExpr_Triop(Iop_AddF64, arg1, arg3, IRExpr_Const(IRConst_F64(1.)))))"], yl2xp1f64.apply(), 8, 1, False)
 yl2xp1f64.trickcode = createTrickCode(yl2xp1f64, [2,3], [2,3], False, 8, 1, False)
-IROp_Infos += [ scalef64, yl2xf64, yl2xp1f64 ]
+_2xm1f64 = IROp_Info("Iop_2xm1F64", 2, [2],8,1,True)
+_2xm1f64.dotcode = dv("IRExpr_Triop(Iop_MulF64, arg1, IRExpr_Triop(Iop_MulF64, arg1, IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)), d2), IRExpr_Triop(Iop_AddF64, arg1, IRExpr_Binop(Iop_2xm1F64, arg1, arg2), IRExpr_Const(IRConst_F64(1.0))))")
+_2xm1f64.barcode = createBarCode(_2xm1f64, [2], [], ["IRExpr_Triop(Iop_MulF64, arg1, IRExpr_Const(IRConst_F64(0.6931471805599453094172321214581)), IRExpr_Triop(Iop_AddF64, arg1, IRExpr_Binop(Iop_2xm1F64, arg1, arg2), IRExpr_Const(IRConst_F64(1.0))))"], _2xm1f64.apply(), 8, 1, False)
+_2xm1f64.trickcode = createTrickCode(_2xm1f64, [2], [2], False, 8, 1, False)
+IROp_Infos += [ scalef64, yl2xf64, yl2xp1f64, _2xm1f64 ]
 
 ### Bitwise logical instructions. ###
 
