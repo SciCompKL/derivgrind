@@ -250,6 +250,7 @@ struct vki_sigcontext {
 #define VKI_O_TRUNC	  01000	/* not fcntl */
 #define VKI_O_APPEND	  02000
 #define VKI_O_NONBLOCK	  04000
+#define VKI_O_DIRECT     040000
 #define VKI_O_LARGEFILE	0100000
 
 #define VKI_AT_FDCWD            -100
@@ -374,7 +375,28 @@ struct vki_statfs {
 	__vki_kernel_fsid_t f_fsid;
 	long f_namelen;
 	long f_frsize;
-	long f_spare[5];
+        long f_flags;
+        long f_spare[4];
+};
+
+//----------------------------------------------------------------------
+// From bits/statfs.h
+//----------------------------------------------------------------------
+
+struct vki_statfs64
+{
+   long f_type;
+   long f_bsize;
+   unsigned long f_blocks;
+   unsigned long f_bfree;
+   unsigned long f_bavail;
+   unsigned long f_files;
+   unsigned long f_ffree;
+   __vki_kernel_fsid_t f_fsid;
+   long f_namelen;
+   long f_frsize;
+   long f_flags;
+   long f_spare[4];
 };
 
 //----------------------------------------------------------------------

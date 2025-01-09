@@ -21,7 +21,11 @@
  */
 #if defined(__powerpc__) || defined(__aarch64__)
 #  define DIVISION_BY_ZERO_TRIGGERS_FPE 0
+#if defined(VGO_freebsd)
+#  define DIVISION_BY_ZERO_SI_CODE      SI_LWP
+#else
 #  define DIVISION_BY_ZERO_SI_CODE      SI_TKILL
+#endif
 #elif defined(__arm__)
 #  define DIVISION_BY_ZERO_TRIGGERS_FPE 1
 #  define DIVISION_BY_ZERO_SI_CODE      SI_TKILL
@@ -36,7 +40,7 @@
  * BUS_ADRERR is used for bus time out while BUS_OBJERR is translated
  * from underlying codes FC_OBJERR (x86) or ASYNC_BERR (sparc).
  */
-#if defined(VGO_solaris) || (defined(VGO_freebsd) && (FREEBSD_VERS >= FREEBSD_12_2))
+#if defined(VGO_solaris) || defined(VGO_freebsd)
 #  define BUS_ERROR_SI_CODE  BUS_OBJERR
 #else
 #  define BUS_ERROR_SI_CODE  BUS_ADRERR
@@ -167,11 +171,7 @@ int main()
 #define T(n, sig, code, addr) { test##n, sig, code, addr }
 			T(1, SIGSEGV,	SEGV_MAPERR,	BADADDR),
 			T(2, SIGSEGV,	SEGV_ACCERR,	mapping),
-#if defined(VGO_freebsd) && (FREEBSD_VERS < FREEBSD_12_2)
-			T(3, SIGSEGV,	BUS_ERROR_SI_CODE, &mapping[FILESIZE+10]),
-#else
 			T(3, SIGBUS,	BUS_ERROR_SI_CODE, &mapping[FILESIZE+10]),
-#endif
 			T(4, SIGFPE,    DIVISION_BY_ZERO_SI_CODE, 0),
 #undef T
 		};
@@ -190,7 +190,7 @@ int main()
 	return 0;
 }
 
-static volatile s_zero;
+static volatile int s_zero;
 
 static int zero()
 {

@@ -86,6 +86,7 @@ dist_noinst_SCRIPTS = \
 	filter_none_discards \
 	filter_stderr \
 	filter_timestamp \
+	filter_xml \
 	allexec_prepare_prereq
 
 noinst_HEADERS = fdleak.h
@@ -101,6 +102,7 @@ EXTRA_DIST = \
 	bitfield1.stderr.exp bitfield1.vgtest \
 	bug129866.vgtest bug129866.stderr.exp bug129866.stdout.exp \
 	bug234814.vgtest bug234814.stderr.exp bug234814.stdout.exp \
+	bug491394.vgtest bug491394.stderr.exp \
 	closeall.stderr.exp closeall.vgtest \
 	cmdline0.stderr.exp cmdline0.stdout.exp cmdline0.vgtest \
 	cmdline1.stderr.exp cmdline1.stdout.exp cmdline1.vgtest \
@@ -111,12 +113,20 @@ EXTRA_DIST = \
 	cmdline4.stderr.exp cmdline4.vgtest \
 	cmdline5.stderr.exp cmdline5.vgtest \
 	cmdline6.stderr.exp cmdline6.vgtest \
+	cmdline7.stderr.exp cmdline7.vgtest \
+	cmdline8.stderr.exp cmdline8.vgtest \
+	cmdline9.stderr.exp cmdline9.vgtest \
+	cmdline10.stderr.exp cmdline10.vgtest \
+	cmdline11.stderr.exp cmdline11.vgtest \
 	cmd-with-special.stderr.exp cmd-with-special.vgtest \
 	coolo_sigaction.stderr.exp \
 	coolo_sigaction.stdout.exp coolo_sigaction.vgtest \
 	coolo_strlen.stderr.exp coolo_strlen.vgtest \
 	discard.stderr.exp discard.stdout.exp \
 	discard.vgtest \
+	double_close_range_xml.stderr.exp \
+	double_close_range_xml.vgtest \
+	double_close_range_sup.stderr.exp double_close_range_sup.vgtest \
 	empty-exe.vgtest empty-exe.stderr.exp \
 	exec-sigmask.vgtest exec-sigmask.stdout.exp \
 	exec-sigmask.stdout.exp2 exec-sigmask.stdout.exp3 \
@@ -125,14 +135,28 @@ EXTRA_DIST = \
 	faultstatus.vgtest faultstatus.stderr.exp faultstatus.stderr.exp-s390x \
 	fcntl_setown.vgtest fcntl_setown.stdout.exp fcntl_setown.stderr.exp \
 	fdleak_cmsg.stderr.exp fdleak_cmsg.vgtest \
+	fdleak_cmsg_xml.stderr.exp fdleak_cmsg_xml.vgtest \
+	fdleak_cmsg_supp.stderr.exp fdleak_cmsg_supp.supp \
+	fdleak_cmsg_supp.vgtest \
 	fdleak_creat.stderr.exp fdleak_creat.vgtest \
+	fdleak_creat_xml.stderr.exp fdleak_creat_xml.vgtest \
+	fdleak_creat_sup.stderr.exp fdleak_creat_sup.supp \
+	fdleak_creat_sup.vgtest \
 	fdleak_dup.stderr.exp fdleak_dup.vgtest \
+	fdleak_dup_xml.stderr.exp fdleak_dup_xml.vgtest \
 	fdleak_dup2.stderr.exp fdleak_dup2.vgtest \
+	fdleak_dup2_xml.stderr.exp fdleak_dup2_xml.vgtest \
 	fdleak_fcntl.stderr.exp fdleak_fcntl.vgtest \
+	fdleak_fcntl_xml.stderr.exp fdleak_fcntl_xml.vgtest \
 	fdleak_ipv4.stderr.exp fdleak_ipv4.stdout.exp fdleak_ipv4.vgtest \
+	fdleak_ipv4_xml.stderr.exp fdleak_ipv4_xml.stdout.exp \
+	fdleak_ipv4_xml.vgtest fdleak_ipv4_xml.stderr.exp-nomain \
 	fdleak_open.stderr.exp fdleak_open.vgtest \
+	fdleak_open_xml.stderr.exp fdleak_open_xml.vgtest \
 	fdleak_pipe.stderr.exp fdleak_pipe.vgtest \
+	fdleak_pipe_xml.stderr.exp fdleak_pipe_xml.vgtest \
 	fdleak_socketpair.stderr.exp fdleak_socketpair.vgtest \
+	fdleak_socketpair_xml.stderr.exp fdleak_socketpair_xml.vgtest \
 	floored.stderr.exp floored.stdout.exp floored.vgtest \
 	fork.stderr.exp fork.stdout.exp fork.vgtest \
 	fucomip.stderr.exp fucomip.vgtest \
@@ -146,6 +170,7 @@ EXTRA_DIST = \
 	map_unmap.stderr.exp map_unmap.stdout.exp map_unmap.vgtest \
 	mmap_fcntl_bug.vgtest mmap_fcntl_bug.stdout.exp \
 		mmap_fcntl_bug.stderr.exp \
+	mmap_o_direct.stderr.exp mmap_o_direct.vgtest \
 	mq.stderr.exp mq.vgtest \
 	munmap_exe.stderr.exp munmap_exe.vgtest \
 	nestedfns.stderr.exp nestedfns.stdout.exp nestedfns.vgtest \
@@ -183,6 +208,7 @@ EXTRA_DIST = \
 	pth_stackalign.stdout.exp pth_stackalign.vgtest \
 	pth_2sig.stderr.exp-linux pth_2sig.stderr.exp-solaris pth_2sig.vgtest \
 	pth_term_signal.stderr.exp pth_term_signal.vgtest \
+	rc_option_with_spaces.stderr.exp rc_option_with_spaces.vgtest \
 	rcrl.stderr.exp rcrl.stdout.exp rcrl.vgtest \
 	readline1.stderr.exp readline1.stdout.exp \
 	readline1.vgtest \
@@ -215,11 +241,23 @@ EXTRA_DIST = \
 	threadederrno.vgtest \
 	timestamp.stderr.exp timestamp.vgtest \
 	tls.vgtest tls.stderr.exp tls.stdout.exp  \
+	track-fds-exec-children.vgtest track-fds-exec-children.stderr.exp \
 	unit_debuglog.stderr.exp unit_debuglog.vgtest \
 	vgprintf.stderr.exp vgprintf.vgtest \
 	vgprintf_nvalgrind.stderr.exp vgprintf_nvalgrind.vgtest \
 	process_vm_readv_writev.stderr.exp process_vm_readv_writev.vgtest \
-	sigprocmask.stderr.exp sigprocmask.vgtest
+	sigprocmask.stderr.exp sigprocmask.vgtest \
+	socket_close.stderr.exp socket_close.vgtest \
+	socket_close_xml.stderr.exp socket_close_xml.vgtest \
+	file_dclose.stderr.exp file_dclose.vgtest \
+	file_dclose_xml.stderr.exp file_dclose_xml.vgtest \
+	file_dclose_xml.stderr.exp-nomain \
+	file_dclose.supp file_dclose_sup.stderr.exp file_dclose_sup.vgtest \
+	double_close_range.stderr.exp double_close_range.vgtest \
+	log-track-fds.stderr.exp log-track-fds.vgtest \
+	xml-track-fds.stderr.exp xml-track-fds.vgtest \
+	fdbaduse.stderr.exp fdbaduse.vgtest \
+	use_after_close.stderr.exp use_after_close.vgtest
 
 
 check_PROGRAMS = \
@@ -238,6 +276,7 @@ check_PROGRAMS = \
 	libvexmultiarch_test \
 	manythreads \
 	mmap_fcntl_bug \
+	mmap_o_direct \
 	munmap_exe map_unaligned map_unmap mq \
 	nocwd \
 	pending \
@@ -262,6 +301,7 @@ check_PROGRAMS = \
 	tls \
 	tls.so \
 	tls2.so \
+	track-fds-exec-children \
 	unit_debuglog \
 	valgrind_cpp_test \
 	vgprintf \
@@ -269,7 +309,26 @@ check_PROGRAMS = \
 	coolo_sigaction \
 	gxx304 \
 	process_vm_readv_writev \
-	sigprocmask
+	sigprocmask \
+	socket_close \
+	file_dclose \
+	fdbaduse \
+        use_after_close
+
+if HAVE_STATIC_LIBC
+if ! VGCONF_OS_IS_LINUX
+   check_PROGRAMS += bug491394
+endif
+if VGCONF_OS_IS_LINUX
+if VGCONF_ARCHS_INCLUDE_AMD64
+   check_PROGRAMS += bug491394
+endif
+endif
+endif
+
+if HAVE_CLOSE_RANGE
+   check_PROGRAMS += double_close_range
+endif
 
 if HAVE_NESTED_FUNCTIONS
    check_PROGRAMS += nestedfns
@@ -298,6 +357,9 @@ AM_CXXFLAGS += $(AM_FLAG_M3264_PRI)
 
 # Extra stuff for C tests
 ansi_CFLAGS		= $(AM_CFLAGS) -ansi
+bug491394_LDADD		= -lc
+bug491394_LDFLAGS	= -nostdlib -static
+bug491394_CFLAGS	= ${AM_CFLAGS} -Os
 execve_CFLAGS		= $(AM_CFLAGS) @FLAG_W_NO_NONNULL@
 if VGCONF_OS_IS_SOLARIS
 fcntl_setown_LDADD	= -lsocket -lnsl
@@ -306,6 +368,15 @@ fdleak_cmsg_LDADD	= -lsocket -lnsl
 fdleak_ipv4_LDADD	= -lsocket -lnsl
 fdleak_creat_LDADD	= -lsocket -lnsl
 fdleak_socketpair_LDADD	= -lsocket -lnsl
+socket_close_LDADD	= -lsocket -lnsl
+else
+fcntl_setown_LDADD	= $(AL_LDFLAGS)
+fdleak_cmsg_CFLAGS	= $(AM_CFLAGS)
+fdleak_cmsg_LDADD	= $(AM_LDFLAGS)
+fdleak_ipv4_LDADD	= $(AM_LDFLAGS)
+fdleak_creat_LDADD	= $(AM_LDFLAGS)
+fdleak_socketpair_LDADD	= $(AM_LDFLAGS)
+socket_close_LDADD	= $(AM_LDFLAGS)
 endif
 floored_LDADD 		= -lm
 ifunc_CFLAGS		= $(AM_CFLAGS) -Wno-unused-function
@@ -364,6 +435,7 @@ thread_exits_LDADD	= -lpthread
 threaded_fork_LDADD	= -lpthread
 threadederrno_CFLAGS	= $(AM_CFLAGS)
 threadederrno_LDADD	= -lpthread
+timestamp_CFLAGS	= ${AM_CFLAGS} @FLAG_W_NO_USE_AFTER_FREE@
 tls_SOURCES		= tls.c tls2.c
 tls_DEPENDENCIES	= tls.so tls2.so
 tls_LDFLAGS		= -Wl,-rpath,$(abs_top_builddir)/none/tests
@@ -384,6 +456,7 @@ if VGCONF_OS_IS_DARWIN
 else
  tls2_so_LDFLAGS	= -shared
 endif
+track_fds_exec_children_SOURCES = track-fds-exec-children.c
 
 vgprintf_nvalgrind_SOURCES = vgprintf.c
 vgprintf_nvalgrind_CFLAGS = ${AM_CFLAGS} -DNVALGRIND

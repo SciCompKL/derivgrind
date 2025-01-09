@@ -260,9 +260,10 @@ VexGuestLayout s390xGuest_layout = {
 /*--- Dirty helper for EXecute                             ---*/
 /*------------------------------------------------------------*/
 void
-s390x_dirtyhelper_EX(ULong torun)
+s390x_dirtyhelper_EX(ULong torun, Addr64 addr)
 {
    last_execute_target = torun;
+   guest_IA_rel_base = addr;
 }
 
 
@@ -310,121 +311,6 @@ ULong s390x_dirtyhelper_STCKF(ULong *addr) {return 3;}
 ULong s390x_dirtyhelper_STCKE(ULong *addr) {return 3;}
 #endif /* VGA_s390x */
 
-/*------------------------------------------------------------*/
-/*--- Dirty helper for Store Facility instruction          ---*/
-/*------------------------------------------------------------*/
-#if defined(VGA_s390x)
-
-static ULong
-s390_stfle_range(UInt lo, UInt hi)
-{
-   return ((1UL << (hi + 1 - lo)) - 1) << (63 - (hi % 64));
-}
-
-ULong
-s390x_dirtyhelper_STFLE(VexGuestS390XState *guest_state, ULong *addr)
-{
-   ULong hoststfle[S390_NUM_FACILITY_DW], cc, num_dw, i;
-   register ULong reg0 asm("0") = guest_state->guest_r0 & 0xF;  /* r0[56:63] */
-
-   /* Restrict to facilities that we know about and that we assume to be
-      compatible with Valgrind.  Of course, in this way we may reject features
-      that Valgrind is not really involved in (and thus would be compatible
-      with), but quering for such features doesn't seem like a typical use
-      case. */
-   ULong accepted_facility[S390_NUM_FACILITY_DW] = {
-      /* ===  0 .. 63  === */
-      (s390_stfle_range(0, 16)
-       /* 17: message-security-assist, not supported */
-       | s390_stfle_range(18, 19)
-       /* 20: HFP-multiply-and-add/subtract, not supported */
-       | s390_stfle_range(21, 22)
-       /* 23: HFP-unnormalized-extension, not supported */
-       | s390_stfle_range(24, 25)
-       /* 26: parsing-enhancement, not supported */
-       | s390_stfle_range(27, 28)
-       /* 29: unassigned */
-       | s390_stfle_range(30, 30)
-       /* 31: extract-CPU-time, not supported */
-       | s390_stfle_range(32, 41)
-       /* 42-43: DFP, not fully supported */
-       /* 44: PFPO, not fully supported */
-       | s390_stfle_range(45, 47)
-       /* 48: DFP zoned-conversion, not supported */
-       /* 49: includes PPA, not supported */
-       /* 50: constrained transactional-execution, not supported */
-       | s390_stfle_range(51, 55)
-       /* 56: unassigned */
-       /* 57: MSA5, not supported */
-       | s390_stfle_range(58, 63)),
-
-      /* ===  64 .. 127  === */
-      (s390_stfle_range(64, 72)
-       /* 73: transactional-execution, not supported */
-       | s390_stfle_range(74, 75)
-       /* 76: MSA3, not supported */
-       /* 77: MSA4, not supported */
-       | s390_stfle_range(78, 78)
-       /* 80: DFP packed-conversion, not supported */
-       /* 81: PPA-in-order, not supported */
-       | s390_stfle_range(82, 82)
-       /* 83-127: unassigned */ ),
-
-      /* ===  128 .. 191  === */
-      (s390_stfle_range(128, 131)
-       /* 132: unassigned */
-       /* 133: guarded-storage, not supported */
-       /* 134: vector packed decimal, not supported */
-       | s390_stfle_range(135, 135)
-       /* 136: unassigned */
-       /* 137: unassigned */
-       | s390_stfle_range(138, 142)
-       /* 143: unassigned */
-       | s390_stfle_range(144, 145)
-       /* 146: MSA8, not supported */
-       | s390_stfle_range(147, 149)
-       /* 150: unassigned */
-       /* 151: DEFLATE-conversion, not supported */
-       /* 152: vector packed decimal enhancement, not supported */
-       /* 153: unassigned */
-       /* 154: unassigned */
-       /* 155: MSA9, not supported */
-       | s390_stfle_range(156, 156)
-       /* 157-167: unassigned */
-       | s390_stfle_range(168, 168)
-       /* 168-191: unassigned */ ),
-   };
-
-   /* We cannot store more than S390_NUM_FACILITY_DW
-      (and it makes not much sense to do so anyhow) */
-   if (reg0 > S390_NUM_FACILITY_DW - 1)
-      reg0 = S390_NUM_FACILITY_DW - 1;
-
-   num_dw = reg0 + 1;  /* number of double words written */
-
-   asm volatile(" .insn s,0xb2b00000,%0\n"   /* stfle */
-                "ipm    %2\n"
-                "srl    %2,28\n"
-                : "=m" (hoststfle), "+d"(reg0), "=d"(cc) : : "cc", "memory");
-
-   /* Update guest register 0  with what STFLE set r0 to */
-   guest_state->guest_r0 = reg0;
-
-   /* VM facilities = host facilities, filtered by acceptance */
-   for (i = 0; i < num_dw; ++i)
-      addr[i] = hoststfle[i] & accepted_facility[i];
-
-   return cc;
-}
-
-#else
-
-ULong
-s390x_dirtyhelper_STFLE(VexGuestS390XState *guest_state, ULong *addr)
-{
-   return 3;
-}
-#endif /* VGA_s390x */
 
 /*------------------------------------------------------------*/
 /*--- Dirty helper for the "convert unicode" insn family.  ---*/
@@ -564,7 +450,7 @@ s390_do_cu24(UInt srcval, UInt low_surrogate)
 
    srcval &= 0xffff;
 
-   if ((srcval >= 0x0000 && srcval <= 0xd7ff) ||
+   if ((srcval <= 0xd7ff) ||
        (srcval >= 0xdc00 && srcval <= 0xffff)) {
       retval = srcval;
    } else {
@@ -913,7 +799,7 @@ s390_do_cvb(ULong decimal)
    __asm__ volatile (
         "cvb %[result],%[input]\n\t"
           : [result] "=d"(binary)
-          : [input] "m"(decimal)
+          : [input] "R"(decimal)
    );
 
    return binary;
@@ -1000,8 +886,12 @@ UInt s390_do_pfpo(UInt gpr0) { return 0; }
 /*--- Helper for condition code.                           ---*/
 /*------------------------------------------------------------*/
 
-/* Convert an IRRoundingMode value to s390_bfp_round_t */
 #if defined(VGA_s390x)
+typedef long double Float128;
+union s390x_F64 { ULong i; Double f; };
+union s390x_F128 { struct { ULong hi, lo; } i; Float128 f; };
+
+/* Convert an IRRoundingMode value to s390_bfp_round_t */
 static s390_bfp_round_t
 decode_bfp_rounding_mode(UInt irrm)
 {
@@ -1013,8 +903,6 @@ decode_bfp_rounding_mode(UInt irrm)
    }
    vpanic("decode_bfp_rounding_mode");
 }
-#endif
-
 
 #define S390_CC_FOR_BINARY(opcode,cc_dep1,cc_dep2) \
 ({ \
@@ -1041,13 +929,14 @@ decode_bfp_rounding_mode(UInt irrm)
    /* Recover the original DEP2 value. See comment near s390_cc_thunk_put3 \
       for rationale. */ \
    cc_dep2 = cc_dep2 ^ cc_ndep; \
+   ULong tmp = 1; \
    __asm__ volatile ( \
-	"lghi 0,1\n\t" \
-	"sr 0,%[op3]\n\t" /* borrow to cc */ \
+        "sr %[tmp],%[op3]\n\t" /* borrow to cc */ \
         opcode " %[op1],%[op2]\n\t" /* then redo the op */\
-        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [op1] "+&d"(cc_dep1) \
+        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [op1] "+&d"(cc_dep1), \
+                                     [tmp] "+&d"(tmp) \
                                    : [op2] "d"(cc_dep2), [op3] "d"(cc_ndep) \
-                                   : "0", "cc");\
+                                   : "cc");\
    psw >> 28;   /* cc */ \
 })
 
@@ -1056,46 +945,52 @@ decode_bfp_rounding_mode(UInt irrm)
    /* Recover the original DEP2 value. See comment near s390_cc_thunk_put3 \
       for rationale. */ \
    cc_dep2 = cc_dep2 ^ cc_ndep; \
+   ULong tmp; \
    __asm__ volatile ( \
-	"lgfr 0,%[op3]\n\t" /* first load cc_ndep */ \
-	"aghi 0,0\n\t" /* and convert it into a cc */ \
+        "lgfr %[tmp],%[op3]\n\t" /* first load cc_ndep */ \
+        "aghi %[tmp],0\n\t" /* and convert it into a cc */ \
         opcode " %[op1],%[op2]\n\t" /* then redo the op */\
-        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [op1] "+&d"(cc_dep1) \
+        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [op1] "+&d"(cc_dep1), \
+                                     [tmp] "=&d"(tmp) \
                                    : [op2] "d"(cc_dep2), [op3] "d"(cc_ndep) \
-                                   : "0", "cc");\
+                                   : "cc");\
    psw >> 28;   /* cc */ \
 })
 
 
 #define S390_CC_FOR_BFP_RESULT(opcode,cc_dep1) \
 ({ \
+   union s390x_F64 op = { .i = cc_dep1 }; \
+   Double tmp; \
    __asm__ volatile ( \
-        opcode " 0,%[op]\n\t" \
-        "ipm %[psw]\n\t"           : [psw] "=d"(psw) \
-                                   : [op]  "f"(cc_dep1) \
-                                   : "cc", "f0");\
+        opcode " %[tmp],%[op]\n\t" \
+        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [tmp] "=f"(tmp) \
+                                   : [op]  "f"(op.f) \
+                                   : "cc");\
    psw >> 28;   /* cc */ \
 })
 
 #define S390_CC_FOR_BFP128_RESULT(hi,lo) \
 ({ \
+   union s390x_F128 op = { .i = { hi, lo } }; \
+   Float128 tmp; \
    __asm__ volatile ( \
-        "ldr   4,%[high]\n\t" \
-        "ldr   6,%[low]\n\t" \
-        "ltxbr 0,4\n\t" \
-        "ipm %[psw]\n\t"           : [psw] "=d"(psw) \
-                                   : [high] "f"(hi), [low] "f"(lo) \
-                                   : "cc", "f0", "f2", "f4", "f6");\
+        "ltxbr %[tmp],%[op]\n\t" \
+        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [tmp] "=f"(tmp) \
+                                   : [op]  "f"(op.f) \
+                                   : "cc");\
    psw >> 28;   /* cc */ \
 })
 
 #define S390_CC_FOR_BFP_CONVERT_AUX(opcode,cc_dep1,rounding_mode) \
 ({ \
+   union s390x_F64 op = { .i = cc_dep1 }; \
+   ULong tmp; \
    __asm__ volatile ( \
-        opcode " 0," #rounding_mode ",%[op]\n\t" \
-        "ipm %[psw]\n\t"           : [psw] "=d"(psw) \
-                                   : [op]  "f"(cc_dep1) \
-                                   : "cc", "r0");\
+        opcode " %[tmp]," #rounding_mode ",%[op]\n\t" \
+        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [tmp] "=d"(tmp) \
+                                   : [op]  "f"(op.f) \
+                                   : "cc");\
    psw >> 28;   /* cc */ \
 })
 
@@ -1123,11 +1018,13 @@ decode_bfp_rounding_mode(UInt irrm)
 
 #define S390_CC_FOR_BFP_UCONVERT_AUX(opcode,cc_dep1,rounding_mode) \
 ({ \
+   union s390x_F64 op = { .i = cc_dep1 }; \
+   ULong tmp; \
    __asm__ volatile ( \
-        opcode ",0,%[op]," #rounding_mode ",0\n\t" \
-        "ipm %[psw]\n\t"           : [psw] "=d"(psw) \
-                                   : [op]  "f"(cc_dep1) \
-                                   : "cc", "r0");\
+        opcode ",%[tmp],%[op]," #rounding_mode ",0\n\t" \
+        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [tmp] "=d"(tmp) \
+                                   : [op]  "f"(op.f) \
+                                   : "cc");\
    psw >> 28;   /* cc */ \
 })
 
@@ -1155,13 +1052,13 @@ decode_bfp_rounding_mode(UInt irrm)
 
 #define S390_CC_FOR_BFP128_CONVERT_AUX(opcode,hi,lo,rounding_mode) \
 ({ \
+   union s390x_F128 op = { .i = { hi, lo } }; \
+   ULong tmp; \
    __asm__ volatile ( \
-        "ldr   4,%[high]\n\t" \
-        "ldr   6,%[low]\n\t" \
-        opcode " 0," #rounding_mode ",4\n\t" \
-        "ipm %[psw]\n\t"           : [psw] "=d"(psw) \
-                                   : [high] "f"(hi), [low] "f"(lo) \
-                                   : "cc", "r0", "f4", "f6");\
+        opcode " %[tmp]," #rounding_mode ",%[op]\n\t" \
+        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [tmp] "=d"(tmp) \
+                                   : [op] "f"(op.f) \
+                                   : "cc");\
    psw >> 28;   /* cc */ \
 })
 
@@ -1192,13 +1089,13 @@ decode_bfp_rounding_mode(UInt irrm)
 
 #define S390_CC_FOR_BFP128_UCONVERT_AUX(opcode,hi,lo,rounding_mode) \
 ({ \
+   union s390x_F128 op = { .i = { hi, lo } }; \
+   ULong tmp; \
    __asm__ volatile ( \
-        "ldr   4,%[high]\n\t" \
-        "ldr   6,%[low]\n\t" \
-        opcode ",0,4," #rounding_mode ",0\n\t" \
-        "ipm %[psw]\n\t"           : [psw] "=d"(psw) \
-                                   : [high] "f"(hi), [low] "f"(lo) \
-                                   : "cc", "r0", "f4", "f6");\
+        opcode ",%[tmp],%[op]," #rounding_mode ",0\n\t" \
+        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [tmp] "=d"(tmp) \
+                                   : [op] "f"(op.f) \
+                                   : "cc");\
    psw >> 28;   /* cc */ \
 })
 
@@ -1229,10 +1126,11 @@ decode_bfp_rounding_mode(UInt irrm)
 
 #define S390_CC_FOR_BFP_TDC(opcode,cc_dep1,cc_dep2) \
 ({ \
+   union s390x_F64 val = { .i = cc_dep1 }; \
    __asm__ volatile ( \
         opcode " %[value],0(%[class])\n\t" \
         "ipm %[psw]\n\t"           : [psw] "=d"(psw) \
-                                   : [value] "f"(cc_dep1), \
+                                   : [value] "f"(val.f), \
                                      [class] "a"(cc_dep2)  \
                                    : "cc");\
    psw >> 28;   /* cc */ \
@@ -1243,19 +1141,16 @@ decode_bfp_rounding_mode(UInt irrm)
    /* Recover the original DEP2 value. See comment near \
       s390_cc_thunk_put1f128Z for rationale. */ \
    cc_dep2 = cc_dep2 ^ cc_ndep; \
+   union s390x_F128 val = { .i = { cc_dep1, cc_dep2 } }; \
    __asm__ volatile ( \
-        "ldr  4,%[high]\n\t" \
-        "ldr  6,%[low]\n\t" \
-        "tcxb 4,0(%[class])\n\t" \
+        "tcxb %[value],0(%[class])\n\t" \
         "ipm  %[psw]\n\t"          : [psw] "=d"(psw) \
-                                   : [high] "f"(cc_dep1), [low] "f"(cc_dep2), \
-                                     [class] "a"(cc_ndep)  \
-                                   : "cc", "f4", "f6");\
+                                   : [value] "f"(val.f), [class] "a"(cc_ndep) \
+                                   : "cc");\
    psw >> 28;   /* cc */ \
 })
 
 /* Convert an IRRoundingMode value to s390_dfp_round_t */
-#if defined(VGA_s390x)
 static s390_dfp_round_t
 decode_dfp_rounding_mode(UInt irrm)
 {
@@ -1279,36 +1174,38 @@ decode_dfp_rounding_mode(UInt irrm)
    }
    vpanic("decode_dfp_rounding_mode");
 }
-#endif
 
 #define S390_CC_FOR_DFP_RESULT(cc_dep1) \
 ({ \
+   union s390x_F64 op = { .i = cc_dep1 }; \
+   Double tmp; \
    __asm__ volatile ( \
-        ".insn rre, 0xb3d60000,0,%[op]\n\t"              /* LTDTR */ \
-        "ipm %[psw]\n\t"           : [psw] "=d"(psw) \
-                                   : [op]  "f"(cc_dep1) \
-                                   : "cc", "f0"); \
+        ".insn rre, 0xb3d60000,%[tmp],%[op]\n\t"            /* LTDTR */ \
+        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [tmp] "=f"(tmp) \
+                                   : [op]  "f"(op.f) \
+                                   : "cc");\
    psw >> 28;   /* cc */ \
 })
 
 #define S390_CC_FOR_DFP128_RESULT(hi,lo) \
 ({ \
+   union s390x_F128 op = { .i = { hi, lo } }; \
+   Float128 tmp; \
    __asm__ volatile ( \
-        "ldr   4,%[high]\n\t"                                           \
-        "ldr   6,%[low]\n\t"                                            \
-        ".insn rre, 0xb3de0000,0,4\n\t"    /* LTXTR */                  \
-        "ipm %[psw]\n\t"           : [psw] "=d"(psw)                    \
-                                   : [high] "f"(hi), [low] "f"(lo)      \
-                                   : "cc", "f0", "f2", "f4", "f6");     \
+        ".insn rre, 0xb3de0000,%[tmp],%[op]\n\t"           /* LTXTR */  \
+        "ipm %[psw]\n\t"           : [psw] "=d"(psw), [tmp] "=f"(tmp)   \
+                                   : [op] "f"(op.f)                     \
+                                   : "cc");                             \
    psw >> 28;   /* cc */                                                \
 })
 
 #define S390_CC_FOR_DFP_TD(opcode,cc_dep1,cc_dep2)                      \
 ({                                                                      \
+   union s390x_F64 val = { .i = cc_dep1 };                              \
    __asm__ volatile (                                                   \
         opcode ",%[value],0(%[class])\n\t"                              \
         "ipm %[psw]\n\t"           : [psw] "=d"(psw)                    \
-                                   : [value] "f"(cc_dep1),              \
+                                   : [value] "f"(val.f),                \
                                      [class] "a"(cc_dep2)               \
                                    : "cc");                             \
    psw >> 28;   /* cc */                                                \
@@ -1319,24 +1216,25 @@ decode_dfp_rounding_mode(UInt irrm)
    /* Recover the original DEP2 value. See comment near                 \
       s390_cc_thunk_put1d128Z for rationale. */                         \
    cc_dep2 = cc_dep2 ^ cc_ndep;                                         \
+   union s390x_F128 val = { .i = { cc_dep1, cc_dep2 } };                \
    __asm__ volatile (                                                   \
-        "ldr  4,%[high]\n\t"                                            \
-        "ldr  6,%[low]\n\t"                                             \
-        opcode ",4,0(%[class])\n\t"                                     \
+        opcode ",%[value],0(%[class])\n\t"                              \
         "ipm  %[psw]\n\t"          : [psw] "=d"(psw)                    \
-                                   : [high] "f"(cc_dep1), [low] "f"(cc_dep2), \
+                                   : [value] "f"(val.f),                \
                                      [class] "a"(cc_ndep)               \
-                                   : "cc", "f4", "f6");                 \
+                                   : "cc");                             \
    psw >> 28;   /* cc */                                                \
 })
 
 #define S390_CC_FOR_DFP_CONVERT_AUX(opcode,cc_dep1,rounding_mode)       \
    ({                                                                   \
+      union s390x_F64 op = { .i = cc_dep1 };                            \
+      Double tmp;                                                       \
       __asm__ volatile (                                                \
-                        opcode ",0,%[op]," #rounding_mode ",0\n\t"      \
-                        "ipm %[psw]\n\t"           : [psw] "=d"(psw)    \
-                        : [op] "f"(cc_dep1)                             \
-                        : "cc", "r0");                                  \
+         opcode ",%[tmp],%[op]," #rounding_mode ",0\n\t"                \
+         "ipm %[psw]\n\t"          : [psw] "=d"(psw), [tmp] "=f"(tmp)   \
+                                   : [op] "f"(op.f)                     \
+         : "cc");                                                       \
       psw >> 28;   /* cc */                                             \
    })
 
@@ -1382,11 +1280,13 @@ decode_dfp_rounding_mode(UInt irrm)
 
 #define S390_CC_FOR_DFP_UCONVERT_AUX(opcode,cc_dep1,rounding_mode)      \
    ({                                                                   \
+      union s390x_F64 op = { .i = cc_dep1 };                            \
+      Double tmp;                                                       \
       __asm__ volatile (                                                \
-                        opcode ",0,%[op]," #rounding_mode ",0\n\t"      \
-                        "ipm %[psw]\n\t"           : [psw] "=d"(psw)    \
-                        : [op] "f"(cc_dep1)                             \
-                        : "cc", "r0");                                  \
+         opcode ",%[tmp],%[op]," #rounding_mode ",0\n\t"                \
+         "ipm %[psw]\n\t"          : [psw] "=d"(psw), [tmp] "=f"(tmp)   \
+                                   : [op] "f"(op.f)                     \
+                                   : "cc");                             \
       psw >> 28;   /* cc */                                             \
    })
 
@@ -1432,13 +1332,13 @@ decode_dfp_rounding_mode(UInt irrm)
 
 #define S390_CC_FOR_DFP128_CONVERT_AUX(opcode,hi,lo,rounding_mode)      \
    ({                                                                   \
+      union s390x_F128 op = { .i = { hi, lo } };                        \
+      Double tmp;                                                       \
       __asm__ volatile (                                                \
-                        "ldr   4,%[high]\n\t"                           \
-                        "ldr   6,%[low]\n\t"                            \
-                        opcode ",0,4," #rounding_mode ",0\n\t"          \
-                        "ipm %[psw]\n\t"           : [psw] "=d"(psw)    \
-                        : [high] "f"(hi), [low] "f"(lo)                 \
-                        : "cc", "r0", "f4", "f6");                      \
+         opcode ",%[tmp],%[op]," #rounding_mode ",0\n\t"                \
+         "ipm %[psw]\n\t"          : [psw] "=d"(psw), [tmp] "=f"(tmp)   \
+                                   : [op] "f"(op.f)                     \
+                                   : "cc");                             \
       psw >> 28;   /* cc */                                             \
    })
 
@@ -1485,16 +1385,16 @@ decode_dfp_rounding_mode(UInt irrm)
       cc;                                                                \
    })
 
-#define S390_CC_FOR_DFP128_UCONVERT_AUX(opcode,hi,lo,rounding_mode)      \
-   ({                                                                    \
-      __asm__ volatile (                                                 \
-                        "ldr   4,%[high]\n\t"                            \
-                        "ldr   6,%[low]\n\t"                             \
-                        opcode ",0,4," #rounding_mode ",0\n\t"           \
-                        "ipm %[psw]\n\t"           : [psw] "=d"(psw)     \
-                        : [high] "f"(hi), [low] "f"(lo)                  \
-                        : "cc", "r0", "f4", "f6");                       \
-      psw >> 28;   /* cc */                                              \
+#define S390_CC_FOR_DFP128_UCONVERT_AUX(opcode,hi,lo,rounding_mode)     \
+   ({                                                                   \
+      union s390x_F128 op = { .i = { hi, lo } };                        \
+      Double tmp;                                                       \
+      __asm__ volatile (                                                \
+         opcode ",%[tmp],%[op]," #rounding_mode ",0\n\t"                \
+         "ipm %[psw]\n\t"          : [psw] "=d"(psw), [tmp] "=f"(tmp)   \
+                                   : [op] "f"(op.f)                     \
+                                   : "cc");                             \
+      psw >> 28;   /* cc */                                             \
    })
 
 #define S390_CC_FOR_DFP128_UCONVERT(opcode,cc_dep1,cc_dep2,cc_ndep)       \
@@ -1539,6 +1439,7 @@ decode_dfp_rounding_mode(UInt irrm)
       }                                                                   \
       cc;                                                                 \
    })
+#endif /* VGA_s390x */
 
 
 /* Return the value of the condition code from the supplied thunk parameters.
@@ -1620,14 +1521,15 @@ s390_calculate_cc(ULong cc_op, ULong cc_dep1, ULong cc_dep2, ULong cc_ndep)
    case S390_CC_OP_TEST_UNDER_MASK_8: {
       UChar value  = cc_dep1;
       UChar mask   = cc_dep2;
+      ULong pc;
 
       __asm__ volatile (
-           "bras %%r2,1f\n\t"             /* %r2 = address of next insn */
+           "bras %[pc],1f\n\t"            /* pc = address of next insn */
            "tm %[value],0\n\t"            /* this is skipped, then EXecuted */
-           "1: ex %[mask],0(%%r2)\n\t"    /* EXecute TM after modifying mask */
-           "ipm %[psw]\n\t"             : [psw] "=d"(psw)
-                                        : [value] "m"(value), [mask] "a"(mask)
-                                        : "r2", "cc");
+           "1: ex %[mask],0(%[pc])\n\t"   /* EXecute TM after modifying mask */
+           "ipm %[psw]\n\t"             : [psw] "=d"(psw), [pc] "=&a"(pc)
+                                        : [value] "Q"(value), [mask] "a"(mask)
+                                        : "cc");
       return psw >> 28;   /* cc */
    }
 
@@ -1641,7 +1543,7 @@ s390_calculate_cc(ULong cc_op, ULong cc_dep1, ULong cc_dep2, ULong cc_ndep)
            "lhi  2,0x10\n\t"
            "ex   2,%[insn]\n\t"
            "ipm  %[psw]\n\t"       : [psw] "=d"(psw)
-                                   : [value] "d"(value), [insn] "m"(insn)
+                                   : [value] "d"(value), [insn] "R"(insn)
                                    : "r1", "r2", "cc");
       return psw >> 28;   /* cc */
    }
@@ -1812,11 +1714,11 @@ s390_calculate_cc(ULong cc_op, ULong cc_dep1, ULong cc_dep2, ULong cc_ndep)
 
    case S390_CC_OP_PFPO_32: {
       __asm__ volatile(
-           "ler 4, %[cc_dep1]\n\t"      /* 32 bit FR move */
-           "lr  0, %[cc_dep2]\n\t"      /* 32 bit GR move */
-           ".short 0x010a\n\t"          /* PFPO */
-           "ipm %[psw]\n\t"             : [psw] "=d"(psw)
-                                        : [cc_dep1] "f"(cc_dep1),
+           "ldgr 4, %[cc_dep1]\n\t"     /* Load FR from GR */
+           "lr   0, %[cc_dep2]\n\t"     /* 32 bit GR move */
+           ".insn e,0x010a\n\t"         /* PFPO */
+           "ipm  %[psw]\n\t"            : [psw] "=d"(psw)
+                                        : [cc_dep1] "d"(cc_dep1),
                                           [cc_dep2] "d"(cc_dep2)
                                         : "r0", "r1", "f4");
       return psw >> 28;  /* cc */
@@ -1824,11 +1726,11 @@ s390_calculate_cc(ULong cc_op, ULong cc_dep1, ULong cc_dep2, ULong cc_ndep)
 
    case S390_CC_OP_PFPO_64: {
       __asm__ volatile(
-           "ldr 4, %[cc_dep1]\n\t"
-           "lr  0, %[cc_dep2]\n\t"      /* 32 bit register move */
-           ".short 0x010a\n\t"          /* PFPO */
-           "ipm %[psw]\n\t"             : [psw] "=d"(psw)
-                                        : [cc_dep1] "f"(cc_dep1),
+           "ldgr 4, %[cc_dep1]\n\t"
+           "lr   0, %[cc_dep2]\n\t"     /* 32 bit register move */
+           ".insn e,0x010a\n\t"         /* PFPO */
+           "ipm  %[psw]\n\t"            : [psw] "=d"(psw)
+                                        : [cc_dep1] "d"(cc_dep1),
                                           [cc_dep2] "d"(cc_dep2)
                                         : "r0", "r1", "f4");
       return psw >> 28;  /* cc */
@@ -1836,13 +1738,13 @@ s390_calculate_cc(ULong cc_op, ULong cc_dep1, ULong cc_dep2, ULong cc_ndep)
 
    case S390_CC_OP_PFPO_128: {
       __asm__ volatile(
-           "ldr 4,%[cc_dep1]\n\t"
-           "ldr 6,%[cc_dep2]\n\t"
-           "lr  0,%[cc_ndep]\n\t"       /* 32 bit register move */
-           ".short 0x010a\n\t"          /* PFPO */
-           "ipm %[psw]\n\t"             : [psw] "=d"(psw)
-                                        : [cc_dep1] "f"(cc_dep1),
-                                          [cc_dep2] "f"(cc_dep2),
+           "ldgr 4,%[cc_dep1]\n\t"
+           "ldgr 6,%[cc_dep2]\n\t"
+           "lr   0,%[cc_ndep]\n\t"      /* 32 bit register move */
+           ".insn e,0x010a\n\t"         /* PFPO */
+           "ipm  %[psw]\n\t"             : [psw] "=d"(psw)
+                                        : [cc_dep1] "d"(cc_dep1),
+                                          [cc_dep2] "d"(cc_dep2),
                                           [cc_ndep] "d"(cc_ndep)
                                         : "r0", "r1", "f0", "f2", "f4", "f6");
       return psw >> 28;  /* cc */
@@ -2021,6 +1923,29 @@ guest_s390x_spechelper(const HChar *function_name, IRExpr **args,
             Because cc == 3 cannot occur the rightmost bit of cond is
             a don't care.
          */
+         if (isC64(cc_dep2)) {
+            /* Avoid memcheck false positives for comparisons like `<= 0x1f',
+               `> 0x1f', `< 0x20', or `>= 0x20', where the lower bits don't
+               matter.  Some compiler optimizations yield such comparisons when
+               testing if any (or none) of the upper bits are set. */
+
+            ULong mask = cc_dep2->Iex.Const.con->Ico.U64;
+            ULong c    = cond & (8 + 4 + 2);
+
+            if ((mask & (mask - 1)) == 0) {
+               /* Transform `<  0x20' to `<= 0x1f' and
+                            `>= 0x20' to `>  0x1f' */
+               mask -= 1;
+               c ^= 8;
+            }
+            if (mask != 0 && (mask + 1) != 0 && (mask & (mask + 1)) == 0 &&
+                (c == 8 + 4 || c == 2)) {
+               IROp cmp = c == 8 + 4 ? Iop_CmpEQ64 : Iop_CmpNE64;
+               return unop(Iop_1Uto32,
+                           binop(cmp, binop(Iop_And64, cc_dep1, mkU64(~mask)),
+                                 mkU64(0)));
+            }
+         }
          if (cond == 8 || cond == 8 + 1) {
             return unop(Iop_1Uto32, binop(Iop_CmpEQ64, cc_dep1, cc_dep2));
          }
@@ -2548,6 +2473,11 @@ s390x_dirtyhelper_vec_op(VexGuestS390XState *guest_state,
       [S390_VEC_OP_VFMAX] = {0xe7, 0xef},
       [S390_VEC_OP_VBPERM]= {0xe7, 0x85},
       [S390_VEC_OP_VMSL]  = {0xe7, 0xb8},
+      [S390_VEC_OP_VCNF]  = {0xe6, 0x55},
+      [S390_VEC_OP_VCLFNH]= {0xe6, 0x56},
+      [S390_VEC_OP_VCFN]  = {0xe6, 0x5d},
+      [S390_VEC_OP_VCLFNL]= {0xe6, 0x5e},
+      [S390_VEC_OP_VCRNF] = {0xe6, 0x75},
    };
 
    union {
@@ -2587,6 +2517,16 @@ s390x_dirtyhelper_vec_op(VexGuestS390XState *guest_state,
          UInt rxb : 4;
          UInt op2 : 8;
       } VRRc;
+      struct {
+         UInt op1 : 8;
+         UInt v1  : 4;
+         UInt v2  : 4;
+         UInt     : 12;
+         UInt m4  : 4;
+         UInt m3  : 4;
+         UInt rxb : 4;
+         UInt op2 : 8;
+      } VRRa;
       struct {
          UInt op1 : 8;
          UInt v1  : 4;
@@ -2642,6 +2582,7 @@ s390x_dirtyhelper_vec_op(VexGuestS390XState *guest_state,
    case S390_VEC_OP_VFMIN:
    case S390_VEC_OP_VFMAX:
    case S390_VEC_OP_VBPERM:
+   case S390_VEC_OP_VCRNF:
       the_insn.VRRc.v1 = 1;
       the_insn.VRRc.v2 = 2;
       the_insn.VRRc.v3 = 3;
@@ -2649,6 +2590,17 @@ s390x_dirtyhelper_vec_op(VexGuestS390XState *guest_state,
       the_insn.VRRc.m4 = d->m4;
       the_insn.VRRc.m5 = d->m5;
       the_insn.VRRc.m6 = d->m6;
+      break;
+
+   case S390_VEC_OP_VCNF:
+   case S390_VEC_OP_VCLFNH:
+   case S390_VEC_OP_VCFN:
+   case S390_VEC_OP_VCLFNL:
+      the_insn.VRRa.v1 = 1;
+      the_insn.VRRa.v2 = 2;
+      the_insn.VRRa.rxb = 0b1100;
+      the_insn.VRRa.m3 = d->m3;
+      the_insn.VRRa.m4 = d->m4;
       break;
 
    case S390_VEC_OP_VFTCI:
@@ -2689,7 +2641,7 @@ s390x_dirtyhelper_vec_op(VexGuestS390XState *guest_state,
            [arg3] "r" (&guest_v[d->v4]),
 
            [zero] "r" (0ULL),
-           [insn] "m" (the_insn),
+           [insn] "R" (the_insn),
            [read_only] "r" (d->read_only)
 
          : "cc", "r10", "v16", "v17", "v18", "v19"

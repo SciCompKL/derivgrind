@@ -895,7 +895,9 @@ void swap(BBCC** a, BBCC** b)
     t = *a; *a = *b; *b = t;
 }
 
+#if !defined(min)
 #define min(x, y) ((x)<=(y) ? (x) : (y))
+#endif
 
 static
 BBCC** med3(BBCC **a, BBCC **b, BBCC **c, int (*cmp)(BBCC**,BBCC**))
@@ -1581,7 +1583,7 @@ void init_cmdbuf(void)
  * This function has to be called every time a profile dump is generated
  * to be able to react on PID changes.
  */
-void CLG_(init_dumps)()
+void CLG_(init_dumps)(void)
 {
    SysRes res;
 

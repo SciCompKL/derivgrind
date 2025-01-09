@@ -1472,7 +1472,12 @@ struct vki_statx {
         __vki_u32   stx_dev_major;  /* ID of device containing file [uncond] */
         __vki_u32   stx_dev_minor;
         /* 0x90 */
-        __vki_u64   __spare2[14];   /* Spare space for future expansion */
+        __vki_u64   stx_mnt_id;
+        __vki_u32   stx_dio_mem_align;      /* Memory buffer alignment for direct I/O */
+        __vki_u32   stx_dio_offset_align;   /* File offset alignment for direct I/O */
+        /* 0xa0 */
+
+        __vki_u64   __spare2[12];   /* Spare space for future expansion */
         /* 0x100 */
 };
 
@@ -1871,6 +1876,62 @@ struct vki_ppdev_frob_struct {
 
 #define VKI_PPGETFLAGS	_VKI_IOR(VKI_PP_IOCTL, 0x9a, int)
 #define VKI_PPSETFLAGS	_VKI_IOW(VKI_PP_IOCTL, 0x9b, int)
+
+//----------------------------------------------------------------------
+// From linux-5.2.5/include/uapi/linux/loop.h
+//----------------------------------------------------------------------
+
+#define		VKI_LO_NAME_SIZE		64
+#define		VKI_LO_KEY_SIZE			32
+
+struct vki_loop_info {
+
+	int                 lo_number;              /* ioctl r/o */
+	unsigned short      lo_device;              /* ioctl r/o */
+	unsigned long       lo_inode;               /* ioctl r/o */
+	unsigned short      lo_rdevice;             /* ioctl r/o */
+	int                 lo_offset;
+	int                 lo_encrypt_type;
+	int                 lo_encrypt_key_size;    /* ioctl w/o */
+	int                 lo_flags;               /* ioctl r/o */
+	char                lo_name[VKI_LO_NAME_SIZE];
+	unsigned char       lo_encrypt_key[VKI_LO_KEY_SIZE];/* ioctl w/o */
+	unsigned long       lo_init[2];
+	char                reserved[4];
+};
+
+struct vki_loop_info64 {
+	__vki_u64          lo_device;           /* ioctl r/o */
+	__vki_u64          lo_inode;            /* ioctl r/o */
+	__vki_u64          lo_rdevice;          /* ioctl r/o */
+	__vki_u64          lo_offset;
+	__vki_u64          lo_sizelimit;/* bytes, 0 == max available */
+	__vki_u32          lo_number;           /* ioctl r/o */
+	__vki_u32          lo_encrypt_type;
+	__vki_u32          lo_encrypt_key_size; /* ioctl w/o */
+	__vki_u32          lo_flags;            /* ioctl r/o */
+	__vki_u8           lo_file_name[VKI_LO_NAME_SIZE];
+	__vki_u8           lo_crypt_name[VKI_LO_NAME_SIZE];
+	__vki_u8           lo_encrypt_key[VKI_LO_KEY_SIZE]; /* ioctl w/o */
+	__vki_u64          lo_init[2];
+};
+
+/* loopback device related, e.g. see losetup program options */
+#define VKI_LOOP_SET_FD         0x4C00
+#define VKI_LOOP_CLR_FD         0x4C01
+#define VKI_LOOP_SET_STATUS     0x4C02
+#define VKI_LOOP_GET_STATUS     0x4C03
+#define VKI_LOOP_SET_STATUS64   0x4C04
+#define VKI_LOOP_GET_STATUS64   0x4C05
+#define VKI_LOOP_CHANGE_FD      0x4C06
+#define VKI_LOOP_SET_CAPACITY   0x4C07
+#define VKI_LOOP_SET_DIRECT_IO  0x4C08
+#define VKI_LOOP_SET_BLOCK_SIZE 0x4C09
+
+/* ioctls for loop-control device interface */
+#define VKI_LOOP_CTL_ADD        0x4C80 // adds a new loopback device
+#define VKI_LOOP_CTL_REMOVE     0x4C81 // deletes an existing loopback device
+#define VKI_LOOP_CTL_GET_FREE   0x4C82 // finds a free/available loopback device
 
 //----------------------------------------------------------------------
 // From linux-5.2.5/include/uapi/linux/fs.h
@@ -3798,29 +3859,37 @@ struct vki_ion_custom_data {
    _VKI_IOWR(VKI_ION_IOC_MAGIC, 6, struct vki_ion_custom_data)
 
 //----------------------------------------------------------------------
-// From linux-3.19-rc5/drivers/staging/android/uapi/sync.h
+// From include/uapi/linux/sync_file.h 6.10.3
 //----------------------------------------------------------------------
 
 struct vki_sync_merge_data {
-        __vki_s32 fd2;
         char      name[32];
+        __vki_s32 fd2;
         __vki_s32 fence;
+        __vki_u32 flags;
+	__vki_u32 pad;
 };
 
-struct vki_sync_pt_info {
-        __vki_u32 len;
+struct vki_sync_fence_info {
         char      obj_name[32];
         char      driver_name[32];
         __vki_s32 status;
-        __vki_u64 timestamp_ns;
-        __vki_u8  driver_data[0];
+        __vki_u32 flags;
+	__vki_u64 timestamp_ns;
 };
 
-struct vki_sync_fence_info_data {
-        __vki_u32 len;
+struct vki_sync_file_info {
         char      name[32];
         __vki_s32 status;
-        __vki_u8  pt_info[0];
+        __vki_u32 flags;
+        __vki_u32 num_fences;
+        __vki_u32 pad;
+	__vki_u64 sync_fence_info;
+};
+
+struct vki_sync_set_deadline {
+	__vki_u64 deadline_ns;
+	__vki_u64 pad;
 };
 
 #define VKI_SYNC_IOC_MAGIC   '>'
@@ -3829,10 +3898,13 @@ struct vki_sync_fence_info_data {
    _VKI_IOW(VKI_SYNC_IOC_MAGIC, 0, __vki_s32)
 
 #define VKI_SYNC_IOC_MERGE \
-   _VKI_IOWR(VKI_SYNC_IOC_MAGIC, 1, struct vki_sync_merge_data)
+   _VKI_IOWR(VKI_SYNC_IOC_MAGIC, 3, struct vki_sync_merge_data)
 
-#define VKI_SYNC_IOC_FENCE_INFO \
-   _VKI_IOWR(VKI_SYNC_IOC_MAGIC, 2, struct vki_sync_fence_info_data)
+#define VKI_SYNC_IOC_FILE_INFO \
+   _VKI_IOWR(VKI_SYNC_IOC_MAGIC, 4, struct vki_sync_file_info)
+
+#define VKI_SYNC_IOC_SET_DEADLINE \
+   _VKI_IOW(VKI_SYNC_IOC_MAGIC, 5, struct vki_sync_set_deadline)
 
 //----------------------------------------------------------------------
 // From drivers/staging/lustre/lustre/include/lustre/lustre_user.h
@@ -5375,6 +5447,21 @@ struct vki_itimerspec64 {
    struct vki_timespec it_value;
 };
 
+/* From include/linux/openat2.h */
+
+struct vki_open_how {
+    vki_uint64_t vki_flags;
+    vki_uint64_t vki_mode;
+    vki_uint64_t vki_resolve;
+};
+
+#define VKI_RESOLVE_NO_XDEV		0x01
+#define VKI_RESOLVE_NO_MAGICLINKS	0x02
+#define VKI_RESOLVE_NO_SYMLINKS	0x04
+#define VKI_RESOLVE_BENEATH		0x08
+#define VKI_RESOLVE_IN_ROOT		0x10
+#define VKI_RESOLVE_CACHED		0x20
+
 #ifndef VKI_RLIM_INFINITY
 #define VKI_RLIM_INFINITY (~0UL)
 #endif
@@ -5383,6 +5470,12 @@ struct vki_itimerspec64 {
 
 #define VKI_CLOSE_RANGE_UNSHARE (1U << 1)
 #define VKI_CLOSE_RANGE_CLOEXEC (1U << 2)
+
+//----------------------------------------------------------------------
+// From linux/magic.h
+//----------------------------------------------------------------------
+
+#define VKI_BTRFS_SUPER_MAGIC    0x9123683E
 
 /*--------------------------------------------------------------------*/
 /*--- end                                                          ---*/
