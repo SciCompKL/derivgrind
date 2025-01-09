@@ -96,6 +96,7 @@ class TestCase:
     self.cflags_clang = None # Additional flags for the C compiler, if clang is used
     self.fflags = "" # Additional flags for the Fortran compiler
     self.ldflags = "" # Additional flags for the linker, e.g. "-lm"
+    self.typename = "" # C/C++: "double", "float", "longdouble"; Fortran: "real4", "real8"; Python: "float", "np64", "np32"
     self.type = TYPE_DOUBLE # TYPE_DOUBLE, TYPE_FLOAT, TYPE_LONG_DOUBLE (for C/C++), TYPE_REAL4, TYPE_REAL8 (for Fortran)
     self.arch = 32 # 32 bit (x86) or 64 bit (amd64)
     self.disable = lambda mode, arch, language, typename : False # if True, test will not be run
@@ -103,6 +104,7 @@ class TestCase:
     self.install_dir = install_dir # Valgrind installation directory
     self.temp_dir = temp_dir # directory of temporary files produced by tests
     self.codi_dir = codi_dir # CoDiPack include directory for validation in performance tests
+    self.valgrindflags = lambda mode, arch, compiler, typename: [] # list of Valgrind flags
 
 class InteractiveTestCase(TestCase):
   """Methods to run a Derivgrind regression test case interactively in VGDB."""
@@ -193,7 +195,7 @@ class InteractiveTestCase(TestCase):
     self.gdb_log = ""
     # start Valgrind and extract "target remote" line
     maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
-    valgrind = subprocess.Popen([self.install_dir+"/bin/valgrind", "--tool=derivgrind", "--vgdb-error=0"]+maybereverse+[self.temp_dir+"/TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
+    valgrind = subprocess.Popen([self.install_dir+"/bin/valgrind", "--tool=derivgrind", "--vgdb-error=0"]+self.valgrindflags(self.mode,self.arch,self.compiler,self.typename)+maybereverse+[self.temp_dir+"/TestCase_exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,universal_newlines=True,bufsize=0)
     while True:
       line = valgrind.stdout.readline()
       self.valgrind_log += line
@@ -535,7 +537,7 @@ class ClientRequestTestCase(TestCase):
     else:
       commands = [self.temp_dir+"/TestCase_exec"]
     maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
-    valgrind = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+commands,capture_output=True,env=environ)
+    valgrind = subprocess.run([self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+self.valgrindflags(self.mode,self.arch,self.compiler,self.typename)+maybereverse+commands,capture_output=True,env=environ)
     if valgrind.returncode!=0:
       self.errmsg +="VALGRIND STDOUT:\n"+valgrind.stdout.decode('utf-8')+"\n\nVALGRIND STDERR:\n"+valgrind.stderr.decode('utf-8')+"\n\n"
     # for recording mode, evaluate tape
@@ -643,7 +645,7 @@ class PerformanceTestCase(TestCase):
     for irep in range(nrep+2): # measurements for the first two iterations are not taken into account
       maybereverse = ["--record="+self.temp_dir] if self.mode=='b' else []
       maybetapeinram = ["--tape-in-ram=yes"] if self.tape_in_ram else []
-      exe = subprocess.run(["/usr/bin/time", "-f", "time_output %e %M", self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+maybereverse+maybetapeinram+[f"{self.temp_dir}/main_dg", f"{self.temp_dir}/dg-performance-result-dg.json"]+self.benchmarkargs.split(), capture_output=True)
+      exe = subprocess.run(["/usr/bin/time", "-f", "time_output %e %M", self.install_dir+"/bin/valgrind", "--tool=derivgrind"]+self.valgrindflags(self.mode,self.arch,self.compiler,self.typename)+maybereverse+maybetapeinram+[f"{self.temp_dir}/main_dg", f"{self.temp_dir}/dg-performance-result-dg.json"]+self.benchmarkargs.split(), capture_output=True)
       if exe.returncode!=0:
         self.errmsg += "EXECUTION WITH DERIVGRIND FAILED:\n" + "STDOUT:\n" + exe.stdout.decode('utf-8') + "\nSTDERR:\n" + exe.stderr.decode('utf-8')
       with open(self.temp_dir+"/dg-performance-result-dg.json") as f:

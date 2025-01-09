@@ -709,6 +709,7 @@ tanh.bars = {'c':1.0}
 tanh.test_vals = {'c':np.tanh(-0.5)}
 tanh.test_dots = {'c':1-np.tanh(-0.5)**2}
 tanh.test_bars = {'a':1-np.tanh(-0.5)**2}
+tanh.valgrindflags = lambda mode, arch, compiler, typename: ["--vex-guest-max-insns=10"] if compiler=="python" else [] # otherwise, internal Valgrind/VEX error (probably overflow of VEX output buffer)
 regression_templates.append(tanh)
 
 asin = ClientRequestTestCase("asin")
@@ -1440,6 +1441,7 @@ for test_mode in ["dot", "bar"]:
               old = test.disable
               test.disable = lambda mode, arch, compiler, typename : old(mode,arch,compiler,typename) or arch=="amd64"
 
+          test.typename = test_type
           if test_type == "double":
             test.stmt = test.stmtd
             test.type = TYPE_DOUBLE
