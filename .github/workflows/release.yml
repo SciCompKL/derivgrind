@@ -10,12 +10,12 @@ jobs:
     name: Build Derivgrind and update release
     runs-on: ubuntu-latest
     container:
-      image: quay.io/pypa/manylinux2014_x86_64
+      image: quay.io/pypa/manylinux_2_28_x86_64
     steps:
       - name: Install software
         run: yum update && yum install -y python3 libgcc.i686 glibc-devel.i686 libstdc++-devel.i686
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Configure and build

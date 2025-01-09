@@ -34,6 +34,7 @@
 
 #include "pub_tool_basics.h"
 #include "pub_tool_tooliface.h"
+#include "pub_tool_libcprint.h"
 
 #ifndef __GNUC__
   #error "Only tested with GCC."

@@ -33,6 +33,8 @@
 #define DG_TRICK_H
 
 #include "pub_tool_basics.h"
+#include "pub_tool_threadstate.h"
+#include "pub_tool_stacktrace.h"
 #include "../dg_utils.h"
 
 /*! Add bit-trick-finding instrumentation to output IRSB.
