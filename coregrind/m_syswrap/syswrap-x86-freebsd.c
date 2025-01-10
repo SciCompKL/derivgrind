@@ -79,7 +79,7 @@ void ML_(call_on_new_stack_0_1) ( Addr stack,
 //  8(%esp) == retaddr
 // 12(%esp) == f
 // 16(%esp) == arg1
-asm(
+__asm__(
    ".text\n"
    ".globl vgModuleLocal_call_on_new_stack_0_1\n"
    "vgModuleLocal_call_on_new_stack_0_1:\n"
@@ -317,15 +317,16 @@ out:
 /* Translate a struct modify_ldt_ldt_s to a VexGuestX86SegDescr */
 
 static
-void translate_to_hw_format ( /* IN  */ void* base,
-                                        /* OUT */ VexGuestX86SegDescr* out)
+void translate_to_hw_format( /* IN  */ void* base,
+                             /* OUT */ VexGuestX86SegDescr* out)
 {
    UInt entry_1, entry_2;
    UInt base_addr = (UInt) base;
    vg_assert(8 == sizeof(VexGuestX86SegDescr));
 
-   if (0)
+   if (0) {
       VG_(printf)("translate_to_hw_format: base %p\n", base );
+   }
 
    /* Allow LDTs to be cleared by the user. */
    if (base == 0) {
@@ -372,8 +373,9 @@ static void copy_LDT_from_to ( VexGuestX86SegDescr* src,
    Int i;
    vg_assert(src);
    vg_assert(dst);
-   for (i = 0; i < VEX_GUEST_X86_LDT_NENT; i++)
+   for (i = 0; i < VEX_GUEST_X86_LDT_NENT; i++) {
       dst[i] = src[i];
+   }
 }
 
 /* Copy contents between two existing GDTs. */
@@ -383,8 +385,9 @@ static void copy_GDT_from_to ( VexGuestX86SegDescr* src,
    Int i;
    vg_assert(src);
    vg_assert(dst);
-   for (i = 0; i < VEX_GUEST_X86_GDT_NENT; i++)
+   for (i = 0; i < VEX_GUEST_X86_GDT_NENT; i++) {
       dst[i] = src[i];
+   }
 }
 
 /* Free this thread's DTs, if it has any. */
@@ -392,10 +395,11 @@ static void deallocate_LGDTs_for_thread ( VexGuestX86State* vex )
 {
    vg_assert(sizeof(HWord) == sizeof(void*));
 
-   if (0)
+   if (0) {
       VG_(printf)("deallocate_LGDTs_for_thread: "
                   "ldt = 0x%llx, gdt = 0x%llx\n",
                   vex->guest_LDT, vex->guest_GDT );
+   }
 
    if (vex->guest_LDT != (HWord)NULL) {
       free_LDT_or_GDT( (VexGuestX86SegDescr*)vex->guest_LDT );
@@ -432,12 +436,14 @@ static SysRes sys_set_thread_area ( ThreadId tid, Int *idxptr, void *base)
          Wine). */
       for (idx = 1; idx < VEX_GUEST_X86_GDT_NENT; idx++) {
          if (gdt[idx].LdtEnt.Words.word1 == 0
-               && gdt[idx].LdtEnt.Words.word2 == 0)
+               && gdt[idx].LdtEnt.Words.word2 == 0) {
             break;
+         }
       }
 
-      if (idx == VEX_GUEST_X86_GDT_NENT)
+      if (idx == VEX_GUEST_X86_GDT_NENT) {
          return VG_(mk_SysRes_Error)( VKI_ESRCH );
+      }
    } else if (idx < 0 || idx == 0 || idx >= VEX_GUEST_X86_GDT_NENT) {
       /* Similarly, reject attempts to use GDT[0]. */
       return VG_(mk_SysRes_Error)( VKI_EINVAL );
@@ -596,107 +602,22 @@ POST(sys_sysarch)
 }
 
 // freebsd6_pread 173
-#if (FREEBSD_VERS <= FREEBSD_10)
-PRE(sys_freebsd6_pread)
-{
-   *flags |= SfMayBlock;
-   PRINT("sys_freebsd6_pread ( %" FMT_REGWORD "u, %#" FMT_REGWORD "x, %" FMT_REGWORD "u, %" FMT_REGWORD "u, %" FMT_REGWORD "u )", ARG1, ARG2, ARG3, ARG5, ARG6);
-   PRE_REG_READ6(ssize_t, "pread",
-                 unsigned int, fd, char *, buf, vki_size_t, count,
-                 int, pad, unsigned int, off_low, unsigned int, off_high);
-
-   if (!ML_(fd_allowed)(ARG1, "freebsd6_pread", tid, False))
-      SET_STATUS_Failure( VKI_EBADF );
-   else
-      PRE_MEM_WRITE( "freebsd6_pread(buf)", ARG2, ARG3 );
-}
-
-POST(sys_freebsd6_pread)
-{
-   vg_assert(SUCCESS);
-   POST_MEM_WRITE( ARG2, RES );
-}
-#endif
+// removed
 
 // freebsd6_pwrite 174
-#if (FREEBSD_VERS <= FREEBSD_10)
-PRE(sys_freebsd6_pwrite)
-{
-   Bool ok;
-   *flags |= SfMayBlock;
-   PRINT("sys_freebsd6_pwrite ( %" FMT_REGWORD "u, %#" FMT_REGWORD "x, %" FMT_REGWORD "u, %" FMT_REGWORD "u, %" FMT_REGWORD "u )", ARG1, ARG2, ARG3, ARG5, ARG6);
-   PRE_REG_READ6(ssize_t, "freebsd6_pwrite",
-                 unsigned int, fd, const char *, buf, vki_size_t, count,
-                 int, pad, unsigned int, off_low, unsigned int, off_high);
-   /* check to see if it is allowed.  If not, try for an exemption from
-      --sim-hints=enable-outer (used for self hosting). */
-   ok = ML_(fd_allowed)(ARG1, "freebsd6_pwrite", tid, False);
-   if (!ok && ARG1 == 2/*stderr*/
-         && SimHintiS(SimHint_enable_outer, VG_(clo_sim_hints)))
-      ok = True;
-   if (!ok)
-      SET_STATUS_Failure( VKI_EBADF );
-   else
-      PRE_MEM_READ( "freebsd6_write(buf)", ARG2, ARG3 );
-}
-#endif
+// removed
 
 // SYS_freebsd6_mmap 197
-#if (FREEBSD_VERS <= FREEBSD_10)
-/* This is here because on x86 the off_t is passed in 2 regs. Don't ask about pad.  */
-
-/* caddr_t mmap(caddr_t addr, size_t len, int prot, int flags, int fd, int pad, off_t pos); */
-/*              ARG1           ARG2       ARG3      ARG4       ARG5    ARG6     ARG7+ARG8 */
-
-PRE(sys_freebsd6_mmap)
-{
-   SysRes r;
-
-   PRINT("sys_freebsd6_mmap ( %#" FMT_REGWORD "x, %" FMT_REGWORD "u, %" FMT_REGWORD "u, %" FMT_REGWORD "u, %" FMT_REGWORD "u, pad%" FMT_REGWORD "u, lo0x%" FMT_REGWORD "x hi0x%" FMT_REGWORD "x)",
-         ARG1, (UWord)ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8 );
-   PRE_REG_READ8(long, "mmap",
-                 char *, addr, unsigned long, len, int, prot,  int, flags,
-                 int, fd,  int, pad, unsigned long, lo, unsigned long, hi);
-
-   r = ML_(generic_PRE_sys_mmap)( tid, ARG1, ARG2, ARG3, ARG4, ARG5, MERGE64(ARG7,ARG8) );
-   SET_STATUS_from_SysRes(r);
-}
-#endif
+// removed
 
 // freebsd6_lseek 199
-#if (FREEBSD_VERS <= FREEBSD_10)
-PRE(sys_freebsd6_lseek)
-{
-   PRINT("sys_freebsd6_lseek ( %" FMT_REGWORD "u, 0x%" FMT_REGWORD "x, 0x%" FMT_REGWORD "x, %" FMT_REGWORD "u )", ARG1,ARG3,ARG4,ARG5);
-   PRE_REG_READ5(long, "lseek",
-                 unsigned int, fd, int, pad, unsigned int, offset_low,
-                 unsigned int, offset_high, unsigned int, whence);
-}
-#endif
+// removed
 
 // freebsd6_truncate 200
-#if (FREEBSD_VERS <= FREEBSD_10)
-PRE(sys_freebsd6_truncate)
-{
-   *flags |= SfMayBlock;
-   PRINT("sys_truncate ( %#" FMT_REGWORD "x(%s), %" FMT_REGWORD "u, %" FMT_REGWORD "u )", ARG1,(char *)ARG1,ARG3,ARG4);
-   PRE_REG_READ4(long, "truncate",
-                 const char *, path, int, pad,
-                 unsigned int, length_low, unsigned int, length_high);
-   PRE_MEM_RASCIIZ( "truncate(path)", ARG1 );
-}
-#endif
+// removed
 
 // freebsd6_ftruncate 201
-#if (FREEBSD_VERS <= FREEBSD_10)
-PRE(sys_freebsd6_ftruncate)
-{
-   *flags |= SfMayBlock;
-   PRINT("sys_ftruncate ( %" FMT_REGWORD "u, %" FMT_REGWORD "u, %" FMT_REGWORD "u )", ARG1,ARG3,ARG4);
-   PRE_REG_READ4(long, "ftruncate", unsigned int, fd, int, pad,
-                 unsigned int, length_low, unsigned int, length_high);
-}
-#endif
+// removed
 
 // SYS_clock_getcpuclockid2   247
 // no manpage for this, from syscalls.master
@@ -734,9 +655,14 @@ PRE(sys_rfork)
       *flags |= SfYieldAfter;
    }
 #else
-   VG_(message)(Vg_UserMsg, "rfork() not implemented");
-   VG_(unimplemented)("Valgrind does not support rfork() yet.");
-   SET_STATUS_Failure( VKI_ENOSYS );
+   VG_(message)(Vg_UserMsg, "rfork() not implemented\n");
+   if ((UInt)ARG1 == VKI_RFSPAWN) {
+      // posix_spawn uses RFSPAWN and it will fall back to vfork
+      // if it sees EINVAL
+      SET_STATUS_Failure(VKI_EINVAL);
+   } else {
+      SET_STATUS_Failure(VKI_ENOSYS);
+   }
 #endif
 }
 
@@ -750,13 +676,13 @@ PRE(sys_preadv)
    PRINT("sys_preadv ( %" FMT_REGWORD "d, %#" FMT_REGWORD "x, %"
          FMT_REGWORD "d, %llu )", SARG1, ARG2, SARG3, MERGE64(ARG4,ARG5));
    PRE_REG_READ5(ssize_t, "preadv",
-                 int, fd, const struct iovec *, iovr,
+                 int, fd, const struct iovec *, iov,
                  int, iovcnt, vki_uint32_t, MERGE64_FIRST(offset),
                  vki_uint32_t, MERGE64_SECOND(offset));
    if (!ML_(fd_allowed)(ARG1, "preadv", tid, False)) {
       SET_STATUS_Failure( VKI_EBADF );
    } else {
-      if ((Int)ARG3 >= 0)
+      if ((Int)ARG3 > 0)
          PRE_MEM_READ( "preadv(iov)", ARG2, ARG3 * sizeof(struct vki_iovec) );
 
       if (ML_(safe_to_deref)((struct vki_iovec *)ARG2, ARG3 * sizeof(struct vki_iovec))) {
@@ -948,7 +874,6 @@ PRE(sys_setcontext)
                  struct vki_ucontext *, ucp);
 
    PRE_MEM_READ( "setcontext(ucp)", ARG1, sizeof(struct vki_ucontext) );
-   PRE_MEM_WRITE( "setcontext(ucp)", ARG1, sizeof(struct vki_ucontext) );
 
    vg_assert(VG_(is_valid_tid)(tid));
    vg_assert(tid >= 1 && tid < VG_N_THREADS);
@@ -1382,12 +1307,8 @@ POST(sys_wait6)
    }
 }
 
-// the man page is inconsistent for the last argument
-// See https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=247386
-// will stick to 'arg' for simplicity
-
 // SYS_procctl 544
-// int procctl(idtype_t idtype, id_t id, int cmd, void *arg);
+// int procctl(idtype_t idtype, id_t id, int cmd, void *data);
 PRE(sys_procctl)
 {
    PRINT("sys_procctl ( %" FMT_REGWORD "d, %llu, %" FMT_REGWORD"d, %#" FMT_REGWORD "x )",
@@ -1395,7 +1316,7 @@ PRE(sys_procctl)
    PRE_REG_READ5(int, "procctl", vki_idtype_t, idtype,
                  vki_uint32_t, MERGE64_FIRST(id),
                  vki_uint32_t, MERGE64_SECOND(id),
-                 int, cmd, void *, arg);
+                 int, cmd, void *, data);
    switch (ARG4) {
    case VKI_PROC_ASLR_CTL:
    case VKI_PROC_SPROTECT:
@@ -1405,13 +1326,13 @@ PRE(sys_procctl)
    case VKI_PROC_STACKGAP_CTL:
    case VKI_PROC_NO_NEW_PRIVS_CTL:
    case VKI_PROC_WXMAP_CTL:
-      PRE_MEM_READ("procctl(arg)", ARG5, sizeof(int));
+      PRE_MEM_READ("procctl(data)", ARG5, sizeof(int));
       break;
    case VKI_PROC_REAP_STATUS:
-      PRE_MEM_READ("procctl(arg)", ARG5, sizeof(struct vki_procctl_reaper_status));
+      PRE_MEM_READ("procctl(data)", ARG5, sizeof(struct vki_procctl_reaper_status));
       break;
    case VKI_PROC_REAP_GETPIDS:
-      PRE_MEM_READ("procctl(arg)", ARG5, sizeof(struct vki_procctl_reaper_pids));
+      PRE_MEM_READ("procctl(data)", ARG5, sizeof(struct vki_procctl_reaper_pids));
       break;
    case VKI_PROC_REAP_KILL:
       /* The first three fields are reads
@@ -1425,15 +1346,15 @@ PRE(sys_procctl)
        *
        * There is also a pad field
        */
-      PRE_MEM_READ("procctl(arg)", ARG5, sizeof(int) + sizeof(u_int) + sizeof(vki_pid_t));
-      PRE_MEM_WRITE("procctl(arg)", ARG5+offsetof(struct vki_procctl_reaper_kill, rk_killed), sizeof(u_int) + sizeof(vki_pid_t));
+      PRE_MEM_READ("procctl(data)", ARG5, sizeof(int) + sizeof(u_int) + sizeof(vki_pid_t));
+      PRE_MEM_WRITE("procctl(data)", ARG5+offsetof(struct vki_procctl_reaper_kill, rk_killed), sizeof(u_int) + sizeof(vki_pid_t));
       break;
    case VKI_PROC_ASLR_STATUS:
    case VKI_PROC_PDEATHSIG_STATUS:
    case VKI_PROC_STACKGAP_STATUS:
    case VKI_PROC_TRAPCAP_STATUS:
    case VKI_PROC_TRACE_STATUS:
-      PRE_MEM_WRITE("procctl(arg)", ARG5, sizeof(int));
+      PRE_MEM_WRITE("procctl(data)", ARG5, sizeof(int));
    case VKI_PROC_REAP_ACQUIRE:
    case VKI_PROC_REAP_RELEASE:
    default:
@@ -1460,7 +1381,15 @@ POST(sys_procctl)
    }
 }
 
-#if (FREEBSD_VERS >= FREEBSD_12)
+// SYS_mknodat 559
+// int mknodat(int fd, const char *path, mode_t mode, dev_t dev);
+PRE(sys_mknodat)
+{
+   PRINT("sys_mknodat ( %" FMT_REGWORD "u, %#" FMT_REGWORD "x(%s), 0x%" FMT_REGWORD "x, 0x%" FMT_REGWORD "x )", ARG1,ARG2,(char*)ARG2,ARG3,ARG4 );
+   PRE_REG_READ5(long, "mknodat",
+                 int, fd, const char *, path, vki_mode_t, mode, vki_uint32_t, MERGE64_FIRST(dev), vki_uint32_t, MERGE64_SECOND(idev))
+   PRE_MEM_RASCIIZ( "mknodat(pathname)", ARG2 );
+}
 
 // SYS_cpuset_getdomain 561
 // int cpuset_getdomain(cpulevel_t level, cpuwhich_t which, id_t id,
@@ -1500,8 +1429,6 @@ PRE(sys_cpuset_setdomain)
    // man page says that setsize (ARG4) "is usually provided by calling sizeof(mask)"
    PRE_MEM_READ( "cpuset_getdomain(mask)", ARG6, ARG5 );
 }
-
-#endif
 
 PRE(sys_fake_sigreturn)
 {

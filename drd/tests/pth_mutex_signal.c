@@ -1,4 +1,6 @@
 /*
+ * Verify that pthread_mutex_lock() is not interrupted by a signal.
+ *
  * See also https://bugs.kde.org/show_bug.cgi?id=445743.
  */
 
@@ -11,8 +13,15 @@
 #include <unistd.h>
 
 #define STACK_SIZE 1024 * 512
-#define NATIVE_IO_INTERRUPT_SIGNAL (SIGRTMAX - 2)
 #define LONG_SLEEP_TIME 1000000
+
+void long_sleep(void)
+{
+   for (int i = 0; i < LONG_SLEEP_TIME; i += 1000)
+   {
+      usleep(1000);
+   }
+}
 
 void *contender_start(void *arg)
 {
@@ -41,13 +50,13 @@ int main ()
   pthread_mutexattr_t mutex_attr;
   pthread_attr_t thread_attr_contender;
   pthread_t contender;
-  struct sigaction signalAction = { };
+  struct sigaction signalAction;
 
   // install signal handler
   signalAction.sa_sigaction = nullHandler;
   sigfillset(&signalAction.sa_mask);
-  signalAction.sa_flags = 0;
-  sigaction(NATIVE_IO_INTERRUPT_SIGNAL, &signalAction, NULL);
+  signalAction.sa_flags = SA_SIGINFO;
+  sigaction(SIGINT, &signalAction, NULL);
 
   // initialize the mutex
   pthread_mutexattr_init(&mutex_attr);
@@ -70,22 +79,30 @@ int main ()
   }
   fprintf(stderr, "thread created\n");
   pthread_attr_destroy(&thread_attr_contender);
-   
+
+  // Block signals in the current thread such that signals are delivered to the
+  // 'contender' thread.
+  {
+    sigset_t mask;
+    sigfillset(&mask);
+    pthread_sigmask(SIG_BLOCK, &mask, NULL);
+  }
+
   // wait until the thread is sleeping inside pthread_mutex_lock().
   fprintf(stderr, "sleeping\n");
-  usleep(LONG_SLEEP_TIME);
+  long_sleep();
 
   // signal thread
   fprintf(stderr, "signalling\n");
-  pthread_kill(contender, NATIVE_IO_INTERRUPT_SIGNAL);
+  pthread_kill(contender, SIGINT);
 
   fprintf(stderr, "sleeping\n");
-  usleep(LONG_SLEEP_TIME);
+  long_sleep();
 
   fprintf(stderr, "unlocking\n");
   pthread_mutex_unlock(&mutex);
 
-  usleep(LONG_SLEEP_TIME);
+  long_sleep();
 
   // finally wait for the thread
   fprintf(stderr, "joining thread\n");

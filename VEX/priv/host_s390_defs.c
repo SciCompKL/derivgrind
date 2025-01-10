@@ -1707,18 +1707,6 @@ emit_RXY(UChar *p, ULong op, UChar r1, UChar x2, UChar b2, UShort dl2, UChar dh2
 
 
 static UChar *
-emit_S(UChar *p, UInt op, UChar b2, UShort d2)
-{
-   ULong the_insn = op;
-
-   the_insn |= ((ULong)b2) << 12;
-   the_insn |= ((ULong)d2) << 0;
-
-   return emit_4bytes(p, the_insn);
-}
-
-
-static UChar *
 emit_SI(UChar *p, UInt op, UChar i2, UChar b1, UShort d1)
 {
    ULong the_insn = op;
@@ -3792,16 +3780,6 @@ s390_emit_LDY(UChar *p, UChar r1, UChar x2, UChar b2, UShort dl2, UChar dh2)
 
 
 static UChar *
-s390_emit_LFPC(UChar *p, UChar b2, UShort d2)
-{
-   if (UNLIKELY(vex_traceflags & VEX_TRACE_ASM))
-      s390_disasm(ENC2(MNM, UDXB), "lfpc", d2, 0, b2);
-
-   return emit_S(p, 0xb29d0000, b2, d2);
-}
-
-
-static UChar *
 s390_emit_LDGR(UChar *p, UChar r1, UChar r2)
 {
    vassert(s390_host_has_fgx);
@@ -3892,16 +3870,6 @@ s390_emit_STDY(UChar *p, UChar r1, UChar x2, UChar b2, UShort dl2, UChar dh2)
       s390_disasm(ENC3(MNM, FPR, SDXB), "stdy", r1, dh2, dl2, x2, b2);
 
    return emit_RXY(p, 0xed0000000067ULL, r1, x2, b2, dl2, dh2);
-}
-
-
-static UChar *
-s390_emit_STFPC(UChar *p, UChar b2, UShort d2)
-{
-   if (UNLIKELY(vex_traceflags & VEX_TRACE_ASM))
-      s390_disasm(ENC2(MNM, UDXB), "stfpc", d2, 0, b2);
-
-   return emit_S(p, 0xb29c0000, b2, d2);
 }
 
 
@@ -7706,6 +7674,7 @@ s390_jump_kind_as_string(IRJumpKind kind)
    case Ijk_SigSEGV:     return "SigSEGV";
    case Ijk_SigBUS:      return "SigBUS";
    case Ijk_Sys_syscall: return "Sys_syscall";
+   case Ijk_Extension:   return "Extension";
    default:
       vpanic("s390_jump_kind_as_string");
    }
@@ -8356,6 +8325,7 @@ s390_insn_as_string(const s390_insn *insn)
       case S390_VEC_PWSUM_DW:         op = "v-vpwsumdw"; break;
       case S390_VEC_PWSUM_QW:         op = "v-vpwsumqw"; break;
       case S390_VEC_INIT_FROM_GPRS:   op = "v-vinitfromgprs"; break;
+      case S390_VEC_INIT_FROM_FPRS:   op = "v-vinitfromfprs"; break;
       case S390_VEC_FLOAT_ADD:        op = "v-vfloatadd"; break;
       case S390_VEC_FLOAT_SUB:        op = "v-vfloatsub"; break;
       case S390_VEC_FLOAT_MUL:        op = "v-vfloatmul"; break;
@@ -8771,6 +8741,9 @@ s390_insn_move_emit(UChar *buf, const s390_insn *insn)
          } else {
             return s390_emit_LGDRw(buf, dst, src);
          }
+      }
+      if (dst_class == HRcFlt64 && src_class == HRcVec128) {
+         return s390_emit_VLR(buf, dst, src);
       }
       /* A move between floating point registers and general purpose
          registers of different size should never occur and indicates
@@ -10349,14 +10322,7 @@ s390_insn_helper_call_emit(UChar *buf, const s390_insn *insn)
       Also, need to arrange for the return address be put into the
       link-register */
    buf = s390_emit_load_64imm(buf, 1, target);
-
-   /* Stash away the client's FPC register because the helper might change it. */
-   buf = s390_emit_STFPC(buf, S390_REGNO_STACK_POINTER, S390_OFFSET_SAVED_FPC_C);
-
-   buf = s390_emit_BASR(buf, S390_REGNO_LINK_REGISTER, 1);      // call helper
-
-   buf = s390_emit_LFPC(buf, S390_REGNO_STACK_POINTER,          // restore FPC
-                        S390_OFFSET_SAVED_FPC_C);
+   buf = s390_emit_BASR(buf, S390_REGNO_LINK_REGISTER, 1);
 
    // preElse:
    UChar* pPreElse = buf;
@@ -11424,6 +11390,7 @@ s390_insn_xassisted_emit(UChar *buf, const s390_insn *insn,
    switch (insn->variant.xassisted.kind) {
    case Ijk_ClientReq:   trcval = VEX_TRC_JMP_CLIENTREQ;   break;
    case Ijk_Sys_syscall: trcval = VEX_TRC_JMP_SYS_SYSCALL; break;
+   case Ijk_Extension:   trcval = VEX_TRC_JMP_EXTENSION;   break;
    case Ijk_Yield:       trcval = VEX_TRC_JMP_YIELD;       break;
    case Ijk_EmWarn:      trcval = VEX_TRC_JMP_EMWARN;      break;
    case Ijk_EmFail:      trcval = VEX_TRC_JMP_EMFAIL;      break;
@@ -11692,6 +11659,8 @@ s390_insn_vec_binop_emit(UChar *buf, const s390_insn *insn)
          return s390_emit_VSUMQ(buf, v1, v2, v3, s390_getM_from_size(size));
       case S390_VEC_INIT_FROM_GPRS:
          return s390_emit_VLVGP(buf, v1, v2, v3);
+      case S390_VEC_INIT_FROM_FPRS:
+         return s390_emit_VMRH(buf, v1, v2, v3, 3);
       case S390_VEC_FLOAT_ADD:
          return s390_emit_VFA(buf, v1, v2, v3, s390_getM_from_size(size), 0);
       case S390_VEC_FLOAT_SUB:
@@ -11703,9 +11672,13 @@ s390_insn_vec_binop_emit(UChar *buf, const s390_insn *insn)
       case S390_VEC_FLOAT_COMPARE_EQUAL:
          return s390_emit_VFCE(buf, v1, v2, v3, s390_getM_from_size(size), 0, 0);
       case S390_VEC_FLOAT_COMPARE_LESS_OR_EQUAL:
-         return s390_emit_VFCH(buf, v1, v3, v2, s390_getM_from_size(size), 0, 0);
-      case S390_VEC_FLOAT_COMPARE_LESS:
+         // PJF I assume that CHE is compare higher or equal so the order needs swapping
+         // coverity[SWAPPED_ARGUMENTS:FALSE]
          return s390_emit_VFCHE(buf, v1, v3, v2, s390_getM_from_size(size), 0, 0);
+      case S390_VEC_FLOAT_COMPARE_LESS:
+         // PJF as above but this time compare higher
+         // coverity[SWAPPED_ARGUMENTS:FALSE]
+         return s390_emit_VFCH(buf, v1, v3, v2, s390_getM_from_size(size), 0, 0);
 
       default:
          goto fail;
@@ -11722,6 +11695,7 @@ static UChar *
 s390_insn_vec_triop_emit(UChar *buf, const s390_insn *insn)
 {
    s390_vec_triop_t tag = insn->variant.vec_triop.tag;
+   UChar size = insn->size;
    UChar v1 = hregNumber(insn->variant.vec_triop.dst);
    UChar v2 = hregNumber(insn->variant.vec_triop.op1);
    UChar v3 = hregNumber(insn->variant.vec_triop.op2);
@@ -11729,13 +11703,15 @@ s390_insn_vec_triop_emit(UChar *buf, const s390_insn *insn)
 
    switch (tag) {
       case S390_VEC_PERM: {
-         vassert(insn->size == 16);
+         vassert(size == 16);
          return s390_emit_VPERM(buf, v1, v2, v3, v4);
       }
       case S390_VEC_FLOAT_MADD:
-         return s390_emit_VFMA(buf, v1, v2, v3, v4, 0, 3);
+         return s390_emit_VFMA(buf, v1, v2, v3, v4, 0,
+                               s390_getM_from_size(size));
       case S390_VEC_FLOAT_MSUB:
-         return s390_emit_VFMS(buf, v1, v2, v3, v4, 0, 3);
+         return s390_emit_VFMS(buf, v1, v2, v3, v4, 0,
+                               s390_getM_from_size(size));
       default:
          goto fail;
    }
