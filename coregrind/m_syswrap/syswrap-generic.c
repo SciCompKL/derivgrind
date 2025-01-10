@@ -40,7 +40,7 @@
 #include "pub_core_xarray.h"
 #include "pub_core_clientstate.h"   // VG_(brk_base), VG_(brk_limit)
 #include "pub_core_debuglog.h"
-#include "pub_core_errormgr.h"
+#include "pub_core_errormgr.h"      // For VG_(maybe_record_error)
 #include "pub_core_gdbserver.h"     // VG_(gdbserver)
 #include "pub_core_libcbase.h"
 #include "pub_core_libcassert.h"
@@ -64,6 +64,9 @@
 #include "priv_syswrap-generic.h"
 
 #include "config.h"
+
+static
+HChar *getsockdetails(Int fd, UInt len, HChar *buf);
 
 void ML_(guess_and_register_stack) (Addr sp, ThreadState* tst)
 {
@@ -537,7 +540,10 @@ typedef struct OpenFd
 {
    Int fd;                        /* The file descriptor */
    HChar *pathname;               /* NULL if not a regular file or unknown */
+   HChar *description;            /* Description saved before close */
    ExeContext *where;             /* NULL if inherited from parent */
+   ExeContext *where_closed;      /* record the last close of fd */
+   Bool fd_closed;
    struct OpenFd *next, *prev;
 } OpenFd;
 
@@ -547,9 +553,61 @@ static OpenFd *allocated_fds = NULL;
 /* Count of open file descriptors. */
 static Int fd_count = 0;
 
+/* Close_range caller might want to close very wide range of file descriptors,
+   up to 0U.  We want to avoid iterating through such a range in a normall
+   close_range, just up to any open file descriptor.  Also, unlike
+   record_fd_close_range, we assume the user might deliberately double closes
+   any file descriptors in the range, so don't warn about double close here. */
+void ML_(record_fd_close_range)(ThreadId tid, Int from_fd)
+{
+  OpenFd *i = allocated_fds;
+
+  if (from_fd >= VG_(fd_hard_limit))
+    return;			/* Valgrind internal */
+
+   while(i) {
+      // Assume the user doesn't want a warning if this came from
+      // close_range. Just record the file descriptors not yet closed here.
+      if (i->fd >= from_fd && !i->fd_closed
+          && i->fd != VG_(log_output_sink).fd
+          && i->fd != VG_(xml_output_sink).fd) {
+         i->fd_closed = True;
+         i->where_closed = ((tid == -1)
+                            ? NULL
+                            : VG_(record_ExeContext)(tid,
+                                                     0/*first_ip_delta*/));
+         fd_count--;
+      }
+      i = i->next;
+   }
+}
+
+struct BadCloseExtra {
+   Int fd;                        /* The file descriptor */
+   HChar *pathname;               /* NULL if not a regular file or unknown */
+   HChar *description;            /* Description of the file descriptor
+                                     might include the pathname */
+   ExeContext *where_closed;      /* record the last close of fd */
+   ExeContext *where_opened;      /* recordwhere the fd  was opened */
+};
+
+struct FdBadUse {
+  Int fd;                        /* The file descriptor */
+  HChar *pathname;               /* NULL if not a regular file or unknown */
+  HChar *description;            /* Description of the file descriptor
+                                    might include the pathname */
+  ExeContext *where_closed;      /* record the last close of fd */
+  ExeContext *where_opened;      /* recordwhere the fd  was opened */
+};
+
+struct NotClosedExtra {
+   Int fd;
+   HChar *pathname;
+   HChar *description;
+};
 
 /* Note the fact that a file descriptor was just closed. */
-void ML_(record_fd_close)(Int fd)
+void ML_(record_fd_close)(ThreadId tid, Int fd)
 {
    OpenFd *i = allocated_fds;
 
@@ -557,18 +615,46 @@ void ML_(record_fd_close)(Int fd)
       return;			/* Valgrind internal */
 
    while(i) {
-      if(i->fd == fd) {
-         if(i->prev)
-            i->prev->next = i->next;
-         else
-            allocated_fds = i->next;
-         if(i->next)
-            i->next->prev = i->prev;
-         if(i->pathname) 
-            VG_(free) (i->pathname);
-         VG_(free) (i);
-         fd_count--;
-         break;
+      if (i->fd == fd) {
+        if (i->fd_closed) {
+           struct BadCloseExtra bce;
+           bce.fd = i->fd;
+           bce.pathname = i->pathname;
+           bce.description = i->description;
+           bce.where_opened = i->where;
+           bce.where_closed = i->where_closed;
+           VG_(maybe_record_error)(tid, FdBadClose, 0,
+                                   "file descriptor already closed", &bce);
+        } else {
+          i->fd_closed = True;
+          i->where_closed = ((tid == -1)
+              ? NULL
+              : VG_(record_ExeContext)(tid,
+                0/*first_ip_delta*/));
+          /* Record path/socket name, etc. In case we want to print it later,
+             for example for double close.  Note that record_fd_close is
+             actually called from the PRE syscall handler, so the file
+             description is about to be closed, but hasn't yet at this
+             point.  */
+          if (!i->pathname) {
+             Int val;
+             Int len = sizeof(val);
+             if (VG_(getsockopt)(i->fd, VKI_SOL_SOCKET, VKI_SO_TYPE,
+                                 &val, &len) == -1) {
+                HChar *pathname = VG_(malloc)("vg.record_fd_close.fd", 30);
+                VG_(snprintf)(pathname, 30, "file descriptor %d", i->fd);
+                i->description = pathname;
+             } else {
+                HChar *name = VG_(malloc)("vg.record_fd_close.sock", 256);
+                i->description = getsockdetails(i->fd, 256, name);
+             }
+          } else {
+             i->description = VG_(strdup)("vg.record_fd_close.path",
+                                          i->pathname);
+          }
+          fd_count--;
+        }
+        break;
       }
       i = i->next;
    }
@@ -588,11 +674,21 @@ void ML_(record_fd_open_with_given_name)(ThreadId tid, Int fd,
    if (fd >= VG_(fd_hard_limit))
       return;			/* Valgrind internal */
 
-   /* Check to see if this fd is already open. */
+   /* Check to see if this fd is already open (or closed, we will just
+      override it. */
    i = allocated_fds;
    while (i) {
       if (i->fd == fd) {
-         if (i->pathname) VG_(free)(i->pathname);
+         if (i->pathname) {
+            VG_(free)(i->pathname);
+            i->pathname = NULL;
+         }
+         if (i->description) {
+            VG_(free)(i->description);
+            i->description = NULL;
+         }
+         if (i->fd_closed) /* now we will open it. */
+            fd_count++;
          break;
       }
       i = i->next;
@@ -611,7 +707,10 @@ void ML_(record_fd_open_with_given_name)(ThreadId tid, Int fd,
 
    i->fd = fd;
    i->pathname = VG_(strdup)("syswrap.rfdowgn.2", pathname);
+   i->description = NULL; /* Only set on close.  */
    i->where = (tid == -1) ? NULL : VG_(record_ExeContext)(tid, 0/*first_ip_delta*/);
+   i->fd_closed = False;
+   i->where_closed = NULL;
 }
 
 // Record opening of an fd, and find its name.
@@ -638,8 +737,12 @@ Bool ML_(fd_recorded)(Int fd)
 {
    OpenFd *i = allocated_fds;
    while (i) {
-      if (i->fd == fd)
-         return True;
+      if (i->fd == fd) {
+         if (i->fd_closed)
+            return False;
+         else
+            return True;
+      }
       i = i->next;
    }
    return False;
@@ -651,8 +754,12 @@ const HChar *ML_(find_fd_recorded_by_fd)(Int fd)
    OpenFd *i = allocated_fds;
 
    while (i) {
-      if (i->fd == fd)
-         return i->pathname;
+      if (i->fd == fd) {
+         if (i->fd_closed)
+            return NULL;
+         else
+            return i->pathname;
+      }
       i = i->next;
    }
 
@@ -754,9 +861,10 @@ HChar *inet6_to_name(struct vki_sockaddr_in6 *sa, UInt len, HChar *name)
 
 /*
  * Try get some details about a socket.
+ * Returns the given BUF with max length LEN.
  */
-static void
-getsockdetails(Int fd)
+static
+HChar *getsockdetails(Int fd, UInt len, HChar *buf)
 {
    union u {
       struct vki_sockaddr a;
@@ -778,15 +886,16 @@ getsockdetails(Int fd)
          Int plen = sizeof(struct vki_sockaddr_in);
 
          if (VG_(getpeername)(fd, (struct vki_sockaddr *)&paddr, &plen) != -1) {
-            VG_(message)(Vg_UserMsg, "Open AF_INET socket %d: %s <-> %s\n", fd,
-                         inet_to_name(&(laddr.in), llen, lname),
-                         inet_to_name(&paddr, plen, pname));
+            VG_(snprintf)(buf, len, "AF_INET socket %d: %s <-> %s", fd,
+                          inet_to_name(&(laddr.in), llen, lname),
+                          inet_to_name(&paddr, plen, pname));
+            return buf;
          } else {
-            VG_(message)(Vg_UserMsg, "Open AF_INET socket %d: %s <-> unbound\n",
-                         fd, inet_to_name(&(laddr.in), llen, lname));
+            VG_(snprintf)(buf, len, "AF_INET socket %d: %s <-> <unbound>",
+                          fd, inet_to_name(&(laddr.in), llen, lname));
+            return buf;
          }
-         return;
-         }
+      }
       case VKI_AF_INET6: {
          HChar lname[128];  // large enough
          HChar pname[128];  // large enough
@@ -794,29 +903,31 @@ getsockdetails(Int fd)
          Int plen = sizeof(struct vki_sockaddr_in6);
 
          if (VG_(getpeername)(fd, (struct vki_sockaddr *)&paddr, &plen) != -1) {
-            VG_(message)(Vg_UserMsg, "Open AF_INET6 socket %d: %s <-> %s\n", fd,
-                         inet6_to_name(&(laddr.in6), llen, lname),
-                         inet6_to_name(&paddr, plen, pname));
+            VG_(snprintf)(buf, len, "AF_INET6 socket %d: %s <-> %s", fd,
+                          inet6_to_name(&(laddr.in6), llen, lname),
+                          inet6_to_name(&paddr, plen, pname));
+            return buf;
          } else {
-            VG_(message)(Vg_UserMsg, "Open AF_INET6 socket %d: %s <-> unbound\n",
+            VG_(snprintf)(buf, len, "AF_INET6 socket %d: %s <-> <unbound>",
                          fd, inet6_to_name(&(laddr.in6), llen, lname));
+            return buf;
          }
-         return;
-         }
+      }
       case VKI_AF_UNIX: {
          static char lname[256];
-         VG_(message)(Vg_UserMsg, "Open AF_UNIX socket %d: %s\n", fd,
-                      unix_to_name(&(laddr.un), llen, lname));
-         return;
+         VG_(snprintf)(buf, len, "AF_UNIX socket %d: %s", fd,
+                       unix_to_name(&(laddr.un), llen, lname));
+         return buf;
          }
       default:
-         VG_(message)(Vg_UserMsg, "Open pf-%d socket %d:\n",
-                      laddr.a.sa_family, fd);
-         return;
+         VG_(snprintf)(buf, len, "pf-%d socket %d",
+                       laddr.a.sa_family, fd);
+         return buf;
       }
    }
 
-   VG_(message)(Vg_UserMsg, "Open socket %d:\n", fd);
+   VG_(snprintf)(buf, len, "socket %d", fd);
+   return buf;
 }
 
 
@@ -827,7 +938,7 @@ void VG_(show_open_fds) (const HChar* when)
    int non_std = 0;
 
    for (i = allocated_fds; i; i = i->next) {
-      if (i->fd > 2)
+      if (i->fd > 2 && i->fd_closed != True)
          non_std++;
    }
 
@@ -838,38 +949,57 @@ void VG_(show_open_fds) (const HChar* when)
        && (VG_(clo_verbosity) == 0))
       return;
 
-   VG_(message)(Vg_UserMsg, "FILE DESCRIPTORS: %d open (%d std) %s.\n",
+   if (!VG_(clo_xml)) {
+      VG_(umsg)("FILE DESCRIPTORS: %d open (%d std) %s.\n",
                 fd_count, fd_count - non_std, when);
+   }
 
    for (i = allocated_fds; i; i = i->next) {
+      if (i->fd_closed)
+         continue;
+
       if (i->fd <= 2 && VG_(clo_track_fds) < 2)
           continue;
 
+      struct NotClosedExtra nce;
+      /* The file descriptor was not yet closed, so the description field was
+         also not yet set. Set it now as if the file descriptor was closed at
+         this point.  */
+      i->description = VG_(malloc)("vg.notclosedextra.descriptor", 256);
       if (i->pathname) {
-         VG_(message)(Vg_UserMsg, "Open file descriptor %d: %s\n", i->fd,
-                      i->pathname);
+         VG_(snprintf) (i->description, 256, "file descriptor %d: %s",
+                        i->fd, i->pathname);
       } else {
          Int val;
          Int len = sizeof(val);
 
          if (VG_(getsockopt)(i->fd, VKI_SOL_SOCKET, VKI_SO_TYPE, &val, &len)
              == -1) {
-            VG_(message)(Vg_UserMsg, "Open file descriptor %d:\n", i->fd);
+            /* Don't want the : at the end in xml */
+            const HChar *colon = VG_(clo_xml) ? "" : ":";
+            VG_(sprintf)(i->description, "file descriptor %d%s", i->fd, colon);
          } else {
-            getsockdetails(i->fd);
+            getsockdetails(i->fd, 256, i->description);
          }
       }
 
-      if(i->where) {
-         VG_(pp_ExeContext)(i->where);
-         VG_(message)(Vg_UserMsg, "\n");
-      } else {
-         VG_(message)(Vg_UserMsg, "   <inherited from parent>\n");
-         VG_(message)(Vg_UserMsg, "\n");
-      }
+      nce.fd = i->fd;
+      nce.pathname = i->pathname;
+      nce.description = i->description;
+      VG_(unique_error) (1 /* Fake ThreadId */,
+                         FdNotClosed,
+                         0, /* Addr */
+                         "Still Open file descriptor",
+                         &nce, /* extra */
+                         i->where,
+                         True, /* print_error */
+                         False, /* allow_GDB_attach */
+                         True /* count_error */);
+
    }
 
-   VG_(message)(Vg_UserMsg, "\n");
+   if (!VG_(clo_xml))
+      VG_(message)(Vg_UserMsg, "\n");
 }
 
 /* If /proc/self/fd doesn't exist (e.g. you've got a Linux kernel that doesn't
@@ -982,6 +1112,105 @@ void VG_(init_preopened_fds)(void)
 #else
 #  error Unknown OS
 #endif
+}
+
+Bool fd_eq_Error (VgRes res, const Error *e1, const Error *e2)
+{
+   // XXX should we compare the fds?
+   return False;
+}
+
+void fd_before_pp_Error (const Error *err)
+{
+   // Nothing to do here
+}
+
+void fd_pp_Error (const Error *err)
+{
+   const Bool xml  = VG_(clo_xml);
+   const HChar* whatpre  = VG_(clo_xml) ? "  <what>" : "";
+   const HChar* whatpost = VG_(clo_xml) ? "</what>"  : "";
+   const HChar* auxpre  = VG_(clo_xml) ? "  <auxwhat>" : " ";
+   const HChar* auxpost = VG_(clo_xml) ? "</auxwhat>"  : "";
+   ExeContext *where = VG_(get_error_where)(err);
+   if (VG_(get_error_kind)(err) == FdBadClose) {
+      if (xml) VG_(emit)("  <kind>FdBadClose</kind>\n");
+      struct BadCloseExtra *bce = (struct BadCloseExtra *)
+         VG_(get_error_extra)(err);
+      vg_assert(bce);
+      if (xml) {
+         VG_(emit)("  <fd>%d</fd>\n", bce->fd);
+         if (bce->pathname)
+            VG_(emit)("  <path>%s</path>\n", bce->pathname);
+      }
+      VG_(emit)("%sFile descriptor %d: %s is already closed%s\n",
+                whatpre, bce->fd, bce->description, whatpost);
+      VG_(pp_ExeContext)( where );
+      VG_(emit)("%sPreviously closed%s\n", auxpre, auxpost);
+      VG_(pp_ExeContext)(bce->where_closed);
+      VG_(emit)("%sOriginally opened%s\n", auxpre, auxpost);
+      VG_(pp_ExeContext)(bce->where_opened);
+   } else if (VG_(get_error_kind)(err) == FdNotClosed) {
+      if (xml) VG_(emit)("  <kind>FdNotClosed</kind>\n");
+      struct NotClosedExtra *nce = (struct NotClosedExtra *)
+         VG_(get_error_extra)(err);
+      if (xml) {
+         VG_(emit)("  <fd>%d</fd>\n", nce->fd);
+         if (nce->pathname)
+            VG_(emit)("  <path>%s</path>\n", nce->pathname);
+      }
+      VG_(emit)("%sOpen %s%s\n", whatpre, nce->description, whatpost);
+      if (where != NULL) {
+         VG_(pp_ExeContext)(where);
+         if (!xml) VG_(message)(Vg_UserMsg, "\n");
+      } else if (!xml) {
+         VG_(message)(Vg_UserMsg, "   <inherited from parent>\n");
+         VG_(message)(Vg_UserMsg, "\n");
+      }
+   } else if (VG_(get_error_kind)(err) == FdBadUse) {
+      if (xml) VG_(emit)("  <kind>FdBadUse</kind>\n");
+      struct FdBadUse *nce = (struct FdBadUse *)
+         VG_(get_error_extra)(err);
+      const char *error_string = VG_(get_error_string)(err);
+      if (xml) {
+        VG_(emit)("  <fd>%d</fd>\n", nce->fd);
+        if (nce->pathname)
+            VG_(emit)("  <path>%s</path>\n", nce->pathname);
+      }
+      VG_(emit)("%sFile descriptor %d %s%s\n", whatpre, nce->fd,
+          error_string, whatpost);
+      /* If the file descriptor was never created we won't have
+         where_closed and where_opened. Only print them in a
+         use after close case.  */
+      if (nce->where_closed) {
+        VG_(emit)("%sPreviously closed%s\n", auxpre, auxpost);
+        VG_(pp_ExeContext)(nce->where_closed);
+      }
+      if (nce->where_opened) {
+        VG_(emit)("%sOriginally opened%s\n", auxpre, auxpost);
+        VG_(pp_ExeContext)(nce->where_opened);
+      }
+      VG_(pp_ExeContext)(where);
+   } else {
+      vg_assert2 (False, "Unknown error kind: %d",
+                  VG_(get_error_kind)(err));
+   }
+}
+
+/* Called to see if there is any extra state to be saved with this
+   error. Must return the size of the extra struct.  */
+UInt fd_update_extra (const Error *err)
+{
+   if (VG_(get_error_kind)(err) == FdBadClose)
+      return sizeof (struct BadCloseExtra);
+   else if (VG_(get_error_kind)(err) == FdNotClosed)
+      return sizeof (struct NotClosedExtra);
+   else if (VG_(get_error_kind)(err) == FdBadUse)
+      return sizeof (struct FdBadUse);
+   else {
+      vg_assert2 (False, "Unknown error kind: %d",
+                  VG_(get_error_kind)(err));
+   }
 }
 
 static 
@@ -1121,10 +1350,9 @@ static void check_cmsg_for_fds(ThreadId tid, struct vki_msghdr *msg)
 }
 
 /* GrP kernel ignores sa_len (at least on Darwin); this checks the rest */
-static
-void pre_mem_read_sockaddr ( ThreadId tid,
-                             const HChar *description,
-                             struct vki_sockaddr *sa, UInt salen )
+void ML_(pre_mem_read_sockaddr) ( ThreadId tid,
+                                  const HChar *description,
+                                  struct vki_sockaddr *sa, UInt salen )
 {
    HChar outmsg[VG_(strlen)( description ) + 30]; // large enough
    struct vki_sockaddr_un*  saun = (struct vki_sockaddr_un *)sa;
@@ -1371,6 +1599,20 @@ static Addr do_brk ( Addr newbrk, ThreadId tid )
    return VG_(brk_limit);
 }
 
+static
+const OpenFd *ML_(find_OpenFd)(Int fd)
+{
+   OpenFd *i = allocated_fds;
+
+   while (i) {
+     if (i->fd == fd)
+           return i;
+     i = i->next;
+   }
+
+   return NULL;
+}
+
 
 /* ---------------------------------------------------------------------
    Vet file descriptors for sanity
@@ -1434,22 +1676,62 @@ Bool ML_(fd_allowed)(Int fd, const HChar *syscallname, ThreadId tid,
       client is exactly what we don't want.  */
 
    /* croak? */
-   if ((!allowed) && VG_(showing_core_errors)() ) {
-      VG_(message)(Vg_UserMsg, 
-         "Warning: invalid file descriptor %d in syscall %s()\n",
-         fd, syscallname);
-      if (fd == VG_(log_output_sink).fd && VG_(log_output_sink).fd >= 0)
-	 VG_(message)(Vg_UserMsg, 
+   if (VG_(clo_track_fds) && allowed
+       && !isNewFd && (VG_(strcmp)("close", syscallname) != 0)) {
+     const OpenFd *openbadfd = ML_(find_OpenFd)(fd);
+     if (!openbadfd) {
+       /* File descriptor which was never created (or inherited).  */
+       struct FdBadUse badfd;
+       badfd.fd = fd;
+       badfd.pathname = NULL;
+       badfd.description = NULL;
+       badfd.where_opened = NULL;
+       badfd.where_closed = NULL;
+       VG_(maybe_record_error)(tid, FdBadUse, 0,
+           "was never created", &badfd);
+
+     } else if (openbadfd->fd_closed) {
+       /* Already closed file descriptor is being used.  */
+       struct FdBadUse badfd;
+       badfd.fd = fd;
+       badfd.pathname = openbadfd->pathname;
+       badfd.description = openbadfd->description;
+       badfd.where_opened = openbadfd->where;
+       badfd.where_closed = openbadfd->where_closed;
+       VG_(maybe_record_error)(tid, FdBadUse, 0,
+           "was closed already", &badfd);
+     }
+   }
+   if ((!allowed) && !isNewFd) {
+      if (VG_(clo_track_fds)) {
+         struct FdBadUse badfd;
+         badfd.fd = fd;
+         badfd.pathname = NULL;
+         badfd.description = NULL;
+         badfd.where_opened = NULL;
+         badfd.where_closed = NULL;
+         VG_(maybe_record_error)(tid, FdBadUse, 0,
+                                 "Invalid file descriptor", &badfd);
+      } else if (VG_(showing_core_warnings) ()) {
+         // XXX legacy warnings, will be removed eventually
+         VG_(message)(Vg_UserMsg,
+                      "Warning: invalid file descriptor %d in syscall %s()\n",
+                      fd, syscallname);
+      }
+
+      if (VG_(showing_core_warnings) ()) {
+         if (fd == VG_(log_output_sink).fd && VG_(log_output_sink).fd >= 0)
+            VG_(message)(Vg_UserMsg, 
             "   Use --log-fd=<number> to select an alternative log fd.\n");
-      if (fd == VG_(xml_output_sink).fd && VG_(xml_output_sink).fd >= 0)
-	 VG_(message)(Vg_UserMsg, 
+         if (fd == VG_(xml_output_sink).fd && VG_(xml_output_sink).fd >= 0)
+            VG_(message)(Vg_UserMsg, 
             "   Use --xml-fd=<number> to select an alternative XML "
             "output fd.\n");
-      // DDD: consider always printing this stack trace, it's useful.
-      // Also consider also making this a proper core error, ie.
-      // suppressible and all that.
-      if (VG_(clo_verbosity) > 1) {
-         VG_(get_and_pp_StackTrace)(tid, VG_(clo_backtrace_size));
+
+         // XXX This is the legacy warning, will be removed eventually
+         if (VG_(clo_verbosity) > 1 && !VG_(clo_track_fds)) {
+            VG_(get_and_pp_StackTrace)(tid, VG_(clo_backtrace_size));
+         }
       }
    }
 
@@ -1524,7 +1806,7 @@ ML_(generic_PRE_sys_bind) ( ThreadId tid,
 {
    /* int bind(int sockfd, struct sockaddr *my_addr, 
                int addrlen); */
-   pre_mem_read_sockaddr( 
+   ML_(pre_mem_read_sockaddr) (
       tid, "socketcall.bind(my_addr.%s)",
       (struct vki_sockaddr *) arg1, arg2 
    );
@@ -1580,7 +1862,7 @@ ML_(generic_PRE_sys_sendto) ( ThreadId tid,
    PRE_MEM_READ( "socketcall.sendto(msg)",
                  arg1, /* msg */
                  arg2  /* len */ );
-   pre_mem_read_sockaddr( 
+   ML_(pre_mem_read_sockaddr) (
       tid, "socketcall.sendto(to.%s)",
       (struct vki_sockaddr *) arg4, arg5
    );
@@ -1659,7 +1941,7 @@ ML_(generic_POST_sys_recv) ( ThreadId tid,
                              UWord res,
                              UWord arg0, UWord arg1, UWord arg2 )
 {
-   if (res >= 0 && arg1 != 0) {
+   if (arg1 != 0) {
       POST_MEM_WRITE( arg1, /* buf */
                       arg2  /* len */ );
    }
@@ -1673,7 +1955,7 @@ ML_(generic_PRE_sys_connect) ( ThreadId tid,
 {
    /* int connect(int sockfd, 
                   struct sockaddr *serv_addr, int addrlen ); */
-   pre_mem_read_sockaddr( tid,
+   ML_(pre_mem_read_sockaddr) ( tid,
                           "socketcall.connect(serv_addr.%s)",
                           (struct vki_sockaddr *) arg1, arg2);
 }
@@ -1826,11 +2108,12 @@ UInt get_sem_count( Int semid )
 #  elif defined(__NR___semctl) /* FreeBSD */
    struct vki_semid_ds buf;
    arg.buf = &buf;
-   res = VG_(do_syscall4)(__NR___semctl, semid, 0, VKI_IPC_STAT, *(UWord *)&arg);
+   res = VG_(do_syscall4)(__NR___semctl, semid, 0, VKI_IPC_STAT, (RegWord)&arg);
 
    if (sr_isError(res))
       return 0;
 
+   // both clang-tidy and coverity complain about this but I think they are both wrong
    return buf.sem_nsems;
 #  elif defined(__NR_semsys) /* Solaris */
    struct vki_semid_ds buf;
@@ -2738,6 +3021,13 @@ PRE(sys_nice)
    PRE_REG_READ1(long, "nice", int, inc);
 }
 
+PRE(sys_mlock2)
+{
+   *flags |= SfMayBlock;
+   PRINT("sys_mlock2 ( %#" FMT_REGWORD "x, %" FMT_REGWORD "u, %" FMT_REGWORD "u )", ARG1, ARG2, ARG3);
+   PRE_REG_READ2(int, "mlock2", void*, addr, vki_size_t, len);
+}
+
 PRE(sys_mlock)
 {
    *flags |= SfMayBlock;
@@ -3256,6 +3546,7 @@ PRE(sys_execve)
 
 PRE(sys_access)
 {
+   FUSE_COMPATIBLE_MAY_BLOCK();
    PRINT("sys_access ( %#" FMT_REGWORD "x(%s), %ld )", ARG1,
          (HChar*)(Addr)ARG1, SARG2);
    PRE_REG_READ2(long, "access", const char *, pathname, int, mode);
@@ -3361,11 +3652,13 @@ PRE(sys_close)
            allow that to be closed either. */
         || (ARG1 == 2/*stderr*/ && VG_(debugLog_getLevel)() > 0) )
       SET_STATUS_Failure( VKI_EBADF );
-}
-
-POST(sys_close)
-{
-   if (VG_(clo_track_fds)) ML_(record_fd_close)(ARG1);
+   else {
+      /* We used to do close tracking in the POST handler, but that is
+         only called on success. Even if the close syscall fails the
+	 file descriptor is still really closed/invalid. So we do the
+	 recording and checking here.  */
+      if (VG_(clo_track_fds)) ML_(record_fd_close)(tid, ARG1);
+   }
 }
 
 PRE(sys_dup)
@@ -3795,7 +4088,7 @@ void ML_(PRE_unknown_ioctl)(ThreadId tid, UWord request, UWord arg)
        * drivers with a large number of strange ioctl
        * commands becomes very tiresome.
        */
-   } else if (/* size == 0 || */ dir == _VKI_IOC_NONE) {
+   } else if (dir == _VKI_IOC_NONE && size > 0) {
       static UWord unknown_ioctl[10];
       static Int moans = sizeof(unknown_ioctl) / sizeof(unknown_ioctl[0]);
 
@@ -3809,7 +4102,7 @@ void ML_(PRE_unknown_ioctl)(ThreadId tid, UWord request, UWord arg)
                unknown_ioctl[i] = request;
                moans--;
                VG_(umsg)("Warning: noted but unhandled ioctl 0x%lx"
-                         " with no size/direction hints.\n", request);
+                         " with no direction hints.\n", request);
                VG_(umsg)("   This could cause spurious value errors to appear.\n");
                VG_(umsg)("   See README_MISSING_SYSCALL_OR_IOCTL for "
                          "guidance on writing a proper wrapper.\n" );
@@ -4340,8 +4633,10 @@ PRE(sys_poll)
    for (i = 0; i < ARG2; i++) {
       PRE_MEM_READ( "poll(ufds.fd)",
                     (Addr)(&ufds[i].fd), sizeof(ufds[i].fd) );
-      PRE_MEM_READ( "poll(ufds.events)",
-                    (Addr)(&ufds[i].events), sizeof(ufds[i].events) );
+      if (ML_(safe_to_deref)(&ufds[i].fd, sizeof(ufds[i].fd)) && ufds[i].fd >= 0) {
+         PRE_MEM_READ( "poll(ufds.events)",
+                       (Addr)(&ufds[i].events), sizeof(ufds[i].events) );
+      }
       PRE_MEM_WRITE( "poll(ufds.revents)",
                      (Addr)(&ufds[i].revents), sizeof(ufds[i].revents) );
    }
@@ -4349,8 +4644,7 @@ PRE(sys_poll)
 
 POST(sys_poll)
 {
-   // RES is UWord so always >= 0
-   if (SUCCESS && RES >= 0) {
+   if (SUCCESS) {
       UInt i;
       struct vki_pollfd* ufds = (struct vki_pollfd *)(Addr)ARG1;
       for (i = 0; i < ARG2; i++)
@@ -4361,18 +4655,19 @@ POST(sys_poll)
 PRE(sys_readlink)
 {
    FUSE_COMPATIBLE_MAY_BLOCK();
-   Word saved = SYSNO;
-
    PRINT("sys_readlink ( %#" FMT_REGWORD "x(%s), %#" FMT_REGWORD "x, %llu )",
          ARG1, (char*)(Addr)ARG1, ARG2, (ULong)ARG3);
    PRE_REG_READ3(long, "readlink",
                  const char *, path, char *, buf, int, bufsiz);
    PRE_MEM_RASCIIZ( "readlink(path)", ARG1 );
    PRE_MEM_WRITE( "readlink(buf)", ARG2,ARG3 );
+}
 
-
-   {
+POST(sys_readlink)
+{
 #if defined(VGO_linux) || defined(VGO_solaris)
+   {
+      Word saved = SYSNO;
 #if defined(VGO_linux)
 #define PID_EXEPATH  "/proc/%d/exe"
 #define SELF_EXEPATH "/proc/self/exe"
@@ -4393,15 +4688,10 @@ PRE(sys_readlink)
           && (VG_STREQ(arg1s, name) || VG_STREQ(arg1s, SELF_EXEPATH))) {
          VG_(sprintf)(name, SELF_EXEFD, VG_(cl_exec_fd));
          SET_STATUS_from_SysRes( VG_(do_syscall3)(saved, (UWord)name, 
-                                                         ARG2, ARG3));
-      } else
-#endif
-      {
-         /* Normal case */
-         SET_STATUS_from_SysRes( VG_(do_syscall3)(saved, ARG1, ARG2, ARG3));
+                                                  ARG2, ARG3));
       }
    }
-
+#endif
    if (SUCCESS && RES > 0)
       POST_MEM_WRITE( ARG2, RES );
 }
@@ -4410,7 +4700,7 @@ PRE(sys_readv)
 {
    Int i;
    struct vki_iovec * vec;
-   char buf[sizeof("writev(vector[])") + 11];
+   char buf[sizeof("readv(vector[])") + 11];
    *flags |= SfMayBlock;
    PRINT("sys_readv ( %" FMT_REGWORD "u, %#" FMT_REGWORD "x, %"
          FMT_REGWORD "u )", ARG1, ARG2, ARG3);
@@ -4426,7 +4716,7 @@ PRE(sys_readv)
       if (ML_(safe_to_deref)((const void*)ARG2, ARG3*sizeof(struct vki_iovec *))) {
          vec = (struct vki_iovec *)(Addr)ARG2;
          for (i = 0; i < (Int)ARG3; i++) {
-            VG_(sprintf)(buf, "writev(vector[%d])", i);
+            VG_(sprintf)(buf, "readv(vector[%d])", i);
             PRE_MEM_WRITE(buf, (Addr)vec[i].iov_base, vec[i].iov_len );
          }
       }
@@ -4642,6 +4932,7 @@ POST(sys_statfs)
 
 PRE(sys_statfs64)
 {
+   FUSE_COMPATIBLE_MAY_BLOCK();
    PRINT("sys_statfs64 ( %#" FMT_REGWORD "x(%s), %llu, %#" FMT_REGWORD "x )",
          ARG1, (char*)(Addr)ARG1, (ULong)ARG2, ARG3);
    PRE_REG_READ3(long, "statfs64",
@@ -4831,9 +5122,9 @@ PRE(sys_sigaltstack)
                  const vki_stack_t *, ss, vki_stack_t *, oss);
    if (ARG1 != 0) {
       const vki_stack_t *ss = (vki_stack_t *)(Addr)ARG1;
-      PRE_MEM_READ( "sigaltstack(ss)", (Addr)&ss->ss_sp, sizeof(ss->ss_sp) );
-      PRE_MEM_READ( "sigaltstack(ss)", (Addr)&ss->ss_flags, sizeof(ss->ss_flags) );
-      PRE_MEM_READ( "sigaltstack(ss)", (Addr)&ss->ss_size, sizeof(ss->ss_size) );
+      PRE_MEM_READ( "sigaltstack(ss->ss_sp)", (Addr)&ss->ss_sp, sizeof(ss->ss_sp) );
+      PRE_MEM_READ( "sigaltstack(ss->ss_size)", (Addr)&ss->ss_size, sizeof(ss->ss_size) );
+      PRE_MEM_READ( "sigaltstack(ss->ss_flags)", (Addr)&ss->ss_flags, sizeof(ss->ss_flags) );
    }
    if (ARG2 != 0) {
       PRE_MEM_WRITE( "sigaltstack(oss)", ARG2, sizeof(vki_stack_t) );

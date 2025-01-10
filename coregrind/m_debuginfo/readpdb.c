@@ -1536,7 +1536,6 @@ static ULong DEBUG_SnarfLinetab(
    Int                k;
    const UInt         * lt_ptr;
    Int                nfile;
-   Int                nseg;
    union any_size     pnt;
    union any_size     pnt2;
    const struct startend * start;
@@ -1545,25 +1544,23 @@ static ULong DEBUG_SnarfLinetab(
    Bool  debug = di->trace_symtab;
    ULong n_lines_read = 0;
 
-   if (debug)
+   if (debug) {
       VG_(umsg)("BEGIN SnarfLineTab linetab=%p size=%d\n", linetab, size);
+   }
 
    /*
     * Now get the important bits.
     */
    pnt.c = linetab;
    nfile = *pnt.s++;
-   nseg  = *pnt.s++;
 
    filetab = pnt.ui;
 
    /*
     * Now count up the number of segments in the file.
     */
-   nseg = 0;
    for (i = 0; i < nfile; i++) {
       pnt2.c = (const HChar *)linetab + filetab[i];
-      nseg += *pnt2.s;
    }
 
    this_seg = 0;

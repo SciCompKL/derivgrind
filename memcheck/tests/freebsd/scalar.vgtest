@@ -1,5 +1,5 @@
 prog: scalar
-vgopts: -q --error-limit=no
+vgopts: -q --error-limit=no --suppressions=scalar.supp
 stderr_filter: filter_scalar
 # Remove all frames from the stack trace except the first one.
 # This is important because syscall() function on x86 isn't ABI conformant
@@ -8,4 +8,7 @@ stderr_filter: filter_scalar
 # 'syscall (in libc)' stack frame and this is then filtered out completely.
 stderr_filter_args: libc
 args: < scalar.c
-
+# this is for 'setsid', when run by vg_regtest the process isn't
+# process group leader and succeeds
+# but when run from a shell the process is group leader and it fails
+env: RUNNING_IN_VGTEST=1

@@ -4086,8 +4086,8 @@ static void putACC( UInt index, UInt reg, IRExpr* src, Bool ACC_mapped_on_VSR)
 static IRExpr* /* :: Ity_V128 */ getACC ( UInt index, UInt reg,
                                           Bool ACC_mapped_on_VSR)
 {
-   vassert( (index >= 0) && (index < 8) );
-   vassert( (reg >= 0) && (reg < 4) );
+   vassert(index < 8);
+   vassert(reg < 4);
 
    return IRExpr_Get( base_acc_addr( ACC_mapped_on_VSR )
                       + ACC_offset( index, reg), Ity_V128 );
@@ -5656,7 +5656,7 @@ static void setup_fxstate_struct( IRDirty* d, UInt AT, IREffect AT_fx,
    d->fxState[3].fx     = AT_fx;
    d->fxState[3].size   = sizeof(U128);
 
-   vassert( (AT >= 0) && (AT < 8));
+   vassert(AT < 8);
 
    acc_base_address = base_acc_addr( ACC_mapped_on_VSR );
 
@@ -5917,7 +5917,7 @@ static void vector_gen_pvc_mask ( const VexAbiInfo* vbi,
 
    IRDirty* d;
 
-   vassert( (VSX_addr >= 0) && (VSX_addr < 64) );
+   vassert(VSX_addr < 64);
    UInt reg_offset = offsetofPPCGuestState( guest_VSR0 )
       + sizeof(U128) * VSX_addr;
 
@@ -12145,7 +12145,10 @@ static Bool dis_cache_manage ( UInt prefix, UInt theInstr,
    UChar opc1    = ifieldOPC(theInstr);
    UChar b21to25 = ifieldRegDS(theInstr);
    /* The L-field is 2 bits in ISA 3.0 and earlier and 3 bits in ISA 3.1 */
-   UChar flag_L  = IFIELD(theInstr, 21, (allow_isa_3_1 ? 3 : 2));
+   /* Relaxed the test to mach actual hardware, accept all L values from 0 to 7.
+      The hardware ignores the L value if not supported.      10/23/2024
+      UChar flag_L  = IFIELD(theInstr, 21, (allow_isa_3_1 ? 3 : 2));  */
+
    UChar rA_addr = ifieldRegA(theInstr);
    UChar rB_addr = ifieldRegB(theInstr);
    UInt  opc2    = ifieldOPClo10(theInstr);
@@ -12203,15 +12206,19 @@ static Bool dis_cache_manage ( UInt prefix, UInt theInstr,
          dcbf ra, rb, 0          dcbf
          dcbf ra, rb, 1          dcbf local
          dcbf ra, rb, 3          dcbf local primary
-         dcbf ra, rb, 4          dcbf block fjush to persistent storage    isa 3.1
-         dcbf ra, rb, 6          dcbf block store to persistent storage    isa 3.1
- */
-               if (!((flag_L == 0 || flag_L == 1 || flag_L == 3)
-               || ((flag_L == 4 || flag_L == 6) && allow_isa_3_1 == True)))
+         dcbf ra, rb, 4          dcbf block fjush to persistent storage isa 3.1
+         dcbf ra, rb, 6          dcbf block store to persistent storage isa 3.1
+         Relaxed requirement to allow all L values from 0 to 7 to match the
+         operation of the real hardware.  The real hardware accepts the
+         unsupported L values.      10/23/2024
+
+         if (!((flag_L == 0 || flag_L == 1 || flag_L == 3)
+           || ((flag_L == 4 || flag_L == 6) && allow_isa_3_1 == True)))
          {
             vex_printf("dis_cache_manage(ppc)(dcbf,flag_L)\n");
             return False;
          }
+      */
       /* nop as far as vex is concerned */
       break;
       
@@ -36012,11 +36019,11 @@ DisResult disInstr_PPC_WRK (
             // splat instructions: xxpermx
             if (dis_vector_permute_prefix( prefix, theInstr, abiinfo ))
                goto decode_success;
-         } else if (is_prefix && ( ptype == pType1 ) ) {  // plbz:  load instruction
+         } else if (is_prefix && ( ptype == pType2 ) ) {  // plbz:  load instruction
             if ( !(allow_isa_3_1) ) goto decode_noIsa3_1;
             if (dis_int_load_prefix( prefix, theInstr ))
                goto decode_success;
-         } else {  // lbz:  load instruction
+         } else if (!is_prefix) {  // lbz:  load instruction
             if (dis_int_load_prefix( prefix, theInstr ))
                goto decode_success;
          }

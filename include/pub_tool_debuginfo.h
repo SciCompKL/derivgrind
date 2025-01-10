@@ -182,13 +182,13 @@ typedef  struct _InlIPCursor InlIPCursor;
    be done:
        InlIPCursor *iipc = VG_(new_IIPC)(ep, eip);
        do {
-          buf = VG_(describe_IP)(eip, iipc);
+          buf = VG_(describe_IP)(ep, eip, iipc);
           ... use buf ...
        } while (VG_(next_IIPC)(iipc));
        VG_(delete_IIPC)(iipc);
 
-   To only describe eip, without the inlined calls at eip, give a NULL iipc:
-       buf = VG_(describe_IP)(eip, NULL);   
+   To only describe eip, without the inlined calls at eip, give a NULL iipc, e.g.:
+       buf = VG_(describe_IP)(VG_(current_DiEpoch)(), eip, NULL);
 
    Note, that the returned string is allocated in a static buffer local to
    VG_(describe_IP). That buffer will be overwritten with every invocation.
@@ -210,7 +210,9 @@ extern Bool VG_(next_IIPC)(InlIPCursor *iipc);
 /* Free all memory associated with iipc. */
 extern void VG_(delete_IIPC)(InlIPCursor *iipc);
 
-
+/* Similar to  VG_(get_fnname) but uses InlIPCursor and handles inline functions */
+extern Bool VG_(get_fnname_inl)   ( DiEpoch ep, Addr a, const HChar** fnname,
+                                   const InlIPCursor* iipc );
 
 /* Get an XArray of StackBlock which describe the stack (auto) blocks
    for this ip.  The caller is expected to free the XArray at some

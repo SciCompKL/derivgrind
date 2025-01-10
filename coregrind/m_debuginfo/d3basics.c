@@ -552,7 +552,7 @@ static Bool get_Dwarf_Reg( /*OUT*/Addr* a, Word regno, const RegSummary* regs )
 #  elif defined(VGP_mips64_linux)
    if (regno == 29) { *a = regs->sp; return True; }
    if (regno == 30) { *a = regs->fp; return True; }
-#  elif defined(VGP_arm64_linux)
+#  elif defined(VGP_arm64_linux)  || defined(VGP_arm64_freebsd)
    if (regno == 31) { *a = regs->sp; return True; }
    if (regno == 29) { *a = regs->fp; return True; }
 #  else
@@ -648,7 +648,6 @@ GXResult ML_(evaluate_Dwarf3_Expr) ( const UChar* expr, UWord exprszB,
 
    sp = -1;
    vg_assert(expr);
-   vg_assert(exprszB >= 0);
    limit = expr + exprszB;
 
    /* Deal with the case where the entire expression is a single
@@ -1048,6 +1047,14 @@ GXResult ML_(evaluate_Dwarf3_Expr) ( const UChar* expr, UWord exprszB,
                FAIL("evaluate_Dwarf3_Expr: DW_OP_stack_value "
                     "does not terminate expression");
             break;
+	 case DW_OP_entry_value:
+	 case DW_OP_GNU_entry_value:
+            /* This provides a DWARF expression where any register op
+               needs tobe evaluated as if the value that register had
+               upon entering the function.  Which is non-trivial to
+               implement.  */
+            FAIL("evaluate_Dwarf3_Expr: Unhandled DW_OP entry_value");
+            return res;
          default:
             if (!VG_(clo_xml))
                VG_(message)(Vg_DebugMsg, 
