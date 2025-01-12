@@ -355,7 +355,8 @@ fma_add.bars = {'y':1.0}
 fma_add.test_vals = {'y':14.0}
 fma_add.test_dots = {'y':134.0}
 fma_add.test_bars = {'a':4.0,'b':3.0,'c':1.0}
-fma_add.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
+fma_add.disable = lambda mode, arch, compiler, typename : arch == "x86" 
+# otherwise the -march=native is strange, and Valgrind seems to have problems with AVX instructions in 32-bit mode
 regression_templates.append(fma_add)
 
 fma_sub = ClientRequestTestCase("fma_sub")
@@ -371,7 +372,7 @@ fma_sub.bars = {'y':1.0}
 fma_sub.test_vals = {'y':10.0}
 fma_sub.test_dots = {'y':-66.0}
 fma_sub.test_bars = {'a':4.0,'b':3.0,'c':-1.0}
-fma_sub.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
+fma_sub.disable = lambda mode, arch, compiler, typename : arch == "x86" # see fma_add
 regression_templates.append(fma_sub)
 
 max_ = ClientRequestTestCase("max")
@@ -387,7 +388,7 @@ max_.bars = {'y':2.4}
 max_.test_vals = {'y':4.0}
 max_.test_dots = {'y':10.0}
 max_.test_bars = {'a':0.0, 'b':2.4}
-max_.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
+max_.disable = lambda mode, arch, compiler, typename : arch == "x86" # see fma_add
 regression_templates.append(max_)
 
 min_ = ClientRequestTestCase("min")
@@ -403,7 +404,7 @@ min_.bars = {'y':2.4}
 min_.test_vals = {'y':3.0}
 min_.test_dots = {'y':1.0}
 min_.test_bars = {'a':2.4, 'b':0.0}
-min_.disable = lambda mode, arch, compiler, typename : arch == "x86" # otherwise the -march=native is strange
+min_.disable = lambda mode, arch, compiler, typename : arch == "x86" # see fma_add
 regression_templates.append(min_)
 
 sqrt = ClientRequestTestCase("sqrt")
@@ -422,6 +423,39 @@ sqrt.test_vals = {'c':2.0}
 sqrt.test_dots = {'c':0.25}
 sqrt.test_bars = {'a':0.25}
 regression_templates.append(sqrt)
+
+cbrt = ClientRequestTestCase("cbrt")
+cbrt.include = "#include <math.h>"
+cbrt.ldflags = '-lm'
+cbrt.stmtd = "double c = cbrt(a);"
+cbrt.stmtf = "float c = cbrtf(a);"
+cbrt.stmtl = "long double c = cbrtl(a);"
+cbrt.stmtp = "c = np.cbrt(a)"
+cbrt.vals = {'a':-0.125}
+cbrt.dots = {'a':10.0}
+cbrt.bars = {'c':10.0}
+cbrt.test_vals = {'c':-0.5}
+cbrt.test_dots = {'c':40./3.}
+cbrt.test_bars = {'a':40./3.}
+regression_templates.append(cbrt)
+
+hypot = ClientRequestTestCase("hypot")
+hypot.include = "#include <math.h>"
+hypot.ldflags = '-lm'
+hypot.stmtd = "double c = hypot(a,b);"
+hypot.stmtf = "float c = hypotf(a,b);"
+hypot.stmtl = "long double c = hypotl(a,b);"
+hypot.stmtr4 = "real, target :: c; c = hypot(a,b)"
+hypot.stmtr8 = "double precision, target :: c; c = hypot(a,b)"
+hypot.stmtp = "c = np.hypot(a,b)"
+hypot.vals = {'a':3.0,'b':-4.0}
+hypot.dots = {'a':1.3, 'b':1.5}
+hypot.bars = {'c':1.0}
+hypot.test_vals = {'c':5.0}
+hypot.test_dots = {'c':1.3*3./5. + 1.5*(-4.)/5}
+hypot.test_bars = {'a':3./5., 'b':-4./5.}
+regression_templates.append(hypot)
+
 
 # if pow(a,b) is implemented as a*a for b==2., 
 # the gradient of b would be discarded
@@ -475,7 +509,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   sin.test_vals = {'c':np.sin(angle)}
   sin.test_dots = {'c':np.cos(angle)*3.1}
   sin.test_bars = {'a':np.cos(angle)*3.1}
-  sin.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+  sin.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # Probably a bit-trick in NumPy
   regression_templates.append(sin)
 
   cos = ClientRequestTestCase("cos_"+angletext)
@@ -493,7 +527,7 @@ for angle,angletext in [(0,"0"), (1e-3,"1m"), (1e-2,"10m"), (1e-1,"100m"), (1.,"
   cos.test_vals = {'c':np.cos(angle)}
   cos.test_dots = {'c':-np.sin(angle)*2.7}
   cos.test_bars = {'a':-np.sin(angle)*2.7}
-  cos.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+  cos.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # Probably a bit-trick in NumPy
   regression_templates.append(cos)
 
   tan = ClientRequestTestCase("tan_"+angletext)
@@ -528,8 +562,38 @@ exp.bars = {'c':5.0}
 exp.test_vals = {'c':np.exp(4)}
 exp.test_dots = {'c':np.exp(4)*5.0}
 exp.test_bars = {'a':np.exp(4)*5.0}
-exp.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+exp.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # Probably a bit-trick in NumPy
 regression_templates.append(exp)
+
+exp2 = ClientRequestTestCase("exp2")
+exp2.include = "#include <math.h>"
+exp2.ldflags = '-lm'
+exp2.stmtd = "double c = exp2(a);"
+exp2.stmtf = "float c = exp2f(a);"
+exp2.stmtl = "long double c = exp2l(a);"
+exp2.stmtp = "c = np.exp2(a)"
+exp2.vals = {'a':10}
+exp2.dots = {'a':5.0}
+exp2.bars = {'c':5.0}
+exp2.test_vals = {'c':1024.0}
+exp2.test_dots = {'c':1024*np.log(2)*5.0}
+exp2.test_bars = {'a':1024*np.log(2)*5.0}
+regression_templates.append(exp2)
+
+expm1 = ClientRequestTestCase("expm1")
+expm1.include = "#include <math.h>"
+expm1.ldflags = '-lm'
+expm1.stmtd = "double c = expm1(a);"
+expm1.stmtf = "float c = expm1f(a);"
+expm1.stmtl = "long double c = expm1l(a);"
+expm1.stmtp = "c = np.expm1(a)"
+expm1.vals = {'a':4}
+expm1.dots = {'a':5.0}
+expm1.bars = {'c':5.0}
+expm1.test_vals = {'c':np.exp(4)-1}
+expm1.test_dots = {'c':np.exp(4)*5.0}
+expm1.test_bars = {'a':np.exp(4)*5.0}
+regression_templates.append(expm1)
 
 log = ClientRequestTestCase("log")
 log.include = "#include <math.h>"
@@ -546,8 +610,23 @@ log.bars = {'c':1.0}
 log.test_vals = {'c':np.log(20)}
 log.test_dots = {'c':0.05}
 log.test_bars = {'a':0.05}
-log.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # TODO
+log.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # Probably a bit-trick in NumPy
 regression_templates.append(log)
+
+log2 = ClientRequestTestCase("log2")
+log2.include = "#include <math.h>"
+log2.ldflags = '-lm'
+log2.stmtd = "double c = log2(a);"
+log2.stmtf = "float c = log2f(a);"
+log2.stmtl = "long double c = log2l(a);"
+log2.stmtp = "c = np.log2(a)"
+log2.vals = {'a':1024.0}
+log2.dots = {'a':1.0}
+log2.bars = {'c':1.0}
+log2.test_vals = {'c':10.0}
+log2.test_dots = {'c':1./(1024.*np.log(2))}
+log2.test_bars = {'a':1./(1024.*np.log(2))}
+regression_templates.append(log2)
 
 log10 = ClientRequestTestCase("log10")
 log10.include = "#include <math.h>"
@@ -565,6 +644,21 @@ log10.test_vals = {'c':-2}
 log10.test_dots = {'c':100/np.log(10)}
 log10.test_bars = {'a':100/np.log(10)}
 regression_templates.append(log10)
+
+log1p = ClientRequestTestCase("log1p")
+log1p.include = "#include <math.h>"
+log1p.ldflags = '-lm'
+log1p.stmtd = "double c = log1p(a);"
+log1p.stmtf = "float c = log1pf(a);"
+log1p.stmtl = "long double c = log1pl(a);"
+log1p.stmtp = "c = np.log1p(a)"
+log1p.vals = {'a':4.0}
+log1p.dots = {'a':10.0}
+log1p.bars = {'c':10.0}
+log1p.test_vals = {'c':np.log(5.)}
+log1p.test_dots = {'c':2.0}
+log1p.test_bars = {'a':2.0}
+regression_templates.append(log1p)
 
 sinh = ClientRequestTestCase("sinh")
 sinh.include = "#include <math.h>"
@@ -615,6 +709,8 @@ tanh.bars = {'c':1.0}
 tanh.test_vals = {'c':np.tanh(-0.5)}
 tanh.test_dots = {'c':1-np.tanh(-0.5)**2}
 tanh.test_bars = {'a':1-np.tanh(-0.5)**2}
+tanh.valgrindflags = lambda mode, arch, compiler, typename: ["--vex-guest-max-insns=10"] if compiler=="python" else [] # otherwise, internal Valgrind/VEX error (probably overflow of VEX output buffer)
+tanh.disable = lambda mode, arch, compiler, typename : arch == "amd64" and typename == "np32" # bit-trick in NumPy?
 regression_templates.append(tanh)
 
 asin = ClientRequestTestCase("asin")
@@ -685,39 +781,35 @@ atan2.test_dots = {'c':1.3*(-4)/(3**2+4**2) + 1.5*3/(3**2+4**2)}
 atan2.test_bars = {'a':(-4)/(3**2+4**2), 'b':3/(3**2+4**2)}
 regression_templates.append(atan2)
 
-floor = ClientRequestTestCase("floor")
-floor.include = "#include <math.h>"
-floor.ldflags = '-lm'
-floor.stmtd = "double c = floor(a);"
-floor.stmtf = "float c = floorf(a);"
-floor.stmtl = "long double c = floorl(a);"
-floor.stmtr4 = "real, target :: c; c = floor(a)"
-floor.stmtr8 = "double precision, target :: c; c = floor(a)"
-floor.stmtp = "c = np.floor(a)"
-floor.vals = {'a':2.0}
-floor.dots = {'a':1.0}
-floor.bars = {'c':1.0}
-floor.test_vals = {'c':2.0}
-floor.test_dots = {'c':0.0}
-floor.test_bars = {'a':0.0}
-regression_templates.append(floor)
-
-ceil = ClientRequestTestCase("ceil")
-ceil.include = "#include <math.h>"
-ceil.ldflags = '-lm'
-ceil.stmtd = "double c = ceil(a);"
-ceil.stmtf = "float c = ceilf(a);"
-ceil.stmtl = "long double c = ceill(a);"
-ceil.stmtr4 = "real, target :: c; c = ceiling(a)"
-ceil.stmtr8 = "double precision, target :: c; c = ceiling(a)"
-ceil.stmtp = "c = np.ceil(a)"
-ceil.vals = {'a':2.1}
-ceil.dots = {'a':1.0}
-ceil.bars = {'c':1.0}
-ceil.test_vals = {'c':3.0}
-ceil.test_dots = {'c':0.0}
-ceil.test_bars = {'a':0.0}
-regression_templates.append(ceil)
+for cname,fortranname4,fortranname8,numpyname,a,c in [
+  ("floor","floor","floor","floor",2.0,2.0),
+  ("ceil","ceiling","ceiling","ceil",2.1,3.0),
+  ("trunc","aint",None,"trunc",2.9,2.0),
+  ("round","nint",None,"round",-2.6,-3.0),
+  ("nearbyint",None,None,None,-2.6,None),
+  ("rint",None,None,"rint",5.6,6.0) ]:
+  test = ClientRequestTestCase(cname)
+  test.include = "#include <math.h>"
+  test.ldflags = '-lm'
+  test.stmtd = f"double c = {cname}(a);"
+  test.stmtf = f"float c = {cname}f(a);"
+  test.stmtl = f"long double c = {cname}l(a);"
+  if fortranname4:
+    test.stmtr4 = f"real, target :: c; c = {fortranname4}(a)"
+  if fortranname8:
+    test.stmtr8 = f"double precision, target :: c; c = {fortranname8}(a)"
+  if numpyname:
+    test.stmtp = f"c = np.{numpyname}(a)"
+  test.disable = lambda mode, arch, compiler, typename : arch=='amd64' and (compiler=='gcc' or compiler=='g++') and (typename=='float' or typename=='double')
+  # GCC may realize rint() using a bit-trick.
+  test.vals = {'a':a}
+  test.dots = {'a':1.0}
+  test.bars = {'c':1.0}
+  if c!=None:
+    test.test_vals = {'c':c}
+  test.test_dots = {'c':0.0}
+  test.test_bars = {'a':0.0}
+  regression_templates.append(test)
 
 ldexp = ClientRequestTestCase("ldexp")
 ldexp.include = "#include <math.h>"
@@ -801,6 +893,8 @@ ifbranch.stmtr4 = "real, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end 
 ifbranch.stmtr8 = "double precision, target :: c; if(a<1) then; c = 2+a; else; c = 2*a; end if"
 ifbranch.stmtp = "if a<1:\n  c = 2+a\nelse:\n  c = 2*a\n"
 ifbranch.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+# disabled because the Python code is not correct, 'if a<1:' leads to a
+# ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
 ifbranch.vals = {'a':0.0}
 ifbranch.dots = {'a':1.0}
 ifbranch.bars = {'c':1.0}
@@ -816,7 +910,7 @@ elsebranch.stmtl = "long double c; if(a<-1) c = 2+a; else c = 2*a; "
 elsebranch.stmtr4 = "real, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.stmtr8 = "double precision, target :: c; if(a<-1) then; c = 2+a; else; c = 2*a; end if"
 elsebranch.stmtp = "if a<-1:\n  c = 2+a\nelse:\n  c = 2*a\n"
-elsebranch.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+elsebranch.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"] # see ifbranch
 elsebranch.vals = {'a':0.0}
 elsebranch.dots = {'a':1.0}
 elsebranch.bars = {'c':1.0}
@@ -832,7 +926,7 @@ ternary_true.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_true.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_true.stmtp = "c = (3*a) if (a>-1) else (a*a)"
-ternary_true.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+ternary_true.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"] # see ifbranch
 ternary_true.vals = {'a':10.0}
 ternary_true.dots = {'a':1.0}
 ternary_true.bars = {'c':1.0}
@@ -848,7 +942,7 @@ ternary_false.stmtl = "long double c = (a>-1) ? (3*a) : (a*a);"
 ternary_false.stmtr4 = "real, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_false.stmtr8 = "double precision, target :: c; c = merge(3*a, a*a, a>-1)"
 ternary_false.stmtp = "c = (3*a) if (a>-1) else (a*a)"
-ternary_false.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+ternary_false.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"] # see ifbranch
 ternary_false.vals = {'a':-10.0}
 ternary_false.dots = {'a':1.0}
 ternary_false.bars = {'c':1.0}
@@ -895,7 +989,7 @@ addition_whileloop.stmtl = "long double c = 0; while(c<19) c+=a;"
 addition_whileloop.stmtr4 = "real, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.stmtr8 = "double precision, target :: c = 0; do while(c<19); c=c+a; end do"
 addition_whileloop.stmtp = "c=0\nwhile c<19:\n  c=c+a"
-addition_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+addition_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"] # see ifbranch
 addition_whileloop.vals = {'a':2.0}
 addition_whileloop.dots = {'a':1.0}
 addition_whileloop.bars = {'c':1.0}
@@ -911,7 +1005,7 @@ multiplication_whileloop.stmtl = "long double c = 1; while(c<1023) c*=a;"
 multiplication_whileloop.stmtr4 = "real, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.stmtr8 = "double precision, target :: c = 1; do while(c<1023); c=c*a; end do"
 multiplication_whileloop.stmtp = "c=1\nwhile c<1023:\n  c=c*a"
-multiplication_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"]
+multiplication_whileloop.disable = lambda mode, arch, compiler, typename : typename in ["np64", "np32"] # see ifbranch
 multiplication_whileloop.vals = {'a':2.0}
 multiplication_whileloop.dots = {'a':1.0}
 multiplication_whileloop.bars = {'c':1.0}
@@ -1109,6 +1203,7 @@ omp_atomic.test_vals = {'sum':omp_test_sum_val}
 omp_atomic.test_dots = {'sum':omp_test_sum_grad}
 omp_atomic.test_bars = {'a':omp_test_sum_grad}
 omp_atomic.disable = lambda mode, arch, compiler, typename: arch=='x86' and (compiler=='gcc' or compiler=='g++')
+# On a simpler testcase, GCC on x86 uses a fildq followed by a fistpq instruction to copy the number that is atomically incremented.
 regression_templates.append(omp_atomic)
 
 omp_reduction = ClientRequestTestCase("omp_reduction")
@@ -1149,7 +1244,8 @@ exponentadd.bars = {'c': 1.0}
 exponentadd.test_vals = {'c':6.28}
 exponentadd.test_dots = {'c':-84.0}
 exponentadd.test_bars = {'a':2.0}
-exponentadd.disable = lambda mode, arch, compiler, typename: True
+exponentadd.disable = lambda mode, arch, compiler, typename: True 
+# Disabled because we admit that this is an unrecognized bit-trick. 
 regression_templates.append(exponentadd)
 
 exponentsub = ClientRequestTestCase("exponentsub")
@@ -1162,6 +1258,7 @@ exponentsub.test_vals = {'c':3.14}
 exponentsub.test_dots = {'c':-42.0}
 exponentsub.test_bars = {'a':0.5}
 exponentsub.disable = lambda mode, arch, compiler, typename: True
+# Disabled because we admit that this is an unrecognized bit-trick. 
 regression_templates.append(exponentadd)
 
 ### C++ tests ###
@@ -1170,7 +1267,7 @@ constructornew.include = "template<typename T> struct A { T t; A(T t): t(t*t) {}
 constructornew.stmtd = "A<double>* a = new A<double>(x); double y=a->t; "
 constructornew.stmtf = "A<float>* a = new A<float>(x); float y=a->t; "
 constructornew.stmtl = "A<long double>* a = new A<long double>(x); long double y=a->t; "
-constructornew.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
+constructornew.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++') # pure C++ code
 constructornew.vals = {'x': 2.0}
 constructornew.dots = {'x': 3.0}
 constructornew.bars = {'y': 1.0}
@@ -1204,7 +1301,7 @@ class B : public A<T> {
 virtualdispatch.stmtd = "B<double> b1(1,x), b2(3,4); b2 = static_cast<A<double> >(b1); double y = b2.t1;"
 virtualdispatch.stmtf = "B<float> b1(1,x), b2(3,4); b2 = static_cast<A<float> >(b1); float y = b2.t1;"
 virtualdispatch.stmtl = "B<long double> b1(1,x), b2(3,4); b2 = static_cast<A<long double> >(b1); long double y = b2.t1;"
-virtualdispatch.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
+virtualdispatch.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++') # pure C++ code
 virtualdispatch.vals = {'x': 2.}
 virtualdispatch.dots = {'x': 2.1}
 virtualdispatch.bars = {'y': 2.1}
@@ -1228,7 +1325,7 @@ T f(T x){
 exception.stmtd = "double y = f<double>(x);"
 exception.stmtf = "float y = f<float>(x);"
 exception.stmtl = "long double y = f<long double>(x);"
-exception.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++')
+exception.disable = lambda mode, arch, compiler, typename: not (compiler=='g++' or compiler=='clang++') # pure C++ code
 exception.vals = {'x': -6.0}
 exception.dots = {'x': 2.0}
 exception.bars = {'y': -1.0}
@@ -1345,6 +1442,7 @@ for test_mode in ["dot", "bar"]:
               old = test.disable
               test.disable = lambda mode, arch, compiler, typename : old(mode,arch,compiler,typename) or arch=="amd64"
 
+          test.typename = test_type
           if test_type == "double":
             test.stmt = test.stmtd
             test.type = TYPE_DOUBLE

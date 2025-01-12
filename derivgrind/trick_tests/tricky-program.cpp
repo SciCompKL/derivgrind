@@ -28,7 +28,7 @@ void bittrick_input(fp& a){
 }
 
 template<typename fp>
-void bittrick_output(fp& var, fp expected_value, fp expected_derivative){
+void bittrick_output(fp& var, double expected_value, double expected_derivative){
   DG_DISABLE(1,0); // keep the bit-trick finder from emitting warnings at this place
   if( std::fabs((var-expected_value)/expected_value) > 1e-6 ){
     std::cout << "WRONG VALUE: computed=" << var << " expected=" << expected_value << std::endl;
@@ -45,7 +45,7 @@ void bittrick_output(fp& var, fp expected_value, fp expected_derivative){
     DG_OUTPUTF(var);
   } else if(mode=='t'){
     // just use the output somehow
-    fp volatile var2 = var;
+    typename std::remove_const<fp>::type volatile var2 = var;
     var2 += (fp)1.0;
   }
 }
@@ -199,8 +199,8 @@ void compress_inflate(){
 void multiple_mmap(){
   int fd = memfd_create("",0);
   ftruncate(fd,0x1000);
-  double* x = (double*)mmap(NULL,0x1000,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
-  double* y = (double*)mmap(NULL,0x1000,PROT_READ,MAP_PRIVATE,fd,0);
+  volatile double* x = (double*)mmap(NULL,0x1000,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);
+  volatile const double* y = (double*)mmap(NULL,0x1000,PROT_READ,MAP_PRIVATE,fd,0);
   *x = 2.718;
   bittrick_input(*x);
   bittrick_output(*y,2.718,1.0);
