@@ -58,8 +58,10 @@ V256* dg_bar_shadow_mem_buffer;
 
 #define dg_rounding_mode IRExpr_Const(IRConst_U32(0))
 
-/* --- Define ExpressionHandling. --- */
-// some functions are not static because the trick-instrumention also needs them
+/* --- Define tape-recording ExpressionHandling. --- */
+/* See dg_expressionhandling.h for documentation of dg_bar_wrtmp, dg_bar_rdtmp etc. */
+
+/* some functions are not declared static because the trick-instrumention reuses them */
 
 void dg_bar_wrtmp(DiffEnv* diffenv, IRTemp temp, void* expr){
   IRStmt* spLo = IRStmt_WrTmp(temp+diffenv->tmp_offset, ((IRExpr**)expr)[0]);

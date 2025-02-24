@@ -55,7 +55,8 @@ extern const HChar* diffquotdebug_directory;
 
 #define dg_rounding_mode IRExpr_Const(IRConst_U32(0))
 
-/* --- Define ExpressionHandling. --- */
+/* --- Define dot-value-propagating ExpressionHandling. --- */
+/* See dg_expressionhandling.h for documentation of dg_dot_wrtmp, dg_dot_rdtmp etc. */
 
 static void dg_dot_wrtmp(DiffEnv* diffenv, IRTemp temp, void* expr){
   IRStmt* sp = IRStmt_WrTmp(temp+diffenv->tmp_offset, (IRExpr*)expr);

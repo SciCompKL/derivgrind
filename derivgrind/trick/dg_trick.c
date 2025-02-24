@@ -60,7 +60,8 @@ V256* dg_trick_shadow_mem_buffer;
 
 #define dg_rounding_mode IRExpr_Const(IRConst_U32(0))
 
-/* --- Define ExpressionHandling. --- */
+/* --- Define bit-trick-detection ExpressionHandling. --- */
+/* Most of the ExpressionHandling functions like wrtmp or geti are reused from dg_bar.c */
 
 ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size );
 
