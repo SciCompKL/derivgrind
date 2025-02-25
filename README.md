@@ -19,11 +19,10 @@ this file to reproducibly obtain an environment that contains all dependencies.
 Clone this repository with `git clone --recursive`, and run the following commands in the root directory: 
 ```bash
 ./autogen.sh
-./configure --prefix=$PWD/install --enable-python --enable-fortran
+./configure --prefix=$PWD/install
 make install
 ```
-The flags `--enable-python` and `--enable-fortran` enable wrappers for client request (see below), which
-are necessary to run all unit tests successfully. For many applications, you may however leave them out.
+You may supply arguments `--enable-python --enable-fortran` to the `./configure` call to build client request wrappers for Python and Fortran. These wrappers allow to declare AD inputs and outputs from Python and Fortran code, and are required to run Derivgrind's testcases for these languages. Building these wrappers requires Python C extension headers (e.g. `python3-dev`) and a Fortran compiler (e.g. `f77`), respectively, to be installed on your system.
 
 ## Running Testcases
 
@@ -34,7 +33,7 @@ python3 run_tests.py dot_amd64_gcc_double_addition
 The names of the unit tests are composed of an AD mode, architecture, language/compiler, floating-point type and 
 arithmetic formula. You may use `*` as a wildcard to run several tests at once. You may specify the 
 Derivgrind installation directory with `--prefix=path`. Specify a directory with `--tempdir=path` if
-you want to inspect the temporary files created by Derivgrind and the test system.
+you want to inspect the temporary files created by Derivgrind and the test system. Derivgrind must have been configured with `--enable-python` and `--enable-fortran` to run the Python and Fortran tests.
 
 ## Differentiating a Simple C++ Program in Forward Mode
 Compile a simple C++ "client" program from 
