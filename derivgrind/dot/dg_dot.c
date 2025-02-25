@@ -88,7 +88,7 @@ static void* dg_dot_geti(DiffEnv* diffenv, Int offset, IRType type, IRRegArray* 
  *  \param addr Address for memory location whose shadow should be written to.
  *  \param size Number of bytes per layer to be copied.
  */
-void dg_dot_x86g_amd64g_dirtyhelper_store(Addr addr, ULong size){
+static void dg_dot_x86g_amd64g_dirtyhelper_store(Addr addr, ULong size){
   dg_dot_shadowSet((void*)addr,dg_dot_shadow_mem_buffer,size);
 }
 
@@ -96,7 +96,7 @@ void dg_dot_x86g_amd64g_dirtyhelper_store(Addr addr, ULong size){
  *  \param addr Address for memory location whose shadow should be read from.
  *  \param size Number of bytes per layer to be copied.
  */
-void dg_dot_x86g_amd64g_dirtyhelper_load(Addr addr, ULong size){
+static void dg_dot_x86g_amd64g_dirtyhelper_load(Addr addr, ULong size){
   dg_dot_shadowGet((void*)addr,dg_dot_shadow_mem_buffer,size);
 }
 
@@ -141,7 +141,7 @@ static void* dg_dot_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
  *  It's very similar, but writes to shadow memory instead
  *  of guest memory.
  */
-void dg_dot_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
+static void dg_dot_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
 {
    ULong f128[2];
    convert_f64le_to_f80le( (UChar*)&f64, (UChar*)f128 );
@@ -158,7 +158,7 @@ void dg_dot_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong f64 )
  *  - reinterpret it as an unsigned long.
  *  - return this.
  */
-ULong dg_dot_x86g_amd64g_dirtyhelper_loadF80le ( Addr addrU )
+static ULong dg_dot_x86g_amd64g_dirtyhelper_loadF80le ( Addr addrU )
 {
    ULong f64, f128[2];
    dg_dot_shadowGet((void*)addrU, (void*)f128, 10);
@@ -223,7 +223,7 @@ static void* dg_dot_ite(DiffEnv* diffenv, IRExpr* cond, void* dtrue, void* dfals
   return IRExpr_ITE(cond,dtrue,dfalse);
 }
 
-void* dg_dot_operation(DiffEnv* diffenv, IROp op,
+static void* dg_dot_operation(DiffEnv* diffenv, IROp op,
                          IRExpr* arg1, IRExpr* arg2, IRExpr* arg3, IRExpr* arg4,
                          void* d1, void* d2, void* d3, void* d4){
   switch(op){
@@ -232,7 +232,7 @@ void* dg_dot_operation(DiffEnv* diffenv, IROp op,
   }
 }
 
-void* dg_dot_ccall(DiffEnv* diffenv, IRCallee* cee, IRType retty, IRExpr** args, void** modified_args){
+static void* dg_dot_ccall(DiffEnv* diffenv, IRCallee* cee, IRType retty, IRExpr** args, void** modified_args){
   return NULL;
 }
 

@@ -108,7 +108,7 @@ void* dg_bar_geti(DiffEnv* diffenv, Int offset, IRType type, IRRegArray* descr, 
  *  \param addr Address for memory location whose shadow should be written to.
  *  \param size Number of bytes per layer to be copied.
  */
-void dg_bar_x86g_amd64g_dirtyhelper_store(Addr addr, ULong size){
+static void dg_bar_x86g_amd64g_dirtyhelper_store(Addr addr, ULong size){
   dg_bar_shadowSet((void*)addr,dg_bar_shadow_mem_buffer,dg_bar_shadow_mem_buffer+1,size);
 }
 
@@ -116,7 +116,7 @@ void dg_bar_x86g_amd64g_dirtyhelper_store(Addr addr, ULong size){
  *  \param addr Address for memory location whose shadow should be read from.
  *  \param size Number of bytes per layer to be copied.
  */
-void dg_bar_x86g_amd64g_dirtyhelper_load(Addr addr, ULong size){
+static void dg_bar_x86g_amd64g_dirtyhelper_load(Addr addr, ULong size){
   dg_bar_shadowGet((void*)addr,dg_bar_shadow_mem_buffer,dg_bar_shadow_mem_buffer+1,size);
 }
 
@@ -168,11 +168,11 @@ void* dg_bar_load(DiffEnv* diffenv, IRExpr* addr, IRType type){
  *  It just writes the lower 4 bytes of the index to the beginning
  *  of the 80-bit blocks in the lower layer of shadow memory.
  */
-void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo ( Addr addrU, ULong i64 )
+static void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo ( Addr addrU, ULong i64 )
 {
   dg_bar_shadowSet((void*)addrU,(void*)&i64,NULL,4);
 }
-void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong i64 )
+static void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong i64 )
 {
   dg_bar_shadowSet((void*)addrU,NULL,(void*)&i64,4);
 }
@@ -182,20 +182,20 @@ void dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Hi ( Addr addrU, ULong i64 )
  *  It just reads the lower 4 bytes of the index from the beginning
  *  of the 80-bit blocks in the lower layer of shadow memory.
  */
-ULong dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Lo ( Addr addrU )
+static ULong dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Lo ( Addr addrU )
 {
   ULong i64_Lo, i64_Hi;
   dg_bar_shadowGet((void*)addrU, (void*)&i64_Lo, (void*)&i64_Hi, 4);
   return i64_Lo;
 }
-ULong dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
+static ULong dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
 {
   ULong i64_Lo, i64_Hi;
   dg_bar_shadowGet((void*)addrU, (void*)&i64_Lo, (void*)&i64_Hi, 4);
   return i64_Hi;
 }
 
-void dg_bar_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
+static void dg_bar_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
   IRDirty* ddLo = unsafeIRDirty_0_N(
         0, "dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo",
         &dg_bar_x86g_amd64g_dirtyhelper_storeF80le_Lo,
@@ -208,7 +208,7 @@ void dg_bar_dirty_storeF80le(DiffEnv* diffenv, IRExpr* addr, void* expr){
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddHi));
 }
 
-void dg_bar_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp){
+static void dg_bar_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp){
   IRDirty* ddLo = unsafeIRDirty_1_N(
         temp+diffenv->tmp_offset,
         0, "dg_bar_x86g_amd64g_dirtyhelper_loadF80le_Lo",
@@ -270,7 +270,7 @@ void* dg_bar_ite(DiffEnv* diffenv, IRExpr* cond, void* dtrue, void* dfalse){
   return (void*)mkIRExprVec_2(exLo,exHi);
 }
 
-ULong dg_bar_writeToTape_call(ULong index1Lo, ULong index1Hi, ULong index2Lo, ULong index2Hi, ULong diff1, ULong diff2){
+static ULong dg_bar_writeToTape_call(ULong index1Lo, ULong index1Hi, ULong index2Lo, ULong index2Hi, ULong diff1, ULong diff2){
   // assemble 8-byte indices from 4-byte beginnings in both shadow layers
   UInt index1[2], index2[2];
   index1[0] = *(UInt*)&index1Lo;
@@ -281,7 +281,7 @@ ULong dg_bar_writeToTape_call(ULong index1Lo, ULong index1Hi, ULong index2Lo, UL
   return returnindex;
 }
 
-void dg_bar_writeToTape_value_call(ULong value, ULong index){
+static void dg_bar_writeToTape_value_call(ULong value, ULong index){
   if(index!=0){
     valuesAddStatement(*(double*)&value);
   }
@@ -304,7 +304,7 @@ void dg_bar_writeToTape_value_call(ULong value, ULong index){
  *   new index assigned to the result.
  *
  */
-IRExpr** dg_bar_writeToTape(DiffEnv* diffenv, IRExpr* index1Lo, IRExpr* index1Hi, IRExpr* index2Lo, IRExpr* index2Hi, IRExpr* diff1, IRExpr* diff2, IRExpr* value){
+static IRExpr** dg_bar_writeToTape(DiffEnv* diffenv, IRExpr* index1Lo, IRExpr* index1Hi, IRExpr* index2Lo, IRExpr* index2Hi, IRExpr* diff1, IRExpr* diff2, IRExpr* value){
   IRTemp returnindex = newIRTemp(diffenv->sb_out->tyenv,Ity_I64);
   IRDirty* dd = unsafeIRDirty_1_N(
         returnindex,
@@ -330,7 +330,7 @@ IRExpr** dg_bar_writeToTape(DiffEnv* diffenv, IRExpr* index1Lo, IRExpr* index1Hi
   return mkIRExprVec_2(exLo,exHi);
 }
 
-void* dg_bar_operation(DiffEnv* diffenv, IROp op,
+static void* dg_bar_operation(DiffEnv* diffenv, IROp op,
                          IRExpr* arg1, IRExpr* arg2, IRExpr* arg3, IRExpr* arg4,
                          void* i1, void* i2, void* i3, void* i4){
   IRExpr *i1Lo=NULL, *i1Hi=NULL, *i2Lo=NULL, *i2Hi=NULL, *i3Lo=NULL, *i3Hi=NULL, *i4Lo=NULL, *i4Hi=NULL;
@@ -360,7 +360,7 @@ void* dg_bar_operation(DiffEnv* diffenv, IROp op,
   }
 }
 
-void* dg_bar_ccall(DiffEnv* diffenv, IRCallee* cee, IRType retty, IRExpr** args, void** modified_args){
+static void* dg_bar_ccall(DiffEnv* diffenv, IRCallee* cee, IRType retty, IRExpr** args, void** modified_args){
   return NULL;
 }
 

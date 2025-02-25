@@ -33,6 +33,7 @@
 #include "externals/flexible-shadow/flexible-shadow-valgrindstdlib.hpp"
 #include <pub_tool_libcbase.h>
 #include "dg_utils.h"
+#include "dg_bar_shadow.h"
 
 #ifndef SHADOW_LAYERS_32
   #define SHADOW_LAYERS_32 18,14

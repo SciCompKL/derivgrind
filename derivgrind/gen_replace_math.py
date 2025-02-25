@@ -91,8 +91,12 @@ class DERIVGRIND_MATH_FUNCTION(DERIVGRIND_MATH_FUNCTION_BASE):
     super().__init__(name,type_)
     self.deriv = deriv
   def c_code(self):
+    # Each wrapper function comes with a separate declaration to
+    # silence "no previous prototype" compiler warnings.
     return \
 f"""
+__attribute__((optimize("O0")))
+{self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x);
 __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x) {{
   OrigFn fn;
@@ -143,6 +147,8 @@ class DERIVGRIND_MATH_FUNCTION2(DERIVGRIND_MATH_FUNCTION_BASE):
   def c_code(self):
     return \
 f"""
+__attribute__((optimize("O0")))
+{self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.type} y);
 __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.type} y) {{
   OrigFn fn;
@@ -200,6 +206,8 @@ class DERIVGRIND_MATH_FUNCTION2x(DERIVGRIND_MATH_FUNCTION_BASE):
   def c_code(self):
     return \
 f"""
+__attribute__((optimize("O0")))
+{self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.extratype} e);
 __attribute__((optimize("O0")))
 {self.type} I_WRAP_SONAME_FNNAME_ZU(libmZdsoZa, {self.name}) ({self.type} x, {self.extratype} e) {{
   OrigFn fn;

@@ -101,7 +101,7 @@ void* dg_modify_expression(DiffEnv* diffenv, ExpressionHandling eh, IRExpr* ex){
 // to warn about unwrapped expressions.
 // We're not checking for SIMD types here, as this is only a heuristic and we
 // try to minimize false positives.
-Bool isFloatingPoint(IRType type){
+static Bool isFloatingPoint(IRType type){
   return type==Ity_F16 || type==Ity_F32 || type==Ity_F64 || type==Ity_F128 || type==Ity_D32 || type==Ity_D64 || type==Ity_D128;
 }
 
