@@ -52,11 +52,36 @@
  * input and output variables in the client code.
  */
 
-static unsigned long long dg_indextmp, dg_indextmp2;
-static double dg_valtmp;
-static unsigned long long const dg_zero = 0;
-static double const dg_one = 1.;
-static unsigned long long const dg_ones = 0xfffffffffffffffful;
+#ifdef __GNUC__
+#define DG_UNUSED __attribute__((unused))
+#else
+#define DG_UNUSED
+#endif
+
+DG_UNUSED static unsigned long long* dg_indextmp(void){
+  static unsigned long long indextmp = 0;
+  return &indextmp;
+}
+DG_UNUSED static unsigned long long* dg_indextmp2(void){
+  static unsigned long long indextmp2 = 0;
+  return &indextmp2;
+}
+DG_UNUSED static double* dg_valtmp(void){
+  static double valtmp = 0.;
+  return &valtmp;
+}
+DG_UNUSED static unsigned long long const* dg_zero(void){
+  static unsigned long long const zero = 0;
+  return &zero;
+}
+DG_UNUSED static double const* dg_one(void){
+  static double const one = 1.;
+  return &one;
+}
+DG_UNUSED static unsigned long long const* dg_ones(void){
+  static unsigned long long const ones = 0xfffffffffffffffful;
+  return &ones;
+}
 
 /*! Mark variable as AD input and assign new 8-byte index to it.
  * 
@@ -67,11 +92,11 @@ static unsigned long long const dg_ones = 0xfffffffffffffffful;
  * to print the index from your client code. Or use the DG_INPUTF macro to
  * write it directly into a file.
  */
-#define DG_INPUT(var) (dg_valtmp=(double)(var),DG_NEW_INDEX_NOACTIVITYANALYSIS(&dg_zero,&dg_zero,&dg_zero,&dg_zero,&dg_indextmp,&dg_valtmp), DG_SET_INDEX(&var,&dg_indextmp), dg_indextmp)
+#define DG_INPUT(var) (*dg_valtmp()=(double)(var),DG_NEW_INDEX_NOACTIVITYANALYSIS(dg_zero(),dg_zero(),dg_zero(),dg_zero(),dg_indextmp(),dg_valtmp()), DG_SET_INDEX(&var,dg_indextmp()), *dg_indextmp())
 
 /*! Mark variable as AD input, assign new 8-byte index, and dump the index into a file.
  */
-#define DG_INPUTF(var) { dg_indextmp2 = DG_INPUT(var); DG_INDEX_TO_FILE(DG_INDEXFILE_INPUT, &dg_indextmp2); }
+#define DG_INPUTF(var) { *dg_indextmp2() = DG_INPUT(var); DG_INDEX_TO_FILE(DG_INDEXFILE_INPUT, dg_indextmp2()); }
 
 /*! Mark variable as AD output and retrieve its 8-byte index.
  * 
@@ -82,14 +107,14 @@ static unsigned long long const dg_ones = 0xfffffffffffffffful;
  * to print the index from your client code. Or use the DG_OUTPUTF macro to
  * write it directly into a file.
  */
-#define DG_OUTPUT(var) (dg_valtmp=(double)(var),DG_GET_INDEX(&var,&dg_indextmp2), DG_NEW_INDEX_NOACTIVITYANALYSIS(&dg_indextmp2,&dg_zero,&dg_one,&dg_zero,&dg_indextmp,&dg_valtmp), dg_indextmp)
+#define DG_OUTPUT(var) (*dg_valtmp()=(double)(var),DG_GET_INDEX(&var,dg_indextmp2()), DG_NEW_INDEX_NOACTIVITYANALYSIS(dg_indextmp2(),dg_zero(),dg_one(),dg_zero(),dg_indextmp(),dg_valtmp()), *dg_indextmp())
 
 /*! Mark variable as AD output, retrieve its 8-byte index, and dump the index into a file.
  */
-#define DG_OUTPUTF(var) { dg_indextmp2 = DG_OUTPUT(var); DG_INDEX_TO_FILE(DG_INDEXFILE_OUTPUT, &dg_indextmp2); }
+#define DG_OUTPUTF(var) { *dg_indextmp2() = DG_OUTPUT(var); DG_INDEX_TO_FILE(DG_INDEXFILE_OUTPUT, dg_indextmp2()); }
 
 /*! Mark variable as active floating-point number for the bit-trick finder.
  */
-#define DG_MARK_FLOAT(var) {DG_SET_FLAGS(&var, &dg_ones, (void*)0, sizeof(var));}
+#define DG_MARK_FLOAT(var) {DG_SET_FLAGS(&var, dg_ones(), (void*)0, sizeof(var));}
 
 #endif

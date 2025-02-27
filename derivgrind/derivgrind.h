@@ -160,7 +160,10 @@ typedef struct {
    void const* valueaddr; //!< Address where the value of the result can be read from for debugging purposes, of type double.
 } TapeBlockInfo;
 
-static TapeBlockInfo tbi;
+DG_UNUSED static TapeBlockInfo* DERIVGRIND_HEADER_GLOBAL_tbi(void){
+   static TapeBlockInfo tbi = {0,0,0,0,0,0};
+   return &tbi;
+ }
 /* Push new operation to the tape, with activity analysis.
 * _qzz_index1addr, _qzz_index2addr point to 8-byte indices,
 * _qzz_diff1addr, _qzz_diff2addr point to 8-byte (double) partial derivatives,
@@ -169,15 +172,15 @@ static TapeBlockInfo tbi;
 */
 #define DG_NEW_INDEX(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr,_qzz_valueaddr)  \
    ( \
-     tbi.index1addr = _qzz_index1addr, \
-     tbi.index2addr = _qzz_index2addr, \
-     tbi.diff1addr = _qzz_diff1addr, \
-     tbi.diff2addr = _qzz_diff2addr, \
-     tbi.newindexaddr = _qzz_newindexaddr, \
-     tbi.valueaddr = _qzz_valueaddr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->index1addr = _qzz_index1addr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->index2addr = _qzz_index2addr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->diff1addr = _qzz_diff1addr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->diff2addr = _qzz_diff2addr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->newindexaddr = _qzz_newindexaddr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->valueaddr = _qzz_valueaddr, \
      VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__NEW_INDEX,          \
-                            &tbi, 0, 0, 0, 0) \
+                            DERIVGRIND_HEADER_GLOBAL_tbi(), 0, 0, 0, 0) \
    )
 #define DERIVGRIND_NEW_INDEX(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr,_qzz_valueaddr) DG_NEW_INDEX(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr,_qzz_valueaddr)
 
@@ -190,15 +193,15 @@ static TapeBlockInfo tbi;
 */
 #define DG_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr,_qzz_valueaddr)  \
    ( \
-     tbi.index1addr = _qzz_index1addr, \
-     tbi.index2addr = _qzz_index2addr, \
-     tbi.diff1addr = _qzz_diff1addr, \
-     tbi.diff2addr = _qzz_diff2addr, \
-     tbi.newindexaddr = _qzz_newindexaddr, \
-     tbi.valueaddr = _qzz_valueaddr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->index1addr = _qzz_index1addr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->index2addr = _qzz_index2addr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->diff1addr = _qzz_diff1addr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->diff2addr = _qzz_diff2addr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->newindexaddr = _qzz_newindexaddr, \
+     DERIVGRIND_HEADER_GLOBAL_tbi()->valueaddr = _qzz_valueaddr, \
      VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,      \
                             VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS,          \
-                            &tbi, 0, 0, 0, 0) \
+                            DERIVGRIND_HEADER_GLOBAL_tbi(), 0, 0, 0, 0) \
    )
 #define DERIVGRIND_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr,_qzz_valueaddr) DG_NEW_INDEX_NOACTIVITYANALYSIS(_qzz_index1addr,_qzz_index2addr,_qzz_diff1addr,_qzz_diff2addr,_qzz_newindexaddr,_qzz_valueaddr)
 
