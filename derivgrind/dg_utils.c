@@ -147,7 +147,6 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
   static const IROp arr64to32[2] = {Iop_64to32,Iop_64HIto32};
   static const IROp arr128to64[2] = {Iop_V128to64,Iop_V128HIto64};
   static const IROp arr256to64[4] = {Iop_V256to64_0,Iop_V256to64_1,Iop_V256to64_2,Iop_V256to64_3};
-  IRExpr* zero32 = IRExpr_Const(IRConst_U32(0));
   if(fpsize==4){
     IRExpr* result32;
     switch(simdsize){
@@ -157,7 +156,7 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
       case 8: result32 = IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr256to64[component/2], expression)); break;
       default: tl_assert(False); result32 = NULL; break;
     }
-    return result32; // IRExpr_Binop(Iop_32HLto64,zero32,result32);
+    return result32;
   } else {
     IRExpr* result;
     switch(simdsize){

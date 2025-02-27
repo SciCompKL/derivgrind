@@ -62,8 +62,6 @@ V256* dg_trick_shadow_mem_buffer;
 /* --- Define bit-trick-detection ExpressionHandling. --- */
 /* Most of the ExpressionHandling functions like wrtmp or geti are reused from dg_bar.c */
 
-ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size );
-
 #include <VEX/priv/guest_generic_x87.h>
 /*! Dirtyhelper for the extra bit-trick-finding logic to dirty calls to
  *  x86g_dirtyhelper_storeF80le / amd64g_dirtyhelper_storeF80le.

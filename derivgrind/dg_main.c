@@ -261,7 +261,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         case 5: size = 10; break;
         default: size = 8; tl_assert(False); break;
       }
-      union {unsigned char l[10]; double d; float f;} shadow, init;
+      union {unsigned char l[10]; double d; float f;} shadow;
       dg_dot_shadowGet((void*)address, (void*)&shadow, size);
       VG_(gdb_printf)("dot value: ");
       switch(key){

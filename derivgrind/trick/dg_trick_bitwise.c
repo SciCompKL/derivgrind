@@ -60,17 +60,6 @@ VG_REGPARM(0) ULong dg_trick_bitwise_get_higher(void){
   return *((ULong*)&dg_trick_bitwise_out+1);
 }
 
-/*! Assemble lower 4 bytes of both arguments into 8-byte index.
- * \param[in] iLo - Lower four bytes determine lower four bytes of result.
- * \param[in] iHi - Lower four bytes determine higher four bytes of result.
- * \returns Assembled index.
- */
-static ULong assemble64x2to64(ULong iLo, ULong iHi){
-  ULong ret;
-  *(UInt*)&ret = *(UInt*)&iLo;
-  *((UInt*)&ret+1) = *(UInt*)&iHi;
-  return ret;
-}
 /*! Building block to apply 32-bit recording-mode AD handling to both
  *  halves of a 64-bit number.
  *  \param[in] fun32 - Function to be called for both 32-bit halves.

@@ -104,7 +104,6 @@ __attribute__((optimize("O0")))
   bool already_disabled = DG_DISABLE(1,0)!=0;
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}(ret, fn, x);
-  double ret_d = ret;
   if(!already_disabled) {{
     if(DG_GET_MODE=='d'){{ /* forward mode */
       {self.type} x_d;
@@ -119,7 +118,7 @@ __attribute__((optimize("O0")))
       x_pdiff = ({self.deriv});
       unsigned long long ret_i;
       DG_DISABLE(0,1);
-      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
+      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret);
       DG_SET_INDEX(&ret,&ret_i);
     }} else if(DG_GET_MODE=='t') {{ /* bit-trick-finding mode */
       DG_DISABLE(0,1);
@@ -156,7 +155,6 @@ __attribute__((optimize("O0")))
   bool already_disabled = DG_DISABLE(1,0);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}{self.T}(ret, fn, x, y);
-  double ret_d = ret;
   if(!already_disabled) {{
     if(DG_GET_MODE=='d'){{ /* forward mode */
       {self.type} x_d, y_d;
@@ -174,7 +172,7 @@ __attribute__((optimize("O0")))
       y_pdiff = ({self.derivY});
       unsigned long long ret_i;
       DG_DISABLE(0,1);
-      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
+      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret);
       DG_SET_INDEX(&ret,&ret_i);
     }} else if(DG_GET_MODE=='t') {{ /* bit-trick-finding mode */
       DG_DISABLE(0,1);
@@ -215,7 +213,6 @@ __attribute__((optimize("O0")))
   bool already_disabled = DG_DISABLE(1,0);
   {self.type} ret;
   CALL_FN_{self.T}_{self.T}{self.extratypeletter}(ret, fn, x, e);
-  double ret_d = ret;
   if(!already_disabled) {{
     if(DG_GET_MODE=='d'){{ /* forward mode */
       {self.type} x_d;
@@ -230,7 +227,7 @@ __attribute__((optimize("O0")))
       x_pdiff = ({self.deriv});
       unsigned long long ret_i;
       DG_DISABLE(0,1);
-      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret_d);
+      DG_NEW_INDEX(&x_i,&y_i,&x_pdiff,&y_pdiff,&ret_i,&ret);
       DG_SET_INDEX(&ret,&ret_i);
     }} else if(DG_GET_MODE=='t') {{ /* bit-trick-finding mode */
       DG_DISABLE(0,1);
