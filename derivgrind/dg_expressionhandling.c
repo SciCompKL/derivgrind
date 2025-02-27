@@ -124,7 +124,7 @@ Bool operation_with_float_args(IRExpr* expr){
     if(isFloatingPoint(t_dst) && (isFloatingPoint(t_arg1)||isFloatingPoint(t_arg2)||isFloatingPoint(t_arg3))){
       return True;
     }
-  } else if(expr->tag==Iex_Binop){
+  } else if(expr->tag==Iex_Qop){
     typeOfPrimop(expr->Iex.Qop.details->op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);
     if(isFloatingPoint(t_dst) && (isFloatingPoint(t_arg1)||isFloatingPoint(t_arg2)||isFloatingPoint(t_arg3)||isFloatingPoint(t_arg4))){
       return True;
