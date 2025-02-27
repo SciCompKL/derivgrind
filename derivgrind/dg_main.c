@@ -254,7 +254,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
                         "       lget <addr>\n");
         return False;
       }
-      int size;
+      unsigned int size;
       switch(key){
         case 1: size = 8; break;
         case 3: size = 4; break;
@@ -295,7 +295,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       HChar* derivative_str = VG_(strtok_r)(NULL, " ", &ssaveptr);
       union {unsigned char l[10]; double d; float f;} shadow;
       shadow.d = VG_(strtod)(derivative_str, NULL);
-      int size;
+      unsigned int size;
       switch(key){
         case 2: size = 8; break;
         case 4: size = 4; shadow.f = (float) shadow.d; break;

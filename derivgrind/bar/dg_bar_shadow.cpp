@@ -62,7 +62,7 @@ using ShadowMapTypeBar = ShadowMap<Addr,ShadowLeafBar,ValgrindStandardLibraryInt
 
 ShadowMapTypeBar* sm_bar2;
 
-extern "C" void dg_bar_shadowGet(void* sm_address, void* real_address_Lo, void* real_address_Hi, int size){
+extern "C" void dg_bar_shadowGet(void* sm_address, void* real_address_Lo, void* real_address_Hi, unsigned int size){
   ShadowLeafBar* leaf = sm_bar2->leaf_for_read((Addr)sm_address);
   Addr contiguousSize = sm_bar2->contiguousElements((Addr)sm_address);
   ULong index = sm_bar2->index((Addr)sm_address);
@@ -84,7 +84,7 @@ extern "C" void dg_bar_shadowGet(void* sm_address, void* real_address_Lo, void* 
   }
 }
 
-extern "C" void dg_bar_shadowSet(void* sm_address, void* real_address_Lo, void* real_address_Hi, int size){
+extern "C" void dg_bar_shadowSet(void* sm_address, void* real_address_Lo, void* real_address_Hi, unsigned int size){
   ShadowLeafBar* leaf = sm_bar2->leaf_for_write((Addr)sm_address);
   Addr contiguousSize = sm_bar2->contiguousElements((Addr)sm_address);
   ULong index = sm_bar2->index((Addr)sm_address);

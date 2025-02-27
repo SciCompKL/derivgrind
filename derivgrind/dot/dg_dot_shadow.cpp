@@ -65,7 +65,7 @@ using ShadowMapTypeDot = ShadowMap<Addr,ShadowLeafDot,ValgrindStandardLibraryInt
 
 ShadowMapTypeDot* sm_dot2;
 
-extern "C" void dg_dot_shadowGet(void* sm_address, void* real_address, int size){
+extern "C" void dg_dot_shadowGet(void* sm_address, void* real_address, unsigned int size){
   ShadowLeafDot* leaf = sm_dot2->leaf_for_read((Addr)sm_address);
   Addr contiguousSize = sm_dot2->contiguousElements((Addr)sm_address);
   ULong index = sm_dot2->index((Addr)sm_address);
@@ -77,7 +77,7 @@ extern "C" void dg_dot_shadowGet(void* sm_address, void* real_address, int size)
   }
 }
 
-extern "C" void dg_dot_shadowSet(void* sm_address, void* real_address, int size){
+extern "C" void dg_dot_shadowSet(void* sm_address, void* real_address, unsigned int size){
   ShadowLeafDot* leaf = sm_dot2->leaf_for_write((Addr)sm_address);
   Addr contiguousSize = sm_dot2->contiguousElements((Addr)sm_address);
   ULong index = sm_dot2->index((Addr)sm_address);
