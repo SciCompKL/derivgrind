@@ -21,7 +21,7 @@ jobs:
       - name: Configure and build
         run: |
           ./autogen.sh
-          ./configure --prefix=$PWD/install --enable-fortran --enable-python3 --enable-mlframeworks SHADOW_LAYERS_64=16,16,16,16
+          ./configure --prefix=$PWD/install --enable-fortran --enable-python --enable-mlframeworks SHADOW_LAYERS_64=16,16,16,16
           make install
       - name: Forward-mode regression tests
         run: python3 derivgrind/diff_tests/run_tests.py dot* --prefix=$PWD/install 2>&1 | tee forward_log 
