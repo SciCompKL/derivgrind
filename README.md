@@ -8,7 +8,7 @@ It has been implemented in the [Valgrind](https://valgrind.org/)
 framework for building dynamic analysis tools. 
 
 For more information beyond this [README.md](README.md), you may have a look at our papers:
-- M. Aehle, J. Blühdorn, M. Sagebaum, N. R. Gauger: *Forward-Mode Automatic Differentiation of Compiled Programs*. [arXiv:2209.01895](https://arxiv.org/abs/2209.01895), 2022.
+- M. Aehle, J. Blühdorn, M. Sagebaum, N. R. Gauger: *Forward-Mode Automatic Differentiation of Compiled Programs*. [ACM Transactions on Mathematical Software](https://doi.org/10.1145/3716309), 2025.
 - M. Aehle, J. Blühdorn, M. Sagebaum, N. R. Gauger: *Reverse-Mode Automatic Differentiation of Compiled Programs*. [arXiv:2212.13760](https://arxiv.org/abs/2212.13760), 2022.
 
 ## Building Derivgrind
@@ -140,7 +140,7 @@ Placing the directory on a ramdisk like `/dev/shm/` might speed the recording up
   in manifold ways. For example, a bitwise logical "and" can be used to set the
   sign bit to zero, and thereby compute the absolute value. Derivgrind recognizes only
   the most important of these constructs. More details can be found in our 
-  [forward-mode paper](https://arxiv.org/abs/2209.01895). Generally, avoid direct manipulation 
+  [forward-mode paper](https://doi.org/10.1145/3716309). Generally, avoid direct manipulation 
   of a floating-point number's binary representation in your program, and avoid the 
   differentiation of highly optimized numerical libraries.
 - While Valgrind supports many more platforms, only X86/Linux and AMD64/Linux 
