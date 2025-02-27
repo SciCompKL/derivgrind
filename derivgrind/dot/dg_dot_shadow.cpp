@@ -49,7 +49,14 @@
 #endif
 
 struct ShadowLeafDot {
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wunused-value"
   UChar data[1ul<<(SHADOW_LAYERS)];
+  #pragma GCC diagnostic pop
+  // e.g. for SHADOW_LAYERS expanding to 29,17,18, (SHADOW_LAYERS) will evaluate
+  // to 18, the number of bits resolved in the leaf
+  // the other layer sizes are used as template arguments below, but not here,
+  // so the compiler would issue "unused value" warnings
   static ShadowLeafDot distinguished;
 };
 ShadowLeafDot ShadowLeafDot::distinguished;
@@ -83,9 +90,12 @@ extern "C" void dg_dot_shadowSet(void* sm_address, void* real_address, int size)
 }
 
 extern "C" void dg_dot_shadowInit(){
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wunused-value"
   for(Addr i=0; i<(1ul<<(SHADOW_LAYERS)); i++){
     ShadowLeafDot::distinguished.data[i] = 0;
   }
+  #pragma GCC diagnostic pop
   sm_dot2 = (ShadowMapTypeDot*)VG_(malloc)("Space for primary map",sizeof(ShadowMapTypeDot));
   ShadowMapTypeDot::constructAt(sm_dot2);
 }

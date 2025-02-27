@@ -49,8 +49,11 @@
 #endif
 
 struct ShadowLeafBar {
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wunused-value" // see dg_dot_shadow.cpp
   UChar data_Lo[1ul<<(SHADOW_LAYERS)];
   UChar data_Hi[1ul<<(SHADOW_LAYERS)];
+  #pragma GCC diagnostic pop
   static ShadowLeafBar distinguished;
 };
 ShadowLeafBar ShadowLeafBar::distinguished;
@@ -104,10 +107,13 @@ extern "C" void dg_bar_shadowSet(void* sm_address, void* real_address_Lo, void* 
 }
 
 extern "C" void dg_bar_shadowInit(){
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wunused-value"
   for(Addr i=0; i<(1ul<<(SHADOW_LAYERS)); i++){
     ShadowLeafBar::distinguished.data_Lo[i] = 0;
     ShadowLeafBar::distinguished.data_Hi[i] = 0;
   }
+  #pragma GCC diagnostic pop
   sm_bar2 = (ShadowMapTypeBar*)VG_(malloc)("Space for primary map",sizeof(ShadowMapTypeBar));
   ShadowMapTypeBar::constructAt(sm_bar2);
 }
