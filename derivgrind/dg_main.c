@@ -259,6 +259,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         case 1: size = 8; break;
         case 3: size = 4; break;
         case 5: size = 10; break;
+        default: size = 8; tl_assert(False); break;
       }
       union {unsigned char l[10]; double d; float f;} shadow, init;
       dg_dot_shadowGet((void*)address, (void*)&shadow, size);
@@ -307,6 +308,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
           convert_f64le_to_f80le((unsigned char*)&tmp,shadow.l);
           break;
         }
+        default: size = 8; tl_assert(False); break;
       }
       dg_dot_shadowSet((void*)address,(void*)&shadow,size);
       return True;
@@ -331,6 +333,8 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
           case 8: value = *(double*)address; break;
           case 9: value = (double)*(float*)address; break;
           case 10: convert_f80le_to_f64le((unsigned char*)address,(unsigned char*)&value); break;
+          default: value = 0; tl_assert(False); break;
+
         }
         if(index!=0){
           VG_(gdb_printf)("Warning: Variable depends on other inputs, previous index was %llu.\n",index);
