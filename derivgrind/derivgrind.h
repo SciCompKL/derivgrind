@@ -84,7 +84,7 @@ typedef enum {
    } Dg_Indexfile;
 
 /* === Client-code macros to manipulate the state of memory. === */
-// We added synonymes that write out "DG_" as "DERIVGRNID_" for better
+// We added synonymes that write out "DG_" as "DERIVGRIND_" for better
 // readability, and the VALGRIND_[S/G]ET_DERIVATIVE from the first preprint.
 
 /* --- Forward mode. ---*/

@@ -138,12 +138,12 @@ static void dg_trick_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddHi));
 }
 
-ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size ){
+void dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size ){
   ULong mask;
   switch(size){
-    case 2: mask = 0x000000000000fffful;
-    case 4: mask = 0x00000000fffffffful;
-    default: mask =  0xfffffffffffffffful;
+    case 2: mask = 0x000000000000fffful; break;
+    case 4: mask = 0x00000000fffffffful; break;
+    default: mask =  0xfffffffffffffffful; break;
   }
   if((dg_disable[VG_(get_running_tid)()]==0) && (fLo & fHi & mask)){
     VG_(message)(Vg_UserMsg, "Active discrete data used as floating-point operand.\n");

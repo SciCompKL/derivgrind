@@ -107,7 +107,7 @@ static Bool isFloatingPoint(IRType type){
 
 // Return true if the "signature" of the VEX operations suggests that it might
 // handle floating-point data.
-Bool operation_with_float_args(IRExpr* expr){
+static Bool operation_with_float_args(IRExpr* expr){
   IRType t_dst=Ity_INVALID, t_arg1=Ity_INVALID, t_arg2=Ity_INVALID, t_arg3=Ity_INVALID, t_arg4=Ity_INVALID;
   if(expr->tag==Iex_Unop){
     typeOfPrimop(expr->Iex.Unop.op, &t_dst, &t_arg1, &t_arg2, &t_arg3, &t_arg4);

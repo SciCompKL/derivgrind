@@ -1971,7 +1971,7 @@ typedef
          : /*in*/    "a" (&_argvec[0]) __FRAME_POINTER                 \
          : /*trash*/ "cc", "memory", __CALLER_SAVED_REGS, "r14", "r15" \
       );      \
-      lval = *(__typeof__(lval)*)& _res;                                  \
+      lval = *(__typeof__(lval) volatile*)& _res;                                  \
    } while (0)
 
 /*-- (fp type) -> fp type --*/

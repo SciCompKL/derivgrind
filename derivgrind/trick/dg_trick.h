@@ -53,6 +53,6 @@ void dg_trick_finalize(void);
 
 /*! Print warning message for active discrete data.
  */
-ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size );
+void dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size );
 
 #endif // DG_TRICK_H

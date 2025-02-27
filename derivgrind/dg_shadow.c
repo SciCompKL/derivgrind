@@ -105,8 +105,8 @@
  *  \param[in] value - Printed value.
  */
 static VG_REGPARM(0) void dg_Print_double(ULong tag, ULong value){ VG_(printf)("Value for %Lu : ", tag); VG_(printf)("%lf\n", *(double*)&value); }
-static VG_REGPARM(0) void dg_Print_unsignedlong(ULong tag, ULong value){ VG_(printf)("Value for %Lu : ", tag); VG_(printf)("%p\n", (void*)value); }
-static VG_REGPARM(0) void dg_Print_unsignedint(ULong tag, Int value){ VG_(printf)("Value for %Lu : ", tag); VG_(printf)("%p\n", (void*)value); }
+static VG_REGPARM(0) void dg_Print_unsignedlong(ULong tag, ULong value){ VG_(printf)("Value for %Lu : ", tag); VG_(printf)("%Lx\n", value); }
+static VG_REGPARM(0) void dg_Print_unsignedint(ULong tag, UInt value){ VG_(printf)("Value for %Lu : ", tag); VG_(printf)("%x\n", value); }
 
 /*! Debugging help. Add a dirty statement to IRSB that prints the value of expr whenever it is run.
  *  \param[in] tag - Tag of your choice, will be printed alongside.

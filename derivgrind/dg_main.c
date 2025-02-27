@@ -323,10 +323,9 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         return False;
       }
       ULong index;
-      dg_bar_shadowGet((void*)address,(void*)&index,(void*)&index+4,4);
+      dg_bar_shadowGet((void*)address,(void*)&index,(void*)((char*)&index+4),4);
       if(key==7){ // index
         VG_(gdb_printf)("index: %llu\n",index);
-        return True;
       } else if(key==8||key==9||key==10){ // mark, fmark, lmark
         double value;
         switch(key){
@@ -341,10 +340,10 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
         }
         ULong setIndex = tapeAddStatement_noActivityAnalysis(0,0,0.,0.);
         if(bar_record_values && setIndex!=0) valuesAddStatement(value);
-        dg_bar_shadowSet((void*)address,(void*)&setIndex,(void*)&setIndex+4,4);
+        dg_bar_shadowSet((void*)address,(void*)&setIndex,(void*)((char*)&setIndex+4),4);
         VG_(gdb_printf)("index: %llu\n",setIndex);
-        return True;
       }
+      return True;
     }
     case 11: { // flagsget
       if(mode!='t'){ VG_(printf)("Only available in bit-trick-finding mode.\n"); return False; }
@@ -359,7 +358,7 @@ Bool dg_handle_gdb_monitor_command(ThreadId tid, HChar* req){
       ULong size = VG_(strtoll10)(size_str,NULL);
       for(ULong i=0; i<size; i++){
         UChar aflag=0, dflag=0;
-        dg_bar_shadowGet((void*)address+i,(void*)&aflag,(void*)&dflag,1);
+        dg_bar_shadowGet((void*)(Addr)(address+i),(void*)&aflag,(void*)&dflag,1);
         VG_(gdb_printf)("%llu: %llu %llu\n", (ULong)address+i,(ULong)aflag,(ULong)dflag);
       }
       return True;
@@ -405,23 +404,23 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     if(mode!='b') return True;
     void* addr = (void*) arg[1];
     void* iaddr = (void*) arg[2];
-    dg_bar_shadowGet((void*)addr,(void*)iaddr,(void*)iaddr+4,4);
+    dg_bar_shadowGet((void*)addr,(void*)iaddr,(void*)((char*)iaddr+4),4);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__SET_INDEX) {
     if(mode!='b') return True;
     void* addr = (void*) arg[1];
     void* iaddr = (void*) arg[2];
-    dg_bar_shadowSet((void*)addr,(void*)iaddr,(void*)iaddr+4,4);
+    dg_bar_shadowSet((void*)addr,(void*)iaddr,(void*)((char*)iaddr+4),4);
     *ret = 1; return True;
   } else if(arg[0]==VG_USERREQ__NEW_INDEX || arg[0]==VG_USERREQ__NEW_INDEX_NOACTIVITYANALYSIS) {
     if(mode!='b') return True;
-    TapeBlockInfo* tbi = (TapeBlockInfo*)(arg[1]);
-    ULong* index1addr = (ULong*) tbi->index1addr;
-    ULong* index2addr = (ULong*) tbi->index2addr;
-    double* diff1addr = (double*) tbi->diff1addr;
-    double* diff2addr = (double*) tbi->diff2addr;
-    ULong* newindexaddr = (ULong*) tbi->newindexaddr;
-    double* valueaddr = (double*) tbi->valueaddr;
+    TapeBlockInfo* tb_info = (TapeBlockInfo*)(arg[1]);
+    ULong const* index1addr = (ULong const*) tb_info->index1addr;
+    ULong const* index2addr = (ULong const*) tb_info->index2addr;
+    double const* diff1addr = (double const*) tb_info->diff1addr;
+    double const* diff2addr = (double const*) tb_info->diff2addr;
+    ULong* newindexaddr = (ULong*) tb_info->newindexaddr;
+    double const* valueaddr = (double const*) tb_info->valueaddr;
     if(arg[0]==VG_USERREQ__NEW_INDEX){
       *newindexaddr = tapeAddStatement(*index1addr,*index2addr,*diff1addr,*diff2addr);
     } else {
@@ -447,6 +446,7 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* Daddr = (void*) arg[3];
     UWord size = arg[4];
     dg_bar_shadowGet(addr,Aaddr,Daddr,size);
+    return True;
   } else if(arg[0]==VG_USERREQ__SET_FLAGS){
     if(mode!='t') return True;
     void* addr = (void*) arg[1];
@@ -454,12 +454,13 @@ Bool dg_handle_client_request(ThreadId tid, UWord* arg, UWord* ret){
     void* Daddr = (void*) arg[3];
     UWord size = arg[4];
     dg_bar_shadowSet(addr,Aaddr,Daddr,size);
+    return True;
   } else if(arg[0]==VG_USERREQ__GET_MODE){
     *ret = (UWord)mode;
     return True;
   } else {
     VG_(printf)("Unhandled user request.\n");
-    return True;
+    return False;
   }
 }
 
