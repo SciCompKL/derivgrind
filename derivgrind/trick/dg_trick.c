@@ -47,7 +47,6 @@
 #include "../dg_shadow.h"
 #include "../bar/dg_bar_shadow.h"
 
-#define DG_BAR_H_INCLUDE_TOOL_FUNCTIONS
 #include "../bar/dg_bar.h"
 #include "dg_trick.h"
 #include "dg_trick_bitwise.h"
@@ -60,9 +59,8 @@ V256* dg_trick_shadow_mem_buffer;
 
 #define dg_rounding_mode IRExpr_Const(IRConst_U32(0))
 
-/* --- Define ExpressionHandling. --- */
-
-ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size );
+/* --- Define bit-trick-detection ExpressionHandling. --- */
+/* Most of the ExpressionHandling functions like wrtmp or geti are reused from dg_bar.c */
 
 #include <VEX/priv/guest_generic_x87.h>
 /*! Dirtyhelper for the extra bit-trick-finding logic to dirty calls to
@@ -74,7 +72,7 @@ ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size );
  *  If at least one of the 64 discreteness bits is on in addition, issue
  *  a warning message. But the result is non-discrete again.
  */
-void dg_trick_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong a64Lo, ULong a64Hi )
+static void dg_trick_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong a64Lo, ULong a64Hi )
 {
   ULong zero[2], ones[2];
   zero[0] = zero[1] = 0;
@@ -97,14 +95,14 @@ void dg_trick_x86g_amd64g_dirtyhelper_storeF80le ( Addr addrU, ULong a64Lo, ULon
  *  If at least one of the 80 discreteness bits is on in addition, issue
  *  a warning message. But the result is non-discrete again.
  */
-ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Lo ( Addr addrU )
+static ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Lo ( Addr addrU )
 {
   ULong a64Lo[2], a64Hi[2];
   dg_bar_shadowGet((void*)addrU, (void*)a64Lo, (void*)a64Hi, 10);
   if(a64Lo[0]!=0 || a64Lo[1]%0x10000!=0) return 0xfffffffffffffful;
   else return 0;
 }
-ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
+static ULong dg_trick_x86g_amd64g_dirtyhelper_loadF80le_Hi ( Addr addrU )
 {
   ULong a64Lo[2], a64Hi[2];
   dg_bar_shadowGet((void*)addrU, (void*)a64Lo, (void*)a64Hi, 10);
@@ -140,12 +138,12 @@ static void dg_trick_dirty_loadF80le(DiffEnv* diffenv, IRExpr* addr, IRTemp temp
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(ddHi));
 }
 
-ULong dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size ){
+void dg_trick_warn_dirtyhelper( ULong fLo, ULong fHi, ULong size ){
   ULong mask;
   switch(size){
-    case 2: mask = 0x000000000000fffful;
-    case 4: mask = 0x00000000fffffffful;
-    default: mask =  0xfffffffffffffffful;
+    case 2: mask = 0x000000000000fffful; break;
+    case 4: mask = 0x00000000fffffffful; break;
+    default: mask =  0xfffffffffffffffful; break;
   }
   if((dg_disable[VG_(get_running_tid)()]==0) && (fLo & fHi & mask)){
     VG_(message)(Vg_UserMsg, "Active discrete data used as floating-point operand.\n");
@@ -173,13 +171,13 @@ static void dg_trick_warn8(DiffEnv* diffenv, IRExpr* flagsLo, IRExpr* flagsHi){
   addStmtToIRSB(diffenv->sb_out, IRStmt_Dirty(dd));
 }
 
-void* dg_trick_default_(DiffEnv* diffenv, IRType type){
+static void* dg_trick_default_(DiffEnv* diffenv, IRType type){
   IRExpr* activity = mkIRConst_zero(type);
   IRExpr* discreteness = mkIRConst_ones(type);
   return mkIRExprVec_2(activity,discreteness);
 }
 
-void* dg_trick_operation(DiffEnv* diffenv, IROp op,
+static void* dg_trick_operation(DiffEnv* diffenv, IROp op,
                          IRExpr* arg1, IRExpr* arg2, IRExpr* arg3, IRExpr* arg4,
                          void* f1, void* f2, void* f3, void* f4){
   IRExpr *f1Lo=NULL, *f1Hi=NULL, *f2Lo=NULL, *f2Hi=NULL, *f3Lo=NULL, *f3Hi=NULL, *f4Lo=NULL, *f4Hi=NULL;
@@ -214,7 +212,7 @@ void* dg_trick_operation(DiffEnv* diffenv, IROp op,
   }
 }
 
-void* dg_trick_ccall(DiffEnv* diffenv, IRCallee* cee, IRType retty, IRExpr** args, void** modified_args){
+static void* dg_trick_ccall(DiffEnv* diffenv, IRCallee* cee, IRType retty, IRExpr** args, void** modified_args){
   // The result is active if there is an operand with non-zero activity flags.
   IRExpr* notActive = IRExpr_Const(IRConst_U1(True));
   int i=0;

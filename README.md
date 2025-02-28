@@ -8,7 +8,7 @@ It has been implemented in the [Valgrind](https://valgrind.org/)
 framework for building dynamic analysis tools. 
 
 For more information beyond this [README.md](README.md), you may have a look at our papers:
-- M. Aehle, J. Blühdorn, M. Sagebaum, N. R. Gauger: *Forward-Mode Automatic Differentiation of Compiled Programs*. [arXiv:2209.01895](https://arxiv.org/abs/2209.01895), 2022.
+- M. Aehle, J. Blühdorn, M. Sagebaum, N. R. Gauger: *Forward-Mode Automatic Differentiation of Compiled Programs*. [ACM Transactions on Mathematical Software](https://doi.org/10.1145/3716309), 2025.
 - M. Aehle, J. Blühdorn, M. Sagebaum, N. R. Gauger: *Reverse-Mode Automatic Differentiation of Compiled Programs*. [arXiv:2212.13760](https://arxiv.org/abs/2212.13760), 2022.
 
 ## Building Derivgrind
@@ -19,11 +19,10 @@ this file to reproducibly obtain an environment that contains all dependencies.
 Clone this repository with `git clone --recursive`, and run the following commands in the root directory: 
 ```bash
 ./autogen.sh
-./configure --prefix=$PWD/install --enable-python --enable-fortran
+./configure --prefix=$PWD/install
 make install
 ```
-The flags `--enable-python` and `--enable-fortran` enable wrappers for client request (see below), which
-are necessary to run all unit tests successfully. For many applications, you may however leave them out.
+You may supply arguments `--enable-python --enable-fortran` to the `./configure` call to build client request wrappers for Python and Fortran. These wrappers allow to declare AD inputs and outputs from Python and Fortran code, and are required to run Derivgrind's testcases for these languages. Building these wrappers requires Python C extension headers (e.g. `python3-dev`) and a Fortran compiler (e.g. `f77`), respectively, to be installed on your system.
 
 ## Running Testcases
 
@@ -34,7 +33,7 @@ python3 run_tests.py dot_amd64_gcc_double_addition
 The names of the unit tests are composed of an AD mode, architecture, language/compiler, floating-point type and 
 arithmetic formula. You may use `*` as a wildcard to run several tests at once. You may specify the 
 Derivgrind installation directory with `--prefix=path`. Specify a directory with `--tempdir=path` if
-you want to inspect the temporary files created by Derivgrind and the test system.
+you want to inspect the temporary files created by Derivgrind and the test system. Derivgrind must have been configured with `--enable-python` and `--enable-fortran` to run the Python and Fortran tests.
 
 ## Differentiating a Simple C++ Program in Forward Mode
 Compile a simple C++ "client" program from 
@@ -141,7 +140,7 @@ Placing the directory on a ramdisk like `/dev/shm/` might speed the recording up
   in manifold ways. For example, a bitwise logical "and" can be used to set the
   sign bit to zero, and thereby compute the absolute value. Derivgrind recognizes only
   the most important of these constructs. More details can be found in our 
-  [forward-mode paper](https://arxiv.org/abs/2209.01895). Generally, avoid direct manipulation 
+  [forward-mode paper](https://doi.org/10.1145/3716309). Generally, avoid direct manipulation 
   of a floating-point number's binary representation in your program, and avoid the 
   differentiation of highly optimized numerical libraries.
 - While Valgrind supports many more platforms, only X86/Linux and AMD64/Linux 

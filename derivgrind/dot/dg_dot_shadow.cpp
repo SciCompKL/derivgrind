@@ -33,6 +33,7 @@
 #include "externals/flexible-shadow/flexible-shadow-valgrindstdlib.hpp"
 #include <pub_tool_libcbase.h>
 #include "dg_utils.h"
+#include "dg_dot_shadow.h"
 
 #ifndef SHADOW_LAYERS_32
   #define SHADOW_LAYERS_32 18,14
@@ -48,7 +49,14 @@
 #endif
 
 struct ShadowLeafDot {
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wunused-value"
   UChar data[1ul<<(SHADOW_LAYERS)];
+  #pragma GCC diagnostic pop
+  // e.g. for SHADOW_LAYERS expanding to 29,17,18, (SHADOW_LAYERS) will evaluate
+  // to 18, the number of bits resolved in the leaf
+  // the other layer sizes are used as template arguments below, but not here,
+  // so the compiler would issue "unused value" warnings
   static ShadowLeafDot distinguished;
 };
 ShadowLeafDot ShadowLeafDot::distinguished;
@@ -57,7 +65,7 @@ using ShadowMapTypeDot = ShadowMap<Addr,ShadowLeafDot,ValgrindStandardLibraryInt
 
 ShadowMapTypeDot* sm_dot2;
 
-extern "C" void dg_dot_shadowGet(void* sm_address, void* real_address, int size){
+extern "C" void dg_dot_shadowGet(void* sm_address, void* real_address, unsigned int size){
   ShadowLeafDot* leaf = sm_dot2->leaf_for_read((Addr)sm_address);
   Addr contiguousSize = sm_dot2->contiguousElements((Addr)sm_address);
   ULong index = sm_dot2->index((Addr)sm_address);
@@ -69,7 +77,7 @@ extern "C" void dg_dot_shadowGet(void* sm_address, void* real_address, int size)
   }
 }
 
-extern "C" void dg_dot_shadowSet(void* sm_address, void* real_address, int size){
+extern "C" void dg_dot_shadowSet(void* sm_address, void* real_address, unsigned int size){
   ShadowLeafDot* leaf = sm_dot2->leaf_for_write((Addr)sm_address);
   Addr contiguousSize = sm_dot2->contiguousElements((Addr)sm_address);
   ULong index = sm_dot2->index((Addr)sm_address);
@@ -82,9 +90,12 @@ extern "C" void dg_dot_shadowSet(void* sm_address, void* real_address, int size)
 }
 
 extern "C" void dg_dot_shadowInit(){
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wunused-value"
   for(Addr i=0; i<(1ul<<(SHADOW_LAYERS)); i++){
     ShadowLeafDot::distinguished.data[i] = 0;
   }
+  #pragma GCC diagnostic pop
   sm_dot2 = (ShadowMapTypeDot*)VG_(malloc)("Space for primary map",sizeof(ShadowMapTypeDot));
   ShadowMapTypeDot::constructAt(sm_dot2);
 }

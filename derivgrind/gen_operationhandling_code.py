@@ -210,7 +210,8 @@ def applyComponentwisely(inputs,outputs,fpsize,simdsize,bodyLowest,bodyNonLowest
   for component in range(simdsize): # for each component
     s += "{\n"
     for invar in inputs: # extract component
-      s += f"  IRExpr* {inputs[invar]} = getSIMDComponent({invar},{fpsize},{simdsize},{component},diffenv);\n"
+      s += f"  IRExpr* {inputs[invar]} = getSIMDComponent({invar},{fpsize},{simdsize},{component},diffenv); (void){inputs[invar]};\n"
+      # the (void) cast silences compiler warnings about unused variables
       if fpsize==4: # widen to 64 bit
         s += f"  {inputs[invar]} = IRExpr_Binop(Iop_32HLto64,IRExpr_Const(IRConst_U32(0)),{inputs[invar]});\n"
     # apply body

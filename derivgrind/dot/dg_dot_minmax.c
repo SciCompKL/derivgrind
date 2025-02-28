@@ -38,6 +38,7 @@
  */
 
 #include "pub_tool_basics.h"
+#include "dg_dot_minmax.h"
 
 VG_REGPARM(0) ULong dg_dot_arithmetic_min32(ULong x, ULong xd, ULong y, ULong yd){
   if( *(float*)&x < *(float*)&y ) return xd;

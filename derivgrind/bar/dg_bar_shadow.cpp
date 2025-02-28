@@ -33,6 +33,7 @@
 #include "externals/flexible-shadow/flexible-shadow-valgrindstdlib.hpp"
 #include <pub_tool_libcbase.h>
 #include "dg_utils.h"
+#include "dg_bar_shadow.h"
 
 #ifndef SHADOW_LAYERS_32
   #define SHADOW_LAYERS_32 18,14
@@ -48,8 +49,11 @@
 #endif
 
 struct ShadowLeafBar {
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wunused-value" // see dg_dot_shadow.cpp
   UChar data_Lo[1ul<<(SHADOW_LAYERS)];
   UChar data_Hi[1ul<<(SHADOW_LAYERS)];
+  #pragma GCC diagnostic pop
   static ShadowLeafBar distinguished;
 };
 ShadowLeafBar ShadowLeafBar::distinguished;
@@ -58,7 +62,7 @@ using ShadowMapTypeBar = ShadowMap<Addr,ShadowLeafBar,ValgrindStandardLibraryInt
 
 ShadowMapTypeBar* sm_bar2;
 
-extern "C" void dg_bar_shadowGet(void* sm_address, void* real_address_Lo, void* real_address_Hi, int size){
+extern "C" void dg_bar_shadowGet(void* sm_address, void* real_address_Lo, void* real_address_Hi, unsigned int size){
   ShadowLeafBar* leaf = sm_bar2->leaf_for_read((Addr)sm_address);
   Addr contiguousSize = sm_bar2->contiguousElements((Addr)sm_address);
   ULong index = sm_bar2->index((Addr)sm_address);
@@ -80,7 +84,7 @@ extern "C" void dg_bar_shadowGet(void* sm_address, void* real_address_Lo, void* 
   }
 }
 
-extern "C" void dg_bar_shadowSet(void* sm_address, void* real_address_Lo, void* real_address_Hi, int size){
+extern "C" void dg_bar_shadowSet(void* sm_address, void* real_address_Lo, void* real_address_Hi, unsigned int size){
   ShadowLeafBar* leaf = sm_bar2->leaf_for_write((Addr)sm_address);
   Addr contiguousSize = sm_bar2->contiguousElements((Addr)sm_address);
   ULong index = sm_bar2->index((Addr)sm_address);
@@ -103,10 +107,13 @@ extern "C" void dg_bar_shadowSet(void* sm_address, void* real_address_Lo, void* 
 }
 
 extern "C" void dg_bar_shadowInit(){
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wunused-value"
   for(Addr i=0; i<(1ul<<(SHADOW_LAYERS)); i++){
     ShadowLeafBar::distinguished.data_Lo[i] = 0;
     ShadowLeafBar::distinguished.data_Hi[i] = 0;
   }
+  #pragma GCC diagnostic pop
   sm_bar2 = (ShadowMapTypeBar*)VG_(malloc)("Space for primary map",sizeof(ShadowMapTypeBar));
   ShadowMapTypeBar::constructAt(sm_bar2);
 }

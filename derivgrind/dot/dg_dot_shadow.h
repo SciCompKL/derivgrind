@@ -37,8 +37,8 @@ extern "C" {
 #endif
 
 /*! */
-void dg_dot_shadowGet(void* sm_address, void* real_address, int size);
-void dg_dot_shadowSet(void* sm_address, void* real_address, int size);
+void dg_dot_shadowGet(void* sm_address, void* real_address, unsigned int size);
+void dg_dot_shadowSet(void* sm_address, void* real_address, unsigned int size);
 void dg_dot_shadowInit(void);
 void dg_dot_shadowFini(void);
 

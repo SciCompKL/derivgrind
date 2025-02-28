@@ -59,19 +59,38 @@
 typedef struct {
 
   /*! How to store data in shadow temporary.
+   *
+   *  I.e., when the original VEX statement writes an expression e to a temporary t,
+   *  the statement handling will invoke this function with temp=t and expr=(modified e).
+   *  In forward mode, (modified e) will be a VEX expression evaluating to the dot value of e, which
+   *  is what gets stored in the single layer of shadow storage.
+   *  In recording mode, (modified e) will be an array of two VEX expressions, evaluating to the two
+   *  index halves of the value represented by e. These two index halves get stored in the two layers
+   *  of shadow storage.
+   *  In bit-trick finding mode, (modified e) will be an array of two VEX expressions, evaluating to
+   *  the activity and discreteness flags of the value represented by e. These two sets of flags get
+   *  stored in the two layers of shadow storage.
+   *  The natural type for (modified e) would be IRExpr* in the forward mode, and IRExpr** in the recording
+   *  and bit-trick finding modes. To have a single interface, we pass it as void* and the implementations
+   *  cast the pointer to the appropriate type.
+   *
    *  \param diffenv - General setup.
    *  \param temp - Index of the temporary.
    *  \param expr - Data to be stored.
    */
   void (*wrtmp)(DiffEnv* diffenv, IRTemp temp, void* expr);
   /*! How to load data from shadow temporary.
+   *
+   *  In the forward mode, returns an expression that reads the content of the shadow temporary.
+   *  In the recording and bit-trick finding mode, returns an array of two expressions that read the contents of the two shadow temporaries.
+   *  To have a single interface, return type is void*.
    *  \param diffenv - General setup.
    *  \param temp - Index of the temporary.
    *  \returns Data from shadow temporary.
    */
   void* (*rdtmp)(DiffEnv* diffenv, IRTemp temp);
 
-  /*! How to store data in shadow register.
+  /*! How to store data in (normal or cyclic) shadow register.
    *  \param diffenv - General setup.
    *  \param offset - Offset into shadow register (Put) or bias (PutI).
    *  \param expr - Data to be stored.
@@ -79,7 +98,7 @@ typedef struct {
    *  \param ix - NULL (Put) or variable component of register offset (PutI).
    */
   void (*puti)(DiffEnv* diffenv,Int offset,void* expr,IRRegArray* descr,IRExpr* ix);
-  /*! How to load data from shadow register.
+  /*! How to load data from (normal or cyclic) shadow register.
    *  \param diffenv - General setup.
    *  \param offset - Offset into shadow register (Get) or bias (GetI).
    *  \param type - Primal data type.

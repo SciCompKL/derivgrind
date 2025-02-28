@@ -95,6 +95,7 @@ IRExpr* mkIRConst_fptwo(int fpsize, int simdsize){
         IRExpr* two = mkIRConst_fptwo(4,2);
         return IRExpr_Qop(Iop_64x4toV256, two, two, two, two);
       }
+      default: tl_assert(False); return NULL;
     }
   } else {
     switch(simdsize){
@@ -108,6 +109,7 @@ IRExpr* mkIRConst_fptwo(int fpsize, int simdsize){
         IRExpr* two = IRExpr_Unop(Iop_ReinterpF64asI64, mkIRConst_fptwo(8,1));
         return IRExpr_Qop(Iop_64x4toV256, two, two, two, two);
       }
+      default: tl_assert(False); return NULL;
     }
   }
 }
@@ -145,7 +147,6 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
   static const IROp arr64to32[2] = {Iop_64to32,Iop_64HIto32};
   static const IROp arr128to64[2] = {Iop_V128to64,Iop_V128HIto64};
   static const IROp arr256to64[4] = {Iop_V256to64_0,Iop_V256to64_1,Iop_V256to64_2,Iop_V256to64_3};
-  IRExpr* zero32 = IRExpr_Const(IRConst_U32(0));
   if(fpsize==4){
     IRExpr* result32;
     switch(simdsize){
@@ -153,14 +154,16 @@ IRExpr* getSIMDComponent(IRExpr* expression, int fpsize, int simdsize, int compo
       case 2: result32 = IRExpr_Unop(arr64to32[component], expression); break;
       case 4: result32 = IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr128to64[component/2], expression)); break;
       case 8: result32 = IRExpr_Unop(arr64to32[component%2], IRExpr_Unop(arr256to64[component/2], expression)); break;
+      default: tl_assert(False); result32 = NULL; break;
     }
-    return result32; // IRExpr_Binop(Iop_32HLto64,zero32,result32);
+    return result32;
   } else {
     IRExpr* result;
     switch(simdsize){
       case 1: result = expression; break;
       case 2: result = IRExpr_Unop(arr128to64[component], expression); break;
       case 4: result = IRExpr_Unop(arr256to64[component], expression); break;
+      default: tl_assert(False); result = NULL; break;
     }
     return result;
   }
@@ -186,12 +189,14 @@ IRExpr* assembleSIMDVector(IRExpr** expressions, int fpsize, int simdsize, DiffE
         IRExpr_Binop(Iop_32HLto64,expressions[5],expressions[4]),
         IRExpr_Binop(Iop_32HLto64,expressions[3],expressions[2]),
         IRExpr_Binop(Iop_32HLto64,expressions[1],expressions[0]) );
+      default: tl_assert(False); return NULL;
     }
   } else {
     switch(simdsize){
       case 1: return expressions[0];
       case 2: return IRExpr_Binop(Iop_64HLtoV128,expressions[1],expressions[0]);
       case 4: return IRExpr_Qop(Iop_64x4toV256,expressions[3],expressions[2],expressions[1],expressions[0]);
+      default: tl_assert(False); return NULL;
     }
   }
 }

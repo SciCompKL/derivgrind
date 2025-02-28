@@ -21,12 +21,12 @@ jobs:
       - name: Configure and build
         run: |
           ./autogen.sh
-          ./configure --prefix=$PWD/install --enable-fortran --enable-python3 --enable-mlframeworks SHADOW_LAYERS_64=16,16,16,16
+          ./configure --prefix=$PWD/install --enable-fortran --enable-python --enable-mlframeworks SHADOW_LAYERS_64=16,16,16,16
           make install
       - name: Forward-mode regression tests
         run: python3 derivgrind/diff_tests/run_tests.py dot* --prefix=$PWD/install 2>&1 | tee forward_log 
       - name: Upload log of forward-mode regression tests
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: forward_log
           path: forward_log
@@ -34,7 +34,7 @@ jobs:
       - name: Reverse-mode regression tests
         run: python3 derivgrind/diff_tests/run_tests.py bar* --prefix=$PWD/install 2>&1 | tee reverse_log
       - name: Upload log of reverse-mode regression tests
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: reverse_log
           path: reverse_log
